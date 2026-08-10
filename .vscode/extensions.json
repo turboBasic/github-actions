@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "charliermarsh.ruff",
+    "github.copilot",
+    "github.copilot-chat",
+    "editorconfig.editorconfig",
+    "streetsidesoftware.code-spell-checker",
+    "tamasfe.even-better-toml",
+    "redhat.vscode-yaml",
+    "github.vscode-github-actions"
+  ]
+}

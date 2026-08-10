@@ -1,0 +1,42 @@
+name: Populate PR Description
+description: >
+  Renders .github/PULL_REQUEST_TEMPLATE.md as a Jinja2 template, substituting
+  {{ description }} with commit subjects and {{ changes }} with full commit messages,
+  then patches the PR body via the GitHub API.
+
+inputs:
+  github-token:
+    description: Token with pull-requests:write permission
+    required: true
+  pr-number:
+    description: Pull request number
+    required: true
+  repo:
+    description: Repository in OWNER/NAME format
+    required: true
+  base-sha:
+    description: Base commit SHA of the PR
+    required: true
+  head-sha:
+    description: Head commit SHA of the PR
+    required: true
+  template-path:
+    description: Path to the pull request template, relative to the workspace.
+    required: false
+    default: .github/PULL_REQUEST_TEMPLATE.md
+
+runs:
+  using: composite
+  steps:
+    # uvx keeps jinja2 out of the runner's global site-packages, and pins it rather
+    # than resolving whatever `pip install jinja2` yields on the day.
+    - name: Render and update PR description
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        BASE_SHA: ${{ inputs.base-sha }}
+        HEAD_SHA: ${{ inputs.head-sha }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        REPO: ${{ inputs.repo }}
+        TEMPLATE_PATH: ${{ inputs.template-path }}
+      shell: bash
+      run: uvx --with 'jinja2>=3.1,<4' python "${GITHUB_ACTION_PATH}/populate.py"

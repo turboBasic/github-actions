@@ -1,0 +1,17 @@
+# Renovate owns action and dependency updates here: Dependabot's github-actions
+# ecosystem scans .github/workflows plus a root-level action.yml only, so it cannot see
+# actions/*/action.yml — which is most of this repository. Renovate matches action.yml
+# at any depth and can maintain the `# vX.Y.Z` comment beside a digest pin.
+#
+# Kept for security-only updates, which Renovate does not replace.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    # Version updates come from Renovate; this leaves Dependabot's security alerts,
+    # which ignore this limit.
+    open-pull-requests-limit: 0

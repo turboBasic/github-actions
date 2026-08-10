@@ -1,0 +1,22 @@
+# Python (the composite actions ship Python scripts)
+__pycache__/
+*.py[cod]
+
+# uv / venv
+.venv/
+.python-version
+
+# Tooling caches
+.pyright/
+.ruff_cache/
+.cache/
+
+# mise
+.mise/
+
+# Editors / OS
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+.DS_Store

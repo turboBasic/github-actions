@@ -1,0 +1,159 @@
+# The canonical Python CI: mise tasks are the entry point, so what CI runs and what
+# `mise run ci` runs locally cannot drift apart.
+
+name: Python CI
+
+on:
+  workflow_call:
+    inputs:
+      mise-version:
+        description: Pin the mise release. Empty uses the action's default.
+        type: string
+        required: false
+        default: ""
+      run-lint:
+        type: boolean
+        required: false
+        default: true
+      run-typecheck:
+        type: boolean
+        required: false
+        default: true
+      run-tests:
+        type: boolean
+        required: false
+        default: true
+      lint-task:
+        description: mise task that lints. Overridable for repos whose task is named differently.
+        type: string
+        required: false
+        default: lint
+      typecheck-task:
+        type: string
+        required: false
+        default: typecheck
+      test-task:
+        type: string
+        required: false
+        default: test
+      lint-changed-only:
+        description: >
+          Run pre-commit over changed files instead of the lint task. Faster on a large
+          tree, but a PR can pass while the tree is broken — pair it with
+          advisory-all-files.
+        type: boolean
+        required: false
+        default: false
+      advisory-all-files:
+        description: >
+          Also run pre-commit over every file, non-blocking, reporting via a PR comment.
+          The compensating control for lint-changed-only.
+        type: boolean
+        required: false
+        default: false
+      cache-pre-commit:
+        type: boolean
+        required: false
+        default: true
+      timeout-minutes:
+        type: number
+        required: false
+        default: 20
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Not shallow: a consumer may compare against the merge base, and the cost
+          # is negligible at the size these repos are.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: ${{ inputs.mise-version }}
+
+      # Fails the run on lockfile drift rather than silently resolving something else.
+      - name: Sync dependencies
+        run: uv sync --locked
+
+      - name: Cache pre-commit environments
+        if: inputs.cache-pre-commit && (inputs.lint-changed-only || inputs.advisory-all-files)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: precommit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            precommit-${{ runner.os }}-
+
+      - name: Get changed files
+        if: inputs.lint-changed-only && github.event_name == 'pull_request'
+        id: changed
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
+        with:
+          base_sha: ${{ github.event.pull_request.base.sha }}
+
+      - name: Lint changed files
+        if: >
+          inputs.lint-changed-only && github.event_name == 'pull_request'
+          && steps.changed.outputs.any_changed == 'true'
+        env:
+          ALL_CHANGED_FILES: ${{ steps.changed.outputs.all_changed_files }}
+        run: |
+          # shellcheck disable=SC2086
+          uv run pre-commit run --show-diff-on-failure --files $ALL_CHANGED_FILES
+
+      # Task names arrive through env rather than inline ${{ }}: an interpolation
+      # inside `run:` is a script-injection sink even when the value looks tame.
+      - name: Lint
+        if: inputs.run-lint && !(inputs.lint-changed-only && github.event_name == 'pull_request')
+        env:
+          TASK: ${{ inputs.lint-task }}
+        run: mise run "${TASK}"
+
+      - name: Typecheck
+        if: inputs.run-typecheck
+        env:
+          TASK: ${{ inputs.typecheck-task }}
+        run: mise run "${TASK}"
+
+      - name: Test
+        if: inputs.run-tests
+        env:
+          TASK: ${{ inputs.test-task }}
+        run: mise run "${TASK}"
+
+  advisory:
+    name: Advisory lint (all files)
+    if: inputs.advisory-all-files && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+      pull-requests: write # posts and updates the advisory comment
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: ${{ inputs.mise-version }}
+      - run: uv sync --locked
+      - name: Cache pre-commit environments
+        if: inputs.cache-pre-commit
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: precommit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            precommit-${{ runner.os }}-
+      - uses: turboBasic/github-actions/actions/precommit-advisory-pr@v1
+        with:
+          github-token: ${{ github.token }}

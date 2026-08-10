@@ -1,0 +1,59 @@
+[project]
+name = "turbobasic-github-actions"
+version = "1.0.0"
+description = "Reusable GitHub Actions workflows and composite actions"
+readme = "README.md"
+requires-python = ">=3.14"
+license = "MIT"
+license-files = ["LICENSE"]
+# Nothing is published from here; the runtime dependency of the composite actions
+# is declared in each action.yml, not installed from this file.
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "ruff>=0.9",
+  "pyright>=1.1.390",
+  "pre-commit>=4.0",
+  "commitizen>=4.17",
+  # Not a runtime dep: the composite action installs it via uvx. Here so pyright can
+  # resolve the import when checking actions/populate-pr-description/populate.py.
+  "jinja2>=3.1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["actions", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "W",   # pycodestyle warnings
+  "F",   # pyflakes
+  "I",   # isort
+  "UP",  # pyupgrade
+  "B",   # flake8-bugbear
+  "SIM", # flake8-simplify
+  "C4",  # flake8-comprehensions
+  "RUF", # ruff-specific
+]
+ignore = ["E501"] # line length is the formatter's job
+
+[tool.pyright]
+include = ["actions", "tests"]
+pythonVersion = "3.14"
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "semver"
+version_provider = "pep621"

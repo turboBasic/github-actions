@@ -1,0 +1,20 @@
+rules:
+  dangerous-triggers:
+    ignore:
+      # pull_request_target is required here and safe in this exact shape: a fork PR's
+      # title is not readable under `pull_request`, and this workflow checks out no
+      # code at all — it reads the title from the event payload and nothing else. The
+      # danger the audit warns about is running untrusted code with a privileged
+      # token; there is no checkout step to run any.
+      - semantic-pull-request.yml
+
+  unpinned-uses:
+    config:
+      policies:
+        # First-party references track the moving major tag deliberately — see
+        # "Versioning" in README.md. A digest pin here would mean one dependency PR
+        # per consumer for every one-line fix.
+        turboBasic/*: ref-pin
+        # Everything else: a tag can be retroactively repointed at malicious code
+        # (CVE-2025-30066), so nothing third-party gets to be a tag.
+        "*": hash-pin

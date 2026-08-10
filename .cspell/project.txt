@@ -1,0 +1,47 @@
+# Project vocabulary: repository names, tooling and library identifiers.
+# One word per line; case-insensitive unless the entry is capitalised.
+
+# --- Names ---
+Andrii
+Melnyk
+
+# --- Repository and tooling ---
+turboBasic
+actionlint
+commitizen
+cspell
+mise
+pyright
+pytest
+ruff
+shellcheck
+zizmor
+
+# --- Publisher handles: GitHub actions and VS Code extensions ---
+amannn
+charliermarsh
+jdx
+tamasfe
+wagoid
+zizmorcore
+
+# --- Library and API identifiers ---
+allfiles
+levelname
+precommit
+pyupgrade
+ruamel
+
+# --- Config keys ---
+addopts
+autouse
+testpaths
+
+# --- Repository jargon ---
+callee
+commitlint
+docstrings
+frontmatter
+negotiables
+relitigate
+typecheck

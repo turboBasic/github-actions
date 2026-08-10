@@ -1,0 +1,41 @@
+[tools]
+python = "3.14"
+uv = "latest"
+actionlint = "latest"
+shellcheck = "latest"
+zizmor = "latest"
+
+[env]
+_.python.venv = { path = ".venv", create = true }
+
+[tasks.setup]
+description = "Install dependencies and pre-commit hooks"
+run = [
+  "uv sync --locked",
+  "uv run pre-commit install",
+]
+
+[tasks.fmt]
+description = "Format code with ruff"
+run = "uv run ruff format ."
+
+[tasks.lint]
+description = "Lint workflows with actionlint and zizmor, scripts with ruff"
+run = [
+  "uv run ruff check .",
+  "actionlint",
+  # Composite actions live outside .github/, where actionlint does not look.
+  "zizmor --pedantic .github/workflows actions",
+]
+
+[tasks.typecheck]
+description = "Type-check with pyright"
+run = "uv run pyright"
+
+[tasks.test]
+description = "Run the test suite"
+run = "uv run pytest"
+
+[tasks.ci]
+description = "Run everything CI runs, locally"
+depends = ["lint", "typecheck", "test"]

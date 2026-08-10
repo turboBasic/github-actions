@@ -1,0 +1,78 @@
+# Two checks, because either can reach the default branch depending on the merge
+# method: a squash merge takes its subject from the PR title, a rebase merge keeps
+# the commits themselves.
+
+name: Conventional Commits
+
+on:
+  workflow_call:
+    inputs:
+      check-title:
+        description: Validate the PR title. No-op outside a pull_request event.
+        type: boolean
+        required: false
+        default: true
+      check-commits:
+        description: Validate every commit message in the PR range.
+        type: boolean
+        required: false
+        default: true
+      types:
+        description: >
+          Newline-separated allowed types. Defaults to commitizen's set, which is
+          what the commit-msg hook enforces locally.
+        type: string
+        required: false
+        default: |
+          build
+          chore
+          ci
+          docs
+          feat
+          fix
+          perf
+          refactor
+          revert
+          style
+          test
+      timeout-minutes:
+        type: number
+        required: false
+        default: 5
+
+permissions:
+  contents: read
+
+jobs:
+  title:
+    name: PR title
+    if: inputs.check-title && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      pull-requests: read # the action reads the PR title from the API
+    steps:
+      # Checks out nothing; reads the title from the event payload.
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: ${{ inputs.types }}
+
+  commits:
+    name: Commit messages
+    if: inputs.check-commits && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # cz check needs the full range, not just the tip
+          persist-credentials: false
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+      # commitizen rather than commitlint: the same tool already enforces this in
+      # the commit-msg hook, so local and CI verdicts cannot diverge.
+      - name: Check commit messages
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: uvx --from commitizen cz check --rev-range "${BASE_SHA}..HEAD"

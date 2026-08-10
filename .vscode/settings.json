@@ -1,0 +1,49 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests"],
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    }
+  },
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/.git disable exclusion of .git": true,
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true,
+    "**/.mypy_cache": true
+  },
+  "hide-files.files": [],
+  "cSpell.enabled": true,
+  "cSpell.diagnosticLevel": "Information",
+  "cSpell.enabledFileTypes": {
+    "markdown": true,
+    "python": true,
+    "toml": true,
+    "yaml": true,
+    "json": true,
+    "jsonc": true,
+    "shellscript": true,
+    "ini": true,
+    "plaintext": true
+  },
+  "cSpell.customDictionaries": {
+    "project": {
+      "name": "project",
+      "path": "${workspaceFolder}/.cspell/project.txt",
+      "description": "names, tooling and identifiers specific to this repository",
+      "addWords": true,
+      "scope": "workspace"
+    }
+  }
+}

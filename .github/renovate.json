@@ -1,0 +1,38 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "addLabels": ["ci"],
+  "reviewers": ["turboBasic"],
+  "assignees": ["turboBasic"],
+  "schedule": ["every weekend"],
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "non-major updates",
+      "groupSlug": "non-major"
+    },
+    {
+      "description": "First-party references track the moving major tag by design; a digest pin here would defeat it.",
+      "matchPackageNames": ["turboBasic/**"],
+      "enabled": false
+    }
+  ],
+  "github-actions": {
+    "enabled": true,
+    "pinDigests": true
+  },
+  "pep621": {
+    "enabled": true
+  },
+  "pre-commit": {
+    "enabled": true
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "commitMessageAction": "update lock file",
+    "schedule": ["every weekend"]
+  }
+}
