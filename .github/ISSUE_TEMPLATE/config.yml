@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Usage and inputs
+    url: https://github.com/turboBasic/github-actions#readme
+    about: Every workflow's inputs and a call site you can copy are in the README.
+  - name: Report a vulnerability
+    url: https://github.com/turboBasic/github-actions/security/advisories/new
+    about: Anything exploitable goes here privately, not in a public issue.
