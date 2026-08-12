@@ -70,8 +70,10 @@ local `commit-msg` hook — local and CI verdicts cannot disagree.
 
 `types` governs both jobs: it is compiled into a throwaway commitizen schema rather than read from
 the consumer's `[tool.commitizen]`, so the title check and the commit check cannot disagree about
-what is valid. The default is byte-equivalent to commitizen's built-in pattern. Types must be bare
-words (`[a-zA-Z0-9_-]`).
+what is valid. The default matches commitizen's built-in set exactly — including `bump`, which
+`cz bump` emits — so a commit the local `commit-msg` hook accepts cannot fail here. That equivalence
+is asserted by `tests/test_action_pins.py`, not maintained by hand. Types must be bare words
+(`[a-zA-Z0-9_-]`).
 
 This workflow needs no `mise.toml` — it installs `uv` directly, so a repo with no mise config can
 still have its commit messages checked.

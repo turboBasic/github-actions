@@ -67,3 +67,29 @@ def test_every_reusable_workflow_declares_workflow_call() -> None:
     assert reusable, "no reusable workflows found"
     for path in reusable:
         assert "workflow_call:" in path.read_text(), f"{path.name} is not callable"
+
+
+def test_default_types_match_the_commitizen_builtin_set() -> None:
+    # A consumer's commit-msg hook runs commitizen's built-in schema, so any type the
+    # hook accepts and this default rejects is a local-vs-CI disagreement — the exact
+    # thing the workflow claims to make impossible. `bump` was missing here, and
+    # `cz bump` emits "bump: version X → Y", so releases failed CI.
+    from commitizen.config.base_config import BaseConfig
+    from commitizen.cz.conventional_commits.conventional_commits import (
+        ConventionalCommitsCz,
+    )
+
+    pattern = ConventionalCommitsCz(BaseConfig()).schema_pattern()
+    group = re.search(r"\(([a-z|]{10,})\)", pattern)
+    assert group, f"could not find the type alternation in {pattern!r}"
+    builtin = set(group.group(1).split("|"))
+
+    workflow = (REPO_ROOT / ".github" / "workflows" / "conventional-commits.yml").read_text()
+    block = re.search(r"default: \|\n((?:\s{10}\w+\n)+)", workflow)
+    assert block, "could not find the types default block"
+    declared = set(block.group(1).split())
+
+    assert declared == builtin, (
+        f"conventional-commits.yml types default disagrees with commitizen's built-in "
+        f"set: missing {sorted(builtin - declared)}, extra {sorted(declared - builtin)}"
+    )
