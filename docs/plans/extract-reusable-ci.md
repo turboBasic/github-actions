@@ -5,8 +5,12 @@ Analysis and implementation plan for consolidating GitHub Actions across four re
 file once the extraction is done or abandoned.
 
 **Status:** step 1 done — `turboBasic/github-actions` exists and is populated, and this plan now
-lives in it. Steps 2 onward (verify by calling, tag `v1`, migrate the four consumers) are open.
-Nothing has been rewired; see [`../consumers.md`](../consumers.md).
+lives in it. Steps 2 onward are open and **steps 2 and 3 have swapped order**: tag `v1` first, then
+verify at `@v1`. `python-ci.yml`'s advisory job references
+`actions/precommit-advisory-pr@v1`, so with no tag in existence that path cannot be exercised at
+`@main` at all. Tagging first is safe precisely because no consumer exists yet — a wrong `v1` harms
+nobody, and `v1` is force-moved after any fix. Nothing has been rewired; see
+[`../consumers.md`](../consumers.md).
 
 ## Decisions taken before drafting
 
@@ -116,26 +120,35 @@ Extraction is only justified where the logic is duplicated *and* stable. Three t
 
 ## Target layout
 
+As built (step 1 landed more than this section originally specified):
+
 ```text
-turboBasic/github-actions/                 (new, public, tagged v1)
+turboBasic/github-actions/                 (public, not yet tagged)
 ├── .github/
-│   └── workflows/
-│       ├── conventional-commits.yml       # reusable: PR title + commit messages
-│       ├── python-ci.yml                  # reusable: mise lint/typecheck/test
-│       └── self-lint.yml                  # this repo lints its own workflows
+│   ├── workflows/
+│   │   ├── conventional-commits.yml       # reusable: PR title + commit messages
+│   │   ├── python-ci.yml                  # reusable: mise lint/typecheck/test
+│   │   ├── ci.yml                         # this repo's own checks, inline
+│   │   └── semantic-pull-request.yml      # this repo's own PR title check
+│   ├── ISSUE_TEMPLATE/ · PULL_REQUEST_TEMPLATE.md
+│   ├── dependabot.yml · renovate.json     # Renovate owns updates; see the comment in dependabot.yml
+│   ├── zizmor.yml                         # reasoned suppressions + pin policy
+│   └── copilot-instructions.md
 ├── actions/
-│   ├── precommit-advisory-pr/
-│   │   └── action.yml
-│   └── populate-pr-description/
-│       ├── action.yml
-│       └── populate.py
+│   ├── precommit-advisory-pr/action.yml
+│   └── populate-pr-description/{action.yml,populate.py}
 ├── docs/
-│   └── consumers.md                       # which repo calls what, at which ref
-├── .editorconfig / .gitattributes / .gitignore
-├── mise.toml                              # actionlint + shellcheck for self-lint
-├── .pre-commit-config.yaml
-└── README.md                              # usage snippets per workflow
+│   ├── ai-instructions.md · consumers.md
+│   └── plans/extract-reusable-ci.md       # this file
+├── tests/test_action_pins.py              # machine-enforces the pinning rules
+├── mise.toml · pyproject.toml · uv.lock · .pre-commit-config.yaml · cspell.config.yaml
+├── .editorconfig · .gitattributes · .gitignore
+└── README.md · CONTRIBUTING.md · CODE_OF_CONDUCT.md · SECURITY.md · LICENSE
 ```
+
+Two deviations from the original sketch, both deliberate: `self-lint.yml` became `ci.yml` plus
+`semantic-pull-request.yml` (the reason is in the header comment of each), and `tests/` exists
+because the SHA-pinning rule is worth enforcing mechanically rather than by review.
 
 Composite actions sit in `actions/<name>/` rather than `.github/actions/<name>/`. Consumers
 reference `turboBasic/github-actions/actions/<name>@v1`; the `.github/actions/` location is a
@@ -166,6 +179,11 @@ on:
       advisory-all-files: { type: boolean, required: false, default: false }
       timeout-minutes:   { type: number,  required: false, default: 20 }
 ```
+
+The shipped contract diverges from this sketch — read `python-ci.yml` and the README table, not
+this block. `python-versions` and `check-commits` were dropped (the mise config decides the Python
+version; commit checking belongs to `conventional-commits.yml`), and `run-lint`,
+`lint-task`/`typecheck-task`/`test-task`, `hook-stage`, and `cache-pre-commit` were added.
 
 Resolutions, and the reasoning for each:
 
@@ -200,9 +218,13 @@ actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1                      #
 actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9                        # v6.1.0
 actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3                # v9.0.0
 jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654                      # v4.2.4
+astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9                   # v9.0.0
 amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50  # v6.1.1
 tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96             # v47.0.6
 ```
+
+Renovate maintains these; the list above is the state at extraction, not a thing to keep in sync by
+hand. `tests/test_action_pins.py` is what actually enforces the rule.
 
 `wagoid/commitlint-github-action` is dropped entirely in favour of `cz check`.
 
@@ -267,19 +289,33 @@ Scaffold per the layout above: `.editorconfig`, `.gitattributes`, `.gitignore`, 
 `opus-magnum` and `repo-factory`, with `@v6`/`@v9` floating refs replaced by the SHAs above), and
 `self-lint.yml`.
 
-### 2. Verify before any consumer changes
+Done. Also landed: `tests/test_action_pins.py`, `renovate.json`, `zizmor.yml`, and the
+community-health files.
 
-`actionlint` locally, then prove the workflows actually run — a reusable workflow that has never
-been called is unverified. Create a throwaway private repo, call both workflows at `@main`, and
-confirm: a valid PR title passes, an invalid one fails, `cz check` catches a bad commit, and the
-advisory action posts exactly one comment and *updates* it on a second push rather than adding a
-second. Delete the throwaway repo afterwards.
-
-### 3. Tag `v1`
+### 2. Tag `v1.0.0` and `v1`
 
 ```bash
 git tag -a v1.0.0 -m "..." && git tag -f v1 v1.0.0 && git push --tags
 ```
+
+Before verification, not after, because `python-ci.yml`'s advisory job references
+`actions/precommit-advisory-pr@v1` and cannot be made to resolve at `@main`. No consumer exists, so
+a `v1` that turns out wrong costs a force-move and nothing else.
+
+### 3. Verify before any consumer changes
+
+`mise run ci` locally, then prove the workflows actually run — a reusable workflow that has never
+been called is unverified. Create a throwaway repo, call both workflows at `@v1`, and confirm:
+
+- a valid PR title passes, an invalid one fails;
+- `cz check` catches a bad commit, and a narrowed `types` input rejects a type the default allows —
+  in *both* jobs, since `types` is now compiled into the commitizen schema;
+- `conventional-commits.yml` passes in a repo with **no `mise.toml`** (the `python-cli-app-template`
+  case);
+- the advisory action posts exactly one comment and *updates* it on a second push;
+- `hook-stage: pre-push` actually runs the pre-push hooks on a PR.
+
+Fix anything found, cut `v1.0.1`, force-move `v1`. Delete the throwaway repo afterwards.
 
 ### 4. Migrate consumers, one PR each, in this order
 
@@ -287,10 +323,14 @@ git tag -a v1.0.0 -m "..." && git tag -f v1 v1.0.0 && git push --tags
    signal. Also the exemplar other repos are compared against.
 2. **`repo-factory`** — adds `mise.toml` tasks (it currently has none; `mise exec --` is called
    directly in workflows). Verify `create-repo.yml` still works, since it shares the toolchain
-   setup being changed.
-3. **`opus-magnum`** — private, and the only consumer of the advisory action. Highest-risk
-   migration: its `lint` task delegates to `make lint`, so the Makefile interaction needs checking.
-4. **`python-cli-app-template`** — `conventional-commits` only. **It is a GitHub template repo**,
+   setup being changed. Its `.mise.toml` also carries a `python.precompiled_flavor` setting with a
+   comment about a mise bug — check that still applies before touching it.
+3. **`opus-magnum`** — private, and the only consumer of the advisory action. Needs
+   `hook-stage: pre-push` to preserve current behaviour: its `make lint-push` reserves mypy for
+   that stage. Its `[tasks.lint]` already shells to `make lint`, so the default `lint-task` picks
+   it up with no change — the Makefile risk noted below is resolved.
+4. **`python-cli-app-template`** — `conventional-commits` only, which now needs no `mise.toml` (the
+   workflow installs `uv` via `setup-uv` rather than `mise-action`). **It is a GitHub template repo**,
    so every future generated repo inherits whatever lands here; a broken `@v1` reference propagates
    silently. Verify by generating a throwaway repo from the template and confirming CI is green.
 
@@ -307,17 +347,26 @@ not yet.
 ## Risks
 
 - **A bad `@v1` breaks four repos at once.** This is the cost of a moving tag. Mitigated by
-  step 2's throwaway-repo verification before every `v1` move, and by `v1.x.y` immutable tags
+  step 3's throwaway-repo verification before every `v1` move, and by `v1.x.y` immutable tags
   giving consumers an escape hatch.
+- **The escape hatch has one hole.** `python-ci.yml`'s advisory job references
+  `actions/precommit-advisory-pr@v1`, because a reusable workflow cannot interpolate its own ref
+  into `uses:`. A consumer pinned to `@v1.2.3` still gets the current `v1` action in that job.
+  Documented under Versioning in the README; the alternative is inlining ~50 lines of the composite
+  action into the workflow, which was rejected as the worse trade.
 - **`python-cli-app-template` propagates silently.** Generated repos inherit the reference; a
   breakage surfaces in repos that do not exist yet. Migrate it last, verify by generating.
-- **`opus-magnum`'s `make lint` indirection** may not map cleanly onto the shared `lint` task.
-  Inspect the Makefile before writing that PR; if it does not fit, leave `opus-magnum` on its local
-  `lint.yml` and take only `conventional-commits.yml`. A partial migration is an acceptable
-  outcome — forcing a fit would mean bending the shared workflow to one repo's Makefile.
 - **`cz check` needs `fetch-depth: 0`**, which is slower on large histories and fails confusingly
   if a consumer overrides checkout depth. The reusable workflow owns its own checkout, so consumers
   cannot override it — worth stating in the README.
+- **Two tool-resolution paths for pre-commit.** `python-ci.yml`'s changed-files step uses
+  `uv run pre-commit`; the composite action uses `mise exec -- pre-commit`. Both resolve in all four
+  target repos — `repo-factory` and `opus-magnum` declare pre-commit under a `lint` group, but their
+  `dev` group includes `lint` and `uv sync` installs `dev` by default, so `uv run pre-commit` works
+  there too (verified). Still one convention too many for the same tool; worth unifying on `uv run`
+  in the composite action, which would also drop its implicit dependency on mise.
+- **`opus-magnum`'s `make lint` indirection** was a stated risk and is resolved: its `[tasks.lint]`
+  wraps `make lint`, which the default `lint-task` invokes unchanged.
 
 ## Abort
 
