@@ -17,6 +17,10 @@ end state, not the current one.
 `opus-magnum` needs `hook-stage: pre-push` to keep current behaviour: it reserves mypy for that
 stage, and without the input those hooks silently stop running on PRs.
 
+`python-cli-app-template` has no `mise.toml`, which is why `conventional-commits.yml` installs `uv`
+directly rather than through `mise-action` — dropping that would break the one repo that calls
+nothing else.
+
 `opus-magnum` is private and can still call these workflows because this repository is public. Were
 it ever made private, every consumer would need
 Settings → Actions → General → Access → "Accessible from repositories owned by 'turboBasic'".

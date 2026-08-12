@@ -62,11 +62,19 @@ jobs:
 | --- | --- | --- |
 | `check-title` | `true` | Validate the PR title. |
 | `check-commits` | `true` | Validate commit messages via `cz check`. |
-| `types` | commitizen's set | Newline-separated allowed types. |
+| `types` | commitizen's set | Newline-separated allowed types, authoritative for both checks. |
 | `timeout-minutes` | `5` | Job timeout. |
 
 Commit checking uses commitizen rather than commitlint, because the same tool enforces this in the
 local `commit-msg` hook — local and CI verdicts cannot disagree.
+
+`types` governs both jobs: it is compiled into a throwaway commitizen schema rather than read from
+the consumer's `[tool.commitizen]`, so the title check and the commit check cannot disagree about
+what is valid. The default is byte-equivalent to commitizen's built-in pattern. Types must be bare
+words (`[a-zA-Z0-9_-]`).
+
+This workflow needs no `mise.toml` — it installs `uv` directly, so a repo with no mise config can
+still have its commit messages checked.
 
 ## Composite actions
 
