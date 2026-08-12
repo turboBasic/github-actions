@@ -51,6 +51,14 @@ on:
         type: boolean
         required: false
         default: false
+      hook-stage:
+        description: >
+          pre-commit hook stage for the changed-files and advisory runs. Empty runs the
+          default stage; set pre-push for repos that reserve the slow hooks for it,
+          otherwise those hooks silently stop running on PRs.
+        type: string
+        required: false
+        default: ""
       cache-pre-commit:
         type: boolean
         required: false
@@ -106,9 +114,14 @@ jobs:
           && steps.changed.outputs.any_changed == 'true'
         env:
           ALL_CHANGED_FILES: ${{ steps.changed.outputs.all_changed_files }}
+          HOOK_STAGE: ${{ inputs.hook-stage }}
         run: |
+          args=(run --show-diff-on-failure)
+          if [ -n "${HOOK_STAGE}" ]; then
+            args+=(--hook-stage "${HOOK_STAGE}")
+          fi
           # shellcheck disable=SC2086
-          uv run pre-commit run --show-diff-on-failure --files $ALL_CHANGED_FILES
+          uv run pre-commit "${args[@]}" --files $ALL_CHANGED_FILES
 
       # Task names arrive through env rather than inline ${{ }}: an interpolation
       # inside `run:` is a script-injection sink even when the value looks tame.
@@ -154,6 +167,9 @@ jobs:
           key: precommit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
           restore-keys: |
             precommit-${{ runner.os }}-
+      # Moving @v1 even when a consumer pins @v1.2.3: a reusable workflow cannot
+      # interpolate its own ref into `uses:`. Noted under Versioning in README.md.
       - uses: turboBasic/github-actions/actions/precommit-advisory-pr@v1
         with:
           github-token: ${{ github.token }}
+          hook-stage: ${{ inputs.hook-stage }}

@@ -19,8 +19,10 @@ on:
         default: true
       types:
         description: >
-          Newline-separated allowed types. Defaults to commitizen's set, which is
-          what the commit-msg hook enforces locally.
+          Newline-separated allowed types, authoritative for both checks. Defaults to
+          commitizen's set, which is what the commit-msg hook enforces locally. A
+          consumer's own [tool.commitizen] schema is not consulted — otherwise the two
+          jobs here could disagree about what is valid.
         type: string
         required: false
         default: |
@@ -69,10 +71,35 @@ jobs:
         with:
           fetch-depth: 0 # cz check needs the full range, not just the tip
           persist-credentials: false
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+      # setup-uv rather than mise-action: this workflow needs nothing but uvx, and a
+      # consumer is not required to have a mise.toml to have its commit messages
+      # checked — python-cli-app-template has none and calls only this workflow.
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      # The `types` input is authoritative, so it is compiled into a throwaway
+      # commitizen config rather than letting cz fall back to the consumer's own
+      # [tool.commitizen] — which would let this job and the title job disagree.
+      # Written outside the workspace to keep the checkout clean.
+      - name: Build the commitizen schema
+        env:
+          TYPES: ${{ inputs.types }}
+        run: |
+          types_pattern=$(printf '%s\n' "${TYPES}" | tr -s '[:space:]' '\n' | sed '/^$/d' | paste -sd'|' -)
+          case ${types_pattern} in
+            "") echo "::error::the types input is empty" >&2; exit 1 ;;
+            *[^a-zA-Z0-9_\|-]*) echo "::error::the types input must be bare words: ${types_pattern}" >&2; exit 1 ;;
+          esac
+          cat > "${RUNNER_TEMP}/cz.toml" <<EOF
+          [tool.commitizen]
+          name = "cz_customize"
+
+          [tool.commitizen.customize]
+          schema_pattern = "(?s)(${types_pattern})(\\\\(\\\\S+\\\\))?!?: ([^\\\\n\\\\r]+)((\\\\n\\\\n.*)|(\\\\s*))?\$"
+          EOF
+
       # commitizen rather than commitlint: the same tool already enforces this in
       # the commit-msg hook, so local and CI verdicts cannot diverge.
       - name: Check commit messages
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: uvx --from commitizen cz check --rev-range "${BASE_SHA}..HEAD"
+        run: uvx --from commitizen cz --config "${RUNNER_TEMP}/cz.toml" check --rev-range "${BASE_SHA}..HEAD"

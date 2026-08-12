@@ -11,8 +11,15 @@ end state, not the current one.
 | --- | --- | --- | --- |
 | `python-app-baseline` | public | `python-ci`, `conventional-commits` | defaults throughout |
 | `repo-factory` | public | `python-ci`, `conventional-commits` | `lint-changed-only: true`, `run-typecheck: false` |
-| `opus-magnum` | private | `python-ci`, `conventional-commits` | `lint-changed-only: true`, `advisory-all-files: true`, `mise-version` pinned |
+| `opus-magnum` | private | `python-ci`, `conventional-commits` | `lint-changed-only: true`, `advisory-all-files: true`, `hook-stage: pre-push`, `mise-version` pinned |
 | `python-cli-app-template` | public, template | `conventional-commits` only | — |
+
+`opus-magnum` needs `hook-stage: pre-push` to keep current behaviour: it reserves mypy for that
+stage, and without the input those hooks silently stop running on PRs.
+
+`python-cli-app-template` has no `mise.toml`, which is why `conventional-commits.yml` installs `uv`
+directly rather than through `mise-action` — dropping that would break the one repo that calls
+nothing else.
 
 `opus-magnum` is private and can still call these workflows because this repository is public. Were
 it ever made private, every consumer would need
