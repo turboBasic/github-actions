@@ -31,11 +31,18 @@ jobs:
 | `lint-task` / `typecheck-task` / `test-task` | `lint` / `typecheck` / `test` | Override a differently-named `mise` task. |
 | `lint-changed-only` | `false` | Lint changed files via pre-commit instead of the lint task. |
 | `advisory-all-files` | `false` | Non-blocking all-files lint reported as a PR comment. |
+| `hook-stage` | `""` | pre-commit hook stage for the two runs above; empty is the default stage. |
 | `cache-pre-commit` | `true` | Cache `~/.cache/pre-commit`, keyed on the config hash. |
 | `timeout-minutes` | `20` | Job timeout. |
 
 `lint-changed-only` is faster on a large tree but lets a PR pass while the tree is broken. Pair it
 with `advisory-all-files: true`, which needs `pull-requests: write` at the call site.
+
+Set `hook-stage: pre-push` if the repo reserves its slow hooks for that stage — both pre-commit runs
+here honour it, and without it those hooks silently stop running on PRs.
+
+Requires a `mise.toml` with the tasks being run, and a `uv.lock` (the workflow runs
+`uv sync --locked` and fails on lockfile drift).
 
 ### `conventional-commits.yml`
 
@@ -99,6 +106,11 @@ Needs `pull-requests: write` and a full-history checkout (`fetch-depth: 0`).
 Pin `@v1`. `v1.x.y` tags are immutable; `v1` is force-moved to each release, so fixes arrive on the
 next run without a PR in every consumer. A change that breaks an existing call site gets a new
 major tag instead.
+
+One exception to that immutability: `python-ci.yml`'s advisory job references
+`actions/precommit-advisory-pr@v1`, because a reusable workflow cannot interpolate its own ref into
+a `uses:`. A consumer pinned to `@v1.2.3` therefore still gets the *current* `v1` composite action
+in that one job. Pin the action directly in your own workflow if you need it frozen.
 
 This is a deliberate exception to the rule that actions are pinned to a full SHA. That rule exists
 because a third party can retroactively repoint a tag — CVE-2025-30066 did precisely that to
