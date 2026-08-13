@@ -73,16 +73,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Not shallow: a consumer may compare against the merge base, and the cost
-          # is negligible at the size these repos are.
-          fetch-depth: 0
+          fetch-depth: 0 # a consumer may compare against the merge base
           persist-credentials: false
 
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
           version: ${{ inputs.mise-version }}
 
-      # Fails the run on lockfile drift rather than silently resolving something else.
       - name: Sync dependencies
         run: uv sync --locked
 
@@ -117,8 +114,8 @@ jobs:
           # shellcheck disable=SC2086
           uv run pre-commit "${args[@]}" --files $ALL_CHANGED_FILES
 
-      # Task names arrive through env rather than inline ${{ }}: an interpolation
-      # inside `run:` is a script-injection sink even when the value looks tame.
+      # Task names arrive through env, never inlined into `run:`: an interpolation there
+      # is a script-injection sink even when the value looks tame.
       - name: Lint
         if: inputs.run-lint && !(inputs.lint-changed-only && github.event_name == 'pull_request')
         env:

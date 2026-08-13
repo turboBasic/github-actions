@@ -1,11 +1,8 @@
-# Separate from python-ci.yml because of how GitHub validates permissions: a called
-# workflow's job permissions are checked when the run starts, before any `if:` can
-# skip that job. While the advisory job lived in python-ci.yml, every caller had to
-# grant `pull-requests: write` even with the feature switched off — and a caller that
-# did not got a bare `startup_failure` with no job, no log, and no diagnostic.
-#
-# Keeping it here means only the repositories that actually want the PR comment grant
-# write access. Callers of python-ci.yml need nothing but `contents: read`.
+# Separate from python-ci.yml so that only repositories wanting the PR comment grant
+# write access. A called workflow's job permissions are validated when the run starts,
+# before any `if:` can skip the job, so a workflow declaring `pull-requests: write`
+# anywhere forces every caller to grant it — and a caller that does not gets
+# `startup_failure` with no job, no log and no diagnostic.
 
 name: Pre-commit advisory
 
@@ -67,8 +64,8 @@ jobs:
           restore-keys: |
             precommit-${{ runner.os }}-
 
-      # Moving @v2 even when a consumer pins @v2.1.3: a reusable workflow cannot
-      # interpolate its own ref into `uses:`. Noted under Versioning in README.md.
+      # Resolves at the moving @v2 even when the caller pins @v2.1.3: a reusable
+      # workflow cannot interpolate its own ref into `uses:`.
       - uses: turboBasic/github-actions/actions/precommit-advisory-pr@v2
         with:
           github-token: ${{ github.token }}

@@ -92,15 +92,10 @@ def _block_of_words(path: Path, key: str) -> set[str]:
     [("conventional-commits.yml", "default"), ("semantic-pull-request.yml", "types")],
 )
 def test_allowed_types_match_the_commitizen_builtin_set(workflow: str, key: str) -> None:
-    # Commit messages are checked by commitizen — the `commit-msg` hook locally, and
-    # `cz check` in ci.yml — so any type commitizen accepts and one of these lists
-    # rejects is a gate disagreeing with the tool it claims to mirror.
-    #
-    # It has happened twice. conventional-commits.yml omitted `bump`, so a `cz bump`
-    # release commit passed the hook and failed CI. semantic-pull-request.yml passed no
-    # types at all and inherited the action's own default, which comes from
-    # conventional-commit-types and also has no `bump` — and squash is the only merge
-    # method here, so the title becomes the commit.
+    # commitizen has the final say on commit messages, through the commit-msg hook and
+    # `cz check`. A type it accepts that one of these lists rejects is a gate disagreeing
+    # with the tool it mirrors, and `bump` is the one that differs from the actions' own
+    # defaults — which is why neither list may be left to a default.
     declared = _block_of_words(REPO_ROOT / ".github" / "workflows" / workflow, key)
     builtin = _commitizen_types()
     assert declared == builtin, (
@@ -111,10 +106,9 @@ def test_allowed_types_match_the_commitizen_builtin_set(workflow: str, key: str)
 
 def test_python_ci_requests_no_pull_request_permission() -> None:
     # A called workflow's job permissions are validated when the run starts, before any
-    # `if:` can skip the job. So a `pull-requests: write` anywhere in python-ci.yml
-    # forces every caller to grant it — and a caller that does not gets a bare
-    # startup_failure with no job, no log and no diagnostic. That is why the advisory
-    # job lives in precommit-advisory.yml, which only its own callers invoke.
+    # `if:` can skip the job, so a `pull-requests: write` anywhere here would force every
+    # caller to grant it. A job needing write belongs in precommit-advisory.yml, which
+    # only its own callers invoke.
     workflow = REPO_ROOT / ".github" / "workflows" / "python-ci.yml"
     assert "pull-requests" not in workflow.read_text(), (
         "python-ci.yml requests a pull-requests permission; every caller would then be "
