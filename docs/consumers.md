@@ -3,16 +3,20 @@
 The blast-radius list. A change to a workflow affects every repository named here, so keep this
 current in the same change that alters an input contract.
 
-`python-app-baseline` is migrated; the other three rows are the intended end state, not the current
-one. Migration order and per-repo notes are in
-[`plans/extract-reusable-ci.md`](plans/extract-reusable-ci.md).
+`repo-factory` and `python-cli-app-template` are out of scope for the workflow migration; only
+`opus-magnum` is still intended.
 
 | Repository | Visibility | Calls | Notable inputs |
 | --- | --- | --- | --- |
-| `python-app-baseline` | public, **migrated** | `python-ci`, `conventional-commits` | defaults throughout |
-| `repo-factory` | public | `python-ci`, `conventional-commits` | `lint-changed-only: true`, `run-typecheck: false` |
-| `opus-magnum` | private | `python-ci`, `precommit-advisory`, `conventional-commits` | `lint-changed-only: true`, `hook-stage: pre-push` on both, `mise-version` pinned |
-| `python-cli-app-template` | public, template | `conventional-commits` only | — |
+| `python-app-baseline` | public | `python-ci`, `conventional-commits` | defaults throughout |
+| `repo-factory` | public | `populate-pr-description` action only | — |
+| `opus-magnum` | private, **not yet migrated** | `python-ci`, `precommit-advisory`, `conventional-commits` | `lint-changed-only: true`, `hook-stage: pre-push` on both, `run-typecheck: false`, `run-tests: false`, `mise-version` pinned |
+
+`repo-factory` keeps its own workflows and calls only the `populate-pr-description` composite action.
+It is the sole consumer of that action, so a change to its inputs reaches exactly one caller.
+
+`opus-magnum` defines no `typecheck` or `test` mise task — its `[tasks.*]` are all `make` wrappers —
+so it needs `run-typecheck: false` and `run-tests: false` alongside the lint inputs.
 
 `opus-magnum` needs `hook-stage: pre-push`: it reserves mypy for that stage, and without the input
 those hooks silently stop running on PRs. It is also the only repo calling `precommit-advisory.yml`,
@@ -20,9 +24,8 @@ so the only one granting `pull-requests: write` — pass `hook-stage` to both, o
 the advisory run check different hooks. Every other consumer grants `contents: read` and nothing
 more.
 
-`python-cli-app-template` has no `mise.toml`, which is why `conventional-commits.yml` installs `uv`
-directly rather than through `mise-action` — dropping that would break the one repo that calls
-nothing else.
+`conventional-commits.yml` installs `uv` directly rather than through `mise-action` so that a repo
+with no mise config can still have its commit messages checked.
 
 `opus-magnum` is private and can still call these workflows because this repository is public. Were
 it ever made private, every consumer would need
@@ -37,7 +40,3 @@ Call `conventional-commits.yml` from `pull_request`, never `pull_request_target`
 gated on `github.event_name == 'pull_request'`, so under `pull_request_target` they are skipped
 without failing, and the commit job's checkout would resolve the base ref instead of the commits
 under review.
-
-`python-cli-app-template` is a GitHub template repository: every repo generated from it inherits its
-call sites, so a breaking change there surfaces in repositories that do not exist yet. Migrate it
-last and verify by generating a throwaway repo.
