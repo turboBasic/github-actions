@@ -29,3 +29,23 @@ jobs:
       - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Spelled out because the action's own default comes from
+          # conventional-commit-types, which has eleven types and no `bump`, while
+          # ci.yml's `cz check` accepts commitizen's twelve. Squash is the only merge
+          # method here, so the title becomes the commit: without `bump`, a release
+          # commit could clear the commit check while no valid title could carry it.
+          # tests/test_action_pins.py asserts this stays equal to commitizen's set.
+          types: |
+            build
+            bump
+            chore
+            ci
+            docs
+            feat
+            fix
+            perf
+            refactor
+            revert
+            style
+            test

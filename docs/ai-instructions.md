@@ -119,7 +119,13 @@ Python 3.14. The only Python here supports the actions and their tests.
 - pytest. Never `unittest.TestCase`. `tests/` asserts properties of the YAML, since there is no
   application to test.
 - A workflow change is not verified by lint alone. A reusable workflow that has never been called
-  is unverified: exercise it from a real PR before tagging.
+  is unverified: exercise it from a real PR before tagging. Two defects have reached a tag that
+  every linter passed: a workflow that could not be called at all without a permission its caller
+  had no reason to grant, and an allowed-types list that disagreed with the tool enforcing it.
+- **The allowed commit types are written out in two workflows** — `conventional-commits.yml`'s
+  `types` default and `semantic-pull-request.yml`'s `types` input — and both are asserted equal to
+  commitizen's built-in set by `tests/test_action_pins.py`. Neither may be edited alone, and neither
+  may fall back to a tool's own default: commitizen's set and the actions' sets differ.
 
 ## Shipping
 
