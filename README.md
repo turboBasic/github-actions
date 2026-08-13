@@ -17,12 +17,26 @@ Lint, typecheck, and test a Python project through its `mise` tasks, so CI and `
 drift apart.
 
 ```yaml
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     uses: turboBasic/github-actions/.github/workflows/python-ci.yml@v2
     permissions:
       contents: read
 ```
+
+`concurrency` has to be set here: a reusable workflow cannot set its caller's group.
 
 | Input | Default | Purpose |
 | --- | --- | --- |
@@ -53,6 +67,13 @@ Runs pre-commit over every file, non-blocking, and reports the result as a singl
 updated in place on each push. The compensating control for `lint-changed-only`.
 
 ```yaml
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   advisory:
     uses: turboBasic/github-actions/.github/workflows/precommit-advisory.yml@v2
@@ -68,6 +89,9 @@ jobs:
 | `cache-pre-commit` | `true` | Cache `~/.cache/pre-commit`, keyed on the config hash. |
 | `timeout-minutes` | `20` | Job timeout. |
 
+Trigger on `pull_request`: the job is gated on that event name and silently skips under any other,
+`pull_request_target` included.
+
 **`pull-requests: write` is required at the call site.** A called workflow's job permissions are
 validated when the run starts, before any `if:` can skip the job, so omitting it fails the whole run
 as `startup_failure` — no job, no log, no diagnostic. It is a separate workflow so that only the
@@ -79,6 +103,13 @@ Validates the PR title (what a squash merge uses) and every commit message in th
 rebase merge puts on the default branch).
 
 ```yaml
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   commits:
     uses: turboBasic/github-actions/.github/workflows/conventional-commits.yml@v2
@@ -93,6 +124,13 @@ jobs:
 | `check-commits` | `true` | Validate commit messages via `cz check`. |
 | `types` | commitizen's set | Newline-separated allowed types, authoritative for both checks. |
 | `timeout-minutes` | `5` | Job timeout. |
+
+**Trigger on `pull_request`, never `pull_request_target`.** Both jobs are gated on
+`github.event_name == 'pull_request'`, and a skipped job
+[reports success](https://docs.github.com/en/actions/using-jobs/using-conditions-to-control-job-execution),
+so under `pull_request_target` this becomes a required check that passes without validating anything.
+The commit job's checkout would also resolve the base ref rather than the commits under review.
+Adding `push` alongside `pull_request` is fine: both jobs skip, which is what you want on a push.
 
 Commit checking uses commitizen rather than commitlint, because the same tool enforces this in the
 local `commit-msg` hook — local and CI verdicts cannot disagree.
