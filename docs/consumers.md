@@ -11,11 +11,18 @@ end state, not the current one.
 | --- | --- | --- | --- |
 | `python-app-baseline` | public | `python-ci`, `conventional-commits` | defaults throughout |
 | `repo-factory` | public | `python-ci`, `conventional-commits` | `lint-changed-only: true`, `run-typecheck: false` |
-| `opus-magnum` | private | `python-ci`, `conventional-commits` | `lint-changed-only: true`, `advisory-all-files: true`, `hook-stage: pre-push`, `mise-version` pinned |
+| `opus-magnum` | private | `python-ci`, `precommit-advisory`, `conventional-commits` | `lint-changed-only: true`, `hook-stage: pre-push` on both, `mise-version` pinned |
 | `python-cli-app-template` | public, template | `conventional-commits` only | — |
 
 `opus-magnum` needs `hook-stage: pre-push` to keep current behaviour: it reserves mypy for that
-stage, and without the input those hooks silently stop running on PRs.
+stage, and without the input those hooks silently stop running on PRs. It is also the only repo that
+calls `precommit-advisory.yml`, so it is the only one that grants `pull-requests: write` — pass
+`hook-stage` to both, or the blocking run and the advisory run check different hooks.
+
+Everyone else grants `contents: read` and nothing more. That is the point of `precommit-advisory.yml`
+being separate: a called workflow's job permissions are validated at run start, before `if:` can skip
+the job, so while the advisory job lived inside `python-ci.yml` every consumer had to grant
+`pull-requests: write` or get a bare `startup_failure`.
 
 `python-cli-app-template` has no `mise.toml`, which is why `conventional-commits.yml` installs `uv`
 directly rather than through `mise-action` — dropping that would break the one repo that calls

@@ -1,0 +1,75 @@
+# Separate from python-ci.yml because of how GitHub validates permissions: a called
+# workflow's job permissions are checked when the run starts, before any `if:` can
+# skip that job. While the advisory job lived in python-ci.yml, every caller had to
+# grant `pull-requests: write` even with the feature switched off — and a caller that
+# did not got a bare `startup_failure` with no job, no log, and no diagnostic.
+#
+# Keeping it here means only the repositories that actually want the PR comment grant
+# write access. Callers of python-ci.yml need nothing but `contents: read`.
+
+name: Pre-commit advisory
+
+on:
+  workflow_call:
+    inputs:
+      mise-version:
+        description: Pin the mise release. Empty uses the action's default.
+        type: string
+        required: false
+        default: ""
+      hook-stage:
+        description: >
+          pre-commit hook stage to run. Empty runs the default stage; set pre-push for
+          repos that reserve the slow hooks for it. Match whatever python-ci.yml is
+          given, or the two runs disagree about which hooks apply.
+        type: string
+        required: false
+        default: ""
+      cache-pre-commit:
+        type: boolean
+        required: false
+        default: true
+      timeout-minutes:
+        type: number
+        required: false
+        default: 20
+
+permissions:
+  contents: read
+
+jobs:
+  advisory:
+    name: Advisory lint (all files)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+      pull-requests: write # posts and updates the advisory comment
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          version: ${{ inputs.mise-version }}
+
+      - name: Sync dependencies
+        run: uv sync --locked
+
+      - name: Cache pre-commit environments
+        if: inputs.cache-pre-commit
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: precommit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            precommit-${{ runner.os }}-
+
+      # Moving @v2 even when a consumer pins @v2.1.3: a reusable workflow cannot
+      # interpolate its own ref into `uses:`. Noted under Versioning in README.md.
+      - uses: turboBasic/github-actions/actions/precommit-advisory-pr@v2
+        with:
+          github-token: ${{ github.token }}
+          hook-stage: ${{ inputs.hook-stage }}
