@@ -39,23 +39,17 @@ on:
       lint-changed-only:
         description: >
           Run pre-commit over changed files instead of the lint task. Faster on a large
-          tree, but a PR can pass while the tree is broken — pair it with
-          advisory-all-files.
-        type: boolean
-        required: false
-        default: false
-      advisory-all-files:
-        description: >
-          Also run pre-commit over every file, non-blocking, reporting via a PR comment.
-          The compensating control for lint-changed-only.
+          tree, but a PR can pass while the tree is broken — pair it with a call to
+          precommit-advisory.yml, which is the compensating control.
         type: boolean
         required: false
         default: false
       hook-stage:
         description: >
-          pre-commit hook stage for the changed-files and advisory runs. Empty runs the
-          default stage; set pre-push for repos that reserve the slow hooks for it,
-          otherwise those hooks silently stop running on PRs.
+          pre-commit hook stage for the changed-files run. Empty runs the default stage;
+          set pre-push for repos that reserve the slow hooks for it, otherwise those
+          hooks silently stop running on PRs. Pass the same value to
+          precommit-advisory.yml if you call it.
         type: string
         required: false
         default: ""
@@ -93,7 +87,7 @@ jobs:
         run: uv sync --locked
 
       - name: Cache pre-commit environments
-        if: inputs.cache-pre-commit && (inputs.lint-changed-only || inputs.advisory-all-files)
+        if: inputs.cache-pre-commit && inputs.lint-changed-only
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
@@ -142,34 +136,3 @@ jobs:
         env:
           TASK: ${{ inputs.test-task }}
         run: mise run "${TASK}"
-
-  advisory:
-    name: Advisory lint (all files)
-    if: inputs.advisory-all-files && github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: ${{ inputs.timeout-minutes }}
-    permissions:
-      contents: read
-      pull-requests: write # posts and updates the advisory comment
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
-        with:
-          version: ${{ inputs.mise-version }}
-      - run: uv sync --locked
-      - name: Cache pre-commit environments
-        if: inputs.cache-pre-commit
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/pre-commit
-          key: precommit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
-          restore-keys: |
-            precommit-${{ runner.os }}-
-      # Moving @v1 even when a consumer pins @v1.2.3: a reusable workflow cannot
-      # interpolate its own ref into `uses:`. Noted under Versioning in README.md.
-      - uses: turboBasic/github-actions/actions/precommit-advisory-pr@v1
-        with:
-          github-token: ${{ github.token }}
-          hook-stage: ${{ inputs.hook-stage }}

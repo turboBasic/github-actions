@@ -93,3 +93,17 @@ def test_default_types_match_the_commitizen_builtin_set() -> None:
         f"conventional-commits.yml types default disagrees with commitizen's built-in "
         f"set: missing {sorted(builtin - declared)}, extra {sorted(declared - builtin)}"
     )
+
+
+def test_python_ci_requests_no_pull_request_permission() -> None:
+    # A called workflow's job permissions are validated when the run starts, before any
+    # `if:` can skip the job. So a `pull-requests: write` anywhere in python-ci.yml
+    # forces every caller to grant it — and a caller that does not gets a bare
+    # startup_failure with no job, no log and no diagnostic. That is why the advisory
+    # job lives in precommit-advisory.yml, which only its own callers invoke.
+    workflow = REPO_ROOT / ".github" / "workflows" / "python-ci.yml"
+    assert "pull-requests" not in workflow.read_text(), (
+        "python-ci.yml requests a pull-requests permission; every caller would then be "
+        "forced to grant it, failing at startup otherwise. Put the job that needs it in "
+        "precommit-advisory.yml instead."
+    )
