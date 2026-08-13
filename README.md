@@ -43,9 +43,9 @@ Set `hook-stage: pre-push` if the repo reserves its slow hooks for that stage �
 hooks silently stop running on PRs. Pass the same value to `precommit-advisory.yml` if you call it,
 or the two runs disagree about which hooks apply.
 
-Requires a `mise.toml` with the tasks being run, and a `uv.lock` (the workflow runs
-`uv sync --locked` and fails on lockfile drift). Bumping the project version without re-running
-`uv lock` is enough to fail it.
+Requires a `mise.toml` with the tasks being run, and a `uv.lock` — the workflow runs
+`uv sync --locked`, so any lockfile drift fails it, including a project version bumped without
+re-running `uv lock`.
 
 ### `precommit-advisory.yml`
 
@@ -70,9 +70,8 @@ jobs:
 
 **`pull-requests: write` is required at the call site.** A called workflow's job permissions are
 validated when the run starts, before any `if:` can skip the job, so omitting it fails the whole run
-as `startup_failure` — no job, no log, no diagnostic. That behaviour is why this is a separate
-workflow: it used to be a job inside `python-ci.yml`, which forced *every* consumer to grant write
-access whether or not it wanted the comment.
+as `startup_failure` — no job, no log, no diagnostic. It is a separate workflow so that only the
+repositories wanting the comment grant write access.
 
 ### `conventional-commits.yml`
 
@@ -100,9 +99,8 @@ local `commit-msg` hook — local and CI verdicts cannot disagree.
 
 `types` governs both jobs: it is compiled into a throwaway commitizen schema rather than read from
 the consumer's `[tool.commitizen]`, so the title check and the commit check cannot disagree about
-what is valid. The default matches commitizen's built-in set exactly — including `bump`, which
-`cz bump` emits — so a commit the local `commit-msg` hook accepts cannot fail here. That equivalence
-is asserted by `tests/test_action_pins.py`, not maintained by hand. Types must be bare words
+what is valid. The default is commitizen's own set, including `bump` as `cz bump` emits it, so a
+commit the local `commit-msg` hook accepts cannot fail here. Types must be bare words
 (`[a-zA-Z0-9_-]`).
 
 This workflow needs no `mise.toml` — it installs `uv` directly, so a repo with no mise config can
@@ -147,10 +145,7 @@ Pin `@v2`. `v2.x.y` tags are immutable; `v2` is force-moved to each release, so 
 next run without a PR in every consumer. A change that breaks an existing call site gets a new
 major tag instead.
 
-`v1` is frozen at `v1.0.1` and is not maintained. It was never consumed: verifying it against a real
-caller showed that `python-ci.yml` could not be called without granting `pull-requests: write`, and
-splitting the advisory job out to fix that removed an input. That is a breaking contract change, so
-it took a major tag rather than moving `v1`.
+`v1` is frozen and unmaintained.
 
 One exception to that immutability: `precommit-advisory.yml` references
 `actions/precommit-advisory-pr@v2`, because a reusable workflow cannot interpolate its own ref into

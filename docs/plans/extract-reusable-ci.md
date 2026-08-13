@@ -4,15 +4,8 @@ Analysis and implementation plan for consolidating GitHub Actions across four re
 `python-app-baseline`, `opus-magnum`, `python-cli-app-template`, and `repo-factory`. Delete this
 file once the extraction is done or abandoned.
 
-**Status:** steps 1–3 done. `turboBasic/github-actions` exists, is populated, is tagged, and has
-been verified against a real caller. Steps 2 and 3 ran in **swapped order** — tag first, then verify
-at the tag — because `precommit-advisory.yml` references `actions/precommit-advisory-pr@vN` and a
-reusable workflow cannot interpolate its own ref, so that path cannot be exercised at `@main` at all.
-Safe precisely because no consumer existed yet.
-
-Verification found two defects (see step 3) and the second one broke the input contract, so the
-current major is **`v2`**, not `v1`. Consumers pin `@v2`. Step 4 — rewiring the four consumers — is
-open; nothing has been rewired. See [`../consumers.md`](../consumers.md).
+**Status:** steps 1–3 done; the current major is **`v2`** and consumers pin `@v2`. Step 4, rewiring
+the four consumers, is open — nothing is rewired yet. See [`../consumers.md`](../consumers.md).
 
 ## Decisions taken before drafting
 
@@ -20,7 +13,7 @@ open; nothing has been rewired. See [`../consumers.md`](../consumers.md).
 | --- | --- |
 | Destination | New public repo `turboBasic/github-actions`, holding both reusable workflows and composite actions |
 | Canonical CI idiom | Merge the best of both: `mise` tasks + SHA pins from `python-app-baseline`, plus pre-commit caching and changed-files scoping from `opus-magnum` |
-| Consumer pinning | Moving major tag (`@v1` as planned; `@v2` as shipped), which this repo advances |
+| Consumer pinning | Moving major tag `@v2`, which this repo advances |
 | Scope of this task | Plan document only |
 
 ## What exists today
@@ -264,8 +257,7 @@ sites plus one versioned source.
 ## Versioning
 
 `@v2` moves; `v2.x.y` tags are immutable. Release flow: tag `v2.1.0`, then force-move `v2` to it.
-Consumers pin `@v2` and pick up fixes on their next run. `v1` is frozen at `v1.0.1` and unmaintained;
-it was never consumed.
+Consumers pin `@v2` and pick up fixes on their next run. `v1` is frozen and unmaintained.
 
 This deliberately differs from the "pin third-party actions to a SHA" rule, and the distinction is
 load-bearing: the rule exists because a third-party tag can be retroactively repointed by someone
@@ -295,51 +287,32 @@ Scaffold per the layout above: `.editorconfig`, `.gitattributes`, `.gitignore`, 
 Done. Also landed: `tests/test_action_pins.py`, `renovate.json`, `zizmor.yml`, and the
 community-health files.
 
-### 2. Tag `v1.0.0` and `v1` — **done**
+### 2. Tag the major — **done**
 
 ```bash
-git tag -a v1.0.0 -m "..." && git tag -f v1 v1.0.0 && git push --tags
+git tag -a v2.0.0 -m "..." && git tag -f v2 v2.0.0 && git push origin v2.0.0 && git push -f origin v2
 ```
 
-Before verification, not after, because `python-ci.yml`'s advisory job references
-`actions/precommit-advisory-pr@v1` and cannot be made to resolve at `@main`. No consumer exists, so
-a `v1` that turns out wrong costs a force-move and nothing else.
+Tag before verifying, not after: `precommit-advisory.yml` references
+`actions/precommit-advisory-pr@v2`, and a reusable workflow cannot interpolate its own ref, so that
+path cannot resolve at `@main` at all. Safe while no consumer is wired up — a wrong tag costs a
+force-move.
 
 ### 3. Verify before any consumer changes — **done**
 
-Verified from `turboBasic/gha-v1-verify`, a throwaway repository calling the workflows at `@v1`. All
-five checks passed:
+Lint cannot establish that a reusable workflow runs. Verify from a throwaway repository calling the
+workflows at the major tag, and re-verify there after any change to a call contract:
 
 - a valid PR title passes, an invalid one fails;
 - `cz check` catches a bad commit, and a narrowed `types` input is enforced by *both* jobs;
 - `conventional-commits.yml` passes in a repo with **no `mise.toml`**;
-- the advisory action posts exactly one comment and *updates* it on a second push (same comment id,
-  `updated_at` moved);
-- `hook-stage: pre-push` runs the pre-push hooks, and omitting it skips them — confirmed by a marker
-  the hook echoes, present in one job and absent in the other.
+- the advisory workflow posts exactly one comment and *updates* it on a second push;
+- `hook-stage: pre-push` runs the pre-push hooks, and omitting it skips them;
+- `python-ci.yml` runs for a caller granting only `contents: read`.
 
-It also found two defects that lint could not have, which is the whole argument for this step:
-
-1. **`bump` was missing from the default `types`.** commitizen's built-in schema has twelve types and
-   the default listed eleven, so a `cz bump` release commit passed the local `commit-msg` hook and
-   failed CI. Fixed in `v1.0.1`; the equivalence is now asserted against commitizen itself.
-2. **`python-ci.yml` could not be called without `pull-requests: write`.** Its advisory job declared
-   that permission, and GitHub validates a called workflow's job permissions when the run starts,
-   *before* `if:` can skip the job. A caller granting only `contents: read` got `startup_failure` —
-   no job, no log, no diagnostic. `python-app-baseline`, on "defaults throughout", would have hit
-   this first and had nothing to debug with.
-
-The fix for (2) moved the advisory job into its own `precommit-advisory.yml`, so only repositories
-that want the comment grant write access. That removed the `advisory-all-files` input, a breaking
-contract change, so it shipped as **`v2.0.0`** with `v1` left frozen at `v1.0.1` rather than moved.
-Consumers pin `@v2`.
-
-A third, smaller lesson: `uv.lock` records the project version, so bumping `pyproject.toml` without
-relocking fails `uv sync --locked` — and `mise run ci` cannot catch it, because that step exists only
-in the workflow. Green locally still does not mean green in CI.
-
-The throwaway repo is at `turboBasic/gha-v1-verify` and can be deleted once `v2` is verified the same
-way.
+The last two need a fixture the repo under test cannot supply by accident: a pre-commit hook defined
+only for `pre-push` that echoes a marker and fails, and a second hook matching a file no PR touches,
+so `--all-files` fails while the changed-files run passes.
 
 ### 4. Migrate consumers, one PR each, in this order
 
@@ -352,8 +325,8 @@ way.
 3. **`opus-magnum`** — private, and the only consumer of the advisory workflow, so the only one
    granting `pull-requests: write`. Calls `python-ci.yml` *and* `precommit-advisory.yml`, passing
    `hook-stage: pre-push` to both: its `make lint-push` reserves mypy for that stage, and the two
-   runs must agree on which hooks apply. Its `[tasks.lint]` already shells to `make lint`, so the
-   default `lint-task` picks it up with no change — the Makefile risk noted below is resolved.
+   runs must agree on which hooks apply. Its `[tasks.lint]` shells to `make lint`, so the default
+   `lint-task` picks it up with no change.
 4. **`python-cli-app-template`** — `conventional-commits` only, which needs no `mise.toml` (the
    workflow installs `uv` via `setup-uv` rather than `mise-action`). **It is a GitHub template repo**,
    so every future generated repo inherits whatever lands here; a broken `@v2` reference propagates
@@ -390,9 +363,6 @@ not yet.
   `dev` group includes `lint` and `uv sync` installs `dev` by default, so `uv run pre-commit` works
   there too (verified). Still one convention too many for the same tool; worth unifying on `uv run`
   in the composite action, which would also drop its implicit dependency on mise.
-- **`opus-magnum`'s `make lint` indirection** was a stated risk and is resolved: its `[tasks.lint]`
-  wraps `make lint`, which the default `lint-task` invokes unchanged.
-
 ## Abort
 
 Nothing is destructive before step 4. Each consumer migration is a single PR that can be reverted. If the approach

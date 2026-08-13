@@ -72,15 +72,13 @@ jobs:
         with:
           fetch-depth: 0 # cz check needs the full range, not just the tip
           persist-credentials: false
-      # setup-uv rather than mise-action: this workflow needs nothing but uvx, and a
-      # consumer is not required to have a mise.toml to have its commit messages
-      # checked — python-cli-app-template has none and calls only this workflow.
+      # setup-uv rather than mise-action: only uvx is needed, and a consumer must not
+      # have to keep a mise.toml just to get its commit messages checked.
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
 
-      # The `types` input is authoritative, so it is compiled into a throwaway
-      # commitizen config rather than letting cz fall back to the consumer's own
-      # [tool.commitizen] — which would let this job and the title job disagree.
-      # Written outside the workspace to keep the checkout clean.
+      # `types` is compiled into a throwaway config rather than letting cz fall back to
+      # the consumer's own [tool.commitizen], which would let this job and the title job
+      # disagree. Written outside the workspace to keep the checkout clean.
       - name: Build the commitizen schema
         env:
           TYPES: ${{ inputs.types }}
@@ -98,8 +96,8 @@ jobs:
           schema_pattern = "(?s)(${types_pattern})(\\\\(\\\\S+\\\\))?!?: ([^\\\\n\\\\r]+)((\\\\n\\\\n.*)|(\\\\s*))?\$"
           EOF
 
-      # commitizen rather than commitlint: the same tool already enforces this in
-      # the commit-msg hook, so local and CI verdicts cannot diverge.
+      # commitizen rather than commitlint: the same tool runs in the commit-msg hook, so
+      # local and CI verdicts cannot diverge.
       - name: Check commit messages
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}

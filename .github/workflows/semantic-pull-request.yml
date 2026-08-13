@@ -30,12 +30,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Spelled out because the action's own default comes from
-          # conventional-commit-types, which has eleven types and no `bump`, while
-          # ci.yml's `cz check` accepts commitizen's twelve. Squash is the only merge
-          # method here, so the title becomes the commit: without `bump`, a release
-          # commit could clear the commit check while no valid title could carry it.
-          # tests/test_action_pins.py asserts this stays equal to commitizen's set.
+          # Must equal commitizen's set, which ci.yml and the commit-msg hook enforce on
+          # the commits: squash is the only merge method here, so the title becomes the
+          # commit. The action's own default is a different set, so it cannot be relied
+          # on. Asserted by tests/test_action_pins.py.
           types: |
             build
             bump
