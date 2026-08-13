@@ -69,11 +69,7 @@ def test_every_reusable_workflow_declares_workflow_call() -> None:
         assert "workflow_call:" in path.read_text(), f"{path.name} is not callable"
 
 
-def test_default_types_match_the_commitizen_builtin_set() -> None:
-    # A consumer's commit-msg hook runs commitizen's built-in schema, so any type the
-    # hook accepts and this default rejects is a local-vs-CI disagreement — the exact
-    # thing the workflow claims to make impossible. `bump` was missing here, and
-    # `cz bump` emits "bump: version X → Y", so releases failed CI.
+def _commitizen_types() -> set[str]:
     from commitizen.config.base_config import BaseConfig
     from commitizen.cz.conventional_commits.conventional_commits import (
         ConventionalCommitsCz,
@@ -82,16 +78,34 @@ def test_default_types_match_the_commitizen_builtin_set() -> None:
     pattern = ConventionalCommitsCz(BaseConfig()).schema_pattern()
     group = re.search(r"\(([a-z|]{10,})\)", pattern)
     assert group, f"could not find the type alternation in {pattern!r}"
-    builtin = set(group.group(1).split("|"))
+    return set(group.group(1).split("|"))
 
-    workflow = (REPO_ROOT / ".github" / "workflows" / "conventional-commits.yml").read_text()
-    block = re.search(r"default: \|\n((?:\s{10}\w+\n)+)", workflow)
-    assert block, "could not find the types default block"
-    declared = set(block.group(1).split())
 
+def _block_of_words(path: Path, key: str) -> set[str]:
+    block = re.search(rf"{key}: \|\n((?:[ ]+[\w-]+\n)+)", path.read_text())
+    assert block, f"could not find a `{key}: |` block in {path.name}"
+    return set(block.group(1).split())
+
+
+@pytest.mark.parametrize(
+    ("workflow", "key"),
+    [("conventional-commits.yml", "default"), ("semantic-pull-request.yml", "types")],
+)
+def test_allowed_types_match_the_commitizen_builtin_set(workflow: str, key: str) -> None:
+    # Commit messages are checked by commitizen — the `commit-msg` hook locally, and
+    # `cz check` in ci.yml — so any type commitizen accepts and one of these lists
+    # rejects is a gate disagreeing with the tool it claims to mirror.
+    #
+    # It has happened twice. conventional-commits.yml omitted `bump`, so a `cz bump`
+    # release commit passed the hook and failed CI. semantic-pull-request.yml passed no
+    # types at all and inherited the action's own default, which comes from
+    # conventional-commit-types and also has no `bump` — and squash is the only merge
+    # method here, so the title becomes the commit.
+    declared = _block_of_words(REPO_ROOT / ".github" / "workflows" / workflow, key)
+    builtin = _commitizen_types()
     assert declared == builtin, (
-        f"conventional-commits.yml types default disagrees with commitizen's built-in "
-        f"set: missing {sorted(builtin - declared)}, extra {sorted(declared - builtin)}"
+        f"{workflow} `{key}` disagrees with commitizen's built-in set: "
+        f"missing {sorted(builtin - declared)}, extra {sorted(declared - builtin)}"
     )
 
 
