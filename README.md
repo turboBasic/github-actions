@@ -175,7 +175,9 @@ subjects and `{{ changes }}` with full commit messages, then patches the PR body
     head-sha: ${{ github.event.pull_request.head.sha }}
 ```
 
-Needs `pull-requests: write` and a full-history checkout (`fetch-depth: 0`).
+Needs `pull-requests: write` and a full-history checkout (`fetch-depth: 0`) — commit subjects come
+from the range, so a shallow clone renders an empty body. It installs `uv` itself; the caller needs no
+Python or `uv` setup. `template-path` overrides the default `.github/PULL_REQUEST_TEMPLATE.md`.
 
 ## Versioning
 

@@ -28,6 +28,11 @@ inputs:
 runs:
   using: composite
   steps:
+    # Installed here rather than expected from the caller: uv is not on the runner
+    # images, and a composite action that needs a tool the caller has no reason to
+    # provide fails with `uvx: command not found` and nothing to go on.
+    - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
     # uvx keeps jinja2 out of the runner's global site-packages, and pins it rather
     # than resolving whatever `pip install jinja2` yields on the day.
     - name: Render and update PR description
