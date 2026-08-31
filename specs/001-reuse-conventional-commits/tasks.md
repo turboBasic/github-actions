@@ -63,7 +63,7 @@ title is checked twice (once under each name). Redundant, temporary, and harmles
 
 ### Implementation for User Story 1
 
-- [ ] T003 [US1] Create `.github/workflows/commit-messages.yml`: `on: pull_request` with
+- [X] T003 [US1] Create `.github/workflows/commit-messages.yml`: `on: pull_request` with
   `types: [opened, edited, reopened, synchronize]`, workflow-level `permissions: contents: read` and
   `pull-requests: read`, `concurrency` keyed on `${{ github.workflow }}-${{ github.head_ref }}` with
   `cancel-in-progress: true`, and a single job `commits` whose `uses:` is
@@ -72,7 +72,7 @@ title is checked twice (once under each name). Redundant, temporary, and harmles
   (`undocumented-permissions`, research R4). A header comment must state why the reference is
   relative — the `@v2` form resolves at the tag and would validate a change against the previous
   version of itself. No `timeout-minutes`: a calling job may not set it, and the callee defaults to 5
-- [ ] T004 [US1] In `tests/test_action_pins.py`, add `commit-messages.yml` to the caller exclusion set
+- [X] T004 [US1] In `tests/test_action_pins.py`, add `commit-messages.yml` to the caller exclusion set
   in `test_every_reusable_workflow_declares_workflow_call` (line ~65) — without this the new caller is
   swept as a reusable workflow and the test fails — and add a new test asserting the self-call is
   relative: the caller's `uses:` must be `./.github/workflows/conventional-commits.yml`, never a
@@ -80,15 +80,17 @@ title is checked twice (once under each name). Redundant, temporary, and harmles
   restoring the staleness bug (research R8). Scope the new test to the caller only:
   `precommit-advisory.yml` references `turboBasic/github-actions/actions/precommit-advisory-pr@v2`
   deliberately
-- [ ] T005 [US1] Run `mise run ci` — `actionlint`, `zizmor --pedantic`, the workflow-timeout schema,
+- [X] T005 [US1] Run `mise run ci` — `actionlint`, `zizmor --pedantic`, the workflow-timeout schema,
   `yamllint --strict` and `pytest` must all pass (all four were probed against this exact shape in
   research R5)
-- [ ] T006 [US1] Open the pull request with `gh pr create`, title in Conventional Commits form. Both
+- [X] T006 [US1] Open the pull request with `gh pr create`, title in Conventional Commits form. Both
   `PR title` and `commits / PR title` should report — the old required check still exists at this point,
   so the pull request is not yet blocked
-- [ ] T007 [US1] Run quickstart Scenario 4 against the open pull request: push a break to
-  `.github/workflows/conventional-commits.yml` (a `types` value containing a space, which its own
-  bare-word guard rejects), confirm `commits / Commit messages` fails **and that the log names the
+- [X] T007 [US1] Run quickstart Scenario 4 against the open pull request: push a break to
+  `.github/workflows/conventional-commits.yml` (a `types` value containing a **dot**, e.g.
+  `not.a.type` — *not* a value containing a space, as quickstart originally said: `tr -s '[:space:]'
+  '\n'` splits on the space before the bare-word guard sees it, so `not a type` is accepted as three
+  bare words. Corrected in quickstart.md by T020), confirm `commits / Commit messages` fails **and that the log names the
   broken value** — a pass here means the reference is resolving at a tag and the feature does not work
   — then revert the break and confirm the check goes green
 
@@ -107,17 +109,17 @@ default in `conventional-commits.yml`; `rg -n 'pull_request_target' .github/` re
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] Delete `.github/workflows/semantic-pull-request.yml`, and with it the second copy of
+- [X] T008 [US2] Delete `.github/workflows/semantic-pull-request.yml`, and with it the second copy of
   the allowed-types list and the repository's only `pull_request_target` trigger
-- [ ] T009 [US2] In `tests/test_action_pins.py`, remove `"semantic-pull-request.yml"` from the caller
+- [X] T009 [US2] In `tests/test_action_pins.py`, remove `"semantic-pull-request.yml"` from the caller
   exclusion set (line ~65) and drop the `("semantic-pull-request.yml", "types")` case from
   `test_allowed_types_match_the_commitizen_builtin_set`'s parametrisation (line ~92), leaving the
   single `conventional-commits.yml` `default` case
-- [ ] T010 [US2] Remove the entire `dangerous-triggers` rule block from `.github/zizmor.yml`, leaving
+- [X] T010 [US2] Remove the entire `dangerous-triggers` rule block from `.github/zizmor.yml`, leaving
   `unpinned-uses` as the only rule. Its justifying comment is factually wrong (a fork pull request's
   title *is* readable under `pull_request` — research R3) and the workflow it exempted no longer
   exists. Deleting a suppression rather than adding one is why this satisfies principle VII
-- [ ] T011 [US2] In `.github/workflows/ci.yml`, delete the `Check commit messages` step and its
+- [X] T011 [US2] In `.github/workflows/ci.yml`, delete the `Check commit messages` step and its
   `if: github.event_name == 'pull_request'` guard, and drop `fetch-depth: 0` with its
   "cz check needs the full range" comment from the checkout — nothing else in that job reads git
   history, so leaving it makes the comment a lie about why a full clone is fetched (research R7)

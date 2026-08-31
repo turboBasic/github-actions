@@ -78,7 +78,7 @@ def test_every_reusable_workflow_declares_workflow_call() -> None:
     reusable = [
         p
         for p in (REPO_ROOT / ".github" / "workflows").glob("*.yml")
-        if p.name not in {"ci.yml", "commit-messages.yml", "semantic-pull-request.yml"}
+        if p.name not in {"ci.yml", "commit-messages.yml"}
     ]
     assert reusable, "no reusable workflows found"
     for path in reusable:
@@ -103,15 +103,13 @@ def _block_of_words(path: Path, key: str) -> set[str]:
     return set(block.group(1).split())
 
 
-@pytest.mark.parametrize(
-    ("workflow", "key"),
-    [("conventional-commits.yml", "default"), ("semantic-pull-request.yml", "types")],
-)
-def test_allowed_types_match_the_commitizen_builtin_set(workflow: str, key: str) -> None:
+def test_allowed_types_match_the_commitizen_builtin_set() -> None:
     # commitizen has the final say on commit messages, through the commit-msg hook and
-    # `cz check`. A type it accepts that one of these lists rejects is a gate disagreeing
-    # with the tool it mirrors, and `bump` is the one that differs from the actions' own
-    # defaults — which is why neither list may be left to a default.
+    # `cz check`. A type it accepts that this list rejects is a gate disagreeing with the
+    # tool it mirrors, and `bump` is the one that differs from the action's own default —
+    # which is why the list may not be left to a default. There is one declaration now:
+    # the title and commit checks both read it from this input.
+    workflow, key = "conventional-commits.yml", "default"
     declared = _block_of_words(REPO_ROOT / ".github" / "workflows" / workflow, key)
     builtin = _commitizen_types()
     assert declared == builtin, (

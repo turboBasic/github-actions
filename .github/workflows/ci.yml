@@ -1,6 +1,10 @@
-# This repo cannot call its own reusable python-ci.yml: a workflow_call reference is
-# resolved at the called ref, so a broken change would still be linted by the last
-# good tag and pass. The checks run inline instead.
+# The checks run inline rather than through this repo's own python-ci.yml, which has no
+# input for a fourth task and so would skip `lint-schemas`.
+#
+# Not for the reason once recorded here — that a self-call is always resolved at the
+# called ref and would validate a broken change against the last good tag. That is true
+# of the `@vN` form only; a relative `./` reference resolves at the caller's own commit,
+# which is how commit-messages.yml calls conventional-commits.yml.
 
 name: CI
 
@@ -24,15 +28,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0 # cz check needs the full range, not just the tip
           persist-credentials: false
       - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
       - run: uv sync --locked
-      - name: Check commit messages
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: uv run cz check --rev-range "${BASE_SHA}..HEAD"
       - run: mise run lint
       - run: mise run lint-schemas
       - run: mise run typecheck
