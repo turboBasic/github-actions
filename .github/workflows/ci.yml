@@ -34,5 +34,6 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: uv run cz check --rev-range "${BASE_SHA}..HEAD"
       - run: mise run lint
+      - run: mise run lint-schemas
       - run: mise run typecheck
       - run: mise run test

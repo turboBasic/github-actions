@@ -19,6 +19,8 @@ dev = [
   # Not a runtime dep: the composite action installs it via uvx. Here so pyright can
   # resolve the import when checking actions/populate-pr-description/populate.py.
   "jinja2>=3.1",
+  "yamllint>=1.35",
+  "check-jsonschema>=0.33",
 ]
 
 [tool.ruff]

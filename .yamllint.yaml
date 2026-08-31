@@ -1,0 +1,19 @@
+extends: default
+
+# Vendored Spec Kit machinery, rewritten byte-for-byte by `specify integration upgrade`.
+ignore: |
+  .specify/
+  .claude/skills/speckit-*/
+
+rules:
+  # A workflow's `on:` key is YAML 1.1's `true`. It is spelled that way by design.
+  truthy:
+    check-keys: false
+  # Nothing here is a multi-document stream, so a leading `---` carries no information.
+  document-start: disable
+  # As with markdownlint's MD013: an issue-template description or a `run:` shell line is
+  # not rewrapped to fit a column, and splitting one to satisfy a linter changes behaviour.
+  line-length: disable
+  # A SHA pin's trailing `# vX.Y.Z` is written with one space throughout this repo.
+  comments:
+    min-spaces-from-content: 1

@@ -204,11 +204,13 @@ Third-party actions *inside* this repo are pinned to full SHAs with no exception
 
 ```sh
 mise run setup   # uv sync --locked, then prek install
-mise run ci      # lint (actionlint + zizmor + ruff), typecheck, test
+mise run ci      # lint, schema validation, typecheck, test
 ```
 
 `actionlint` does not look outside `.github/workflows`, which is where none of the composite actions
-live — `zizmor` covers both trees and is the security linter.
+live — `zizmor` covers both trees and is the security linter. `yamllint` covers all YAML, including
+the config files under `.github/` that neither of the other two reads, and `mise run lint-schemas`
+validates those against their published JSON schemas.
 
 <!-- Links -->
 

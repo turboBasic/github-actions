@@ -32,11 +32,23 @@ run = [
 description = "Lint workflows, scripts, prose, and spelling"
 run = [
   "uv run ruff check .",
+  "uv run yamllint --strict .",
   "actionlint",
   # Composite actions live outside .github/, where actionlint does not look.
   "zizmor --pedantic .github/workflows actions",
   "markdownlint-cli2 \"**/*.md\"",
   "cspell lint --no-progress .",
+]
+
+[tasks.lint-schemas]
+description = "Validate GitHub config YAML against its published schemas"
+run = [
+  "uv run check-jsonschema --builtin-schema vendor.dependabot .github/dependabot.yml",
+  "uv run check-jsonschema --builtin-schema vendor.github-issue-forms .github/ISSUE_TEMPLATE/[0-9]-*.yml",
+  "uv run check-jsonschema --builtin-schema vendor.github-issue-config .github/ISSUE_TEMPLATE/config.yml",
+  "uv run check-jsonschema --builtin-schema vendor.github-actions actions/*/action.yml",
+  "uv run check-jsonschema --schemafile https://www.schemastore.org/github-release-config.json .github/release.yml",
+  "uv run check-jsonschema --builtin-schema custom.github-workflows-require-timeout .github/workflows/*.yml",
 ]
 
 [tasks.typecheck]
@@ -49,7 +61,7 @@ run = "uv run pytest"
 
 [tasks.ci]
 description = "Run everything CI runs, locally"
-depends = ["lint", "typecheck", "test"]
+depends = ["lint", "lint-schemas", "typecheck", "test"]
 
 # Never `specify self upgrade` — it replaces the binary behind mise's back, leaving
 # the committed manifests describing a version nothing here pins. Bump

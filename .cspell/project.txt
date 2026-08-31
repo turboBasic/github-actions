@@ -40,6 +40,7 @@ levelname
 precommit
 pyupgrade
 ruamel
+schemafile
 
 # --- Config keys ---
 addopts

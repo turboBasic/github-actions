@@ -142,6 +142,11 @@ Python 3.14. The only Python here supports the actions and their tests.
 - prek is the linting entry point. Never call `ruff` directly.
 - `actionlint` covers `.github/workflows`; it does not look in `actions/`. `zizmor` covers both and
   is the security linter — a finding it raises is addressed, not silenced.
+- `.yamllint.yaml` owns yamllint's rules and exempt paths.
+- A new GitHub config file gets a `check-jsonschema` hook and a `lint-schemas` line. Prefer
+  `--builtin-schema` to `--schemafile <url>`: a vendored schema needs no network and cannot be
+  repointed. `.github/zizmor.yml` gets none — its only published schema is served off a floating
+  `main` ref, and zizmor rejects an unknown field in its own config anyway.
 - pyright strict. Never a blanket `# type: ignore` or a loosened mode to clear an error.
 - pytest. Never `unittest.TestCase`. `tests/` asserts properties of the YAML, since there is no
   application to test.

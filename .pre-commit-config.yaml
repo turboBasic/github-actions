@@ -13,7 +13,6 @@ repos:
         exclude: &vendored_speckit ^(\.specify/|\.claude/skills/speckit-)
       - id: end-of-file-fixer
         exclude: *vendored_speckit
-      - id: check-yaml
       - id: check-toml
       - id: check-added-large-files
       - id: check-merge-conflict
@@ -44,6 +43,52 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+
+      # .yamllint.yaml owns which rules apply and which paths are exempt.
+      - id: yamllint
+        name: yamllint
+        entry: uv run yamllint --strict
+        language: system
+        types: [yaml]
+
+      # GitHub silently ignores a key it does not recognise in any of these.
+      - id: check-dependabot
+        name: check-jsonschema (dependabot)
+        entry: uv run check-jsonschema --builtin-schema vendor.dependabot
+        language: system
+        files: ^\.github/dependabot\.ya?ml$
+
+      - id: check-issue-forms
+        name: check-jsonschema (issue forms)
+        entry: uv run check-jsonschema --builtin-schema vendor.github-issue-forms
+        language: system
+        files: ^\.github/ISSUE_TEMPLATE/(?!config\.)[^/]+\.ya?ml$
+
+      - id: check-issue-config
+        name: check-jsonschema (issue template config)
+        entry: uv run check-jsonschema --builtin-schema vendor.github-issue-config
+        language: system
+        files: ^\.github/ISSUE_TEMPLATE/config\.ya?ml$
+
+      - id: check-composite-actions
+        name: check-jsonschema (composite actions)
+        entry: uv run check-jsonschema --builtin-schema vendor.github-actions
+        language: system
+        files: ^actions/[^/]+/action\.ya?ml$
+
+      # A URL because check-jsonschema vendors no copy of this one. Cached after first use.
+      - id: check-release-config
+        name: check-jsonschema (release notes config)
+        entry: uv run check-jsonschema --schemafile https://www.schemastore.org/github-release-config.json
+        language: system
+        files: ^\.github/release\.ya?ml$
+
+      # Not a schema: asserts every job sets timeout-minutes.
+      - id: check-workflow-timeouts
+        name: check-jsonschema (workflow timeouts)
+        entry: uv run check-jsonschema --builtin-schema custom.github-workflows-require-timeout
+        language: system
+        files: ^\.github/workflows/[^/]+\.ya?ml$
 
       # actionlint does not look outside .github/workflows, which is where every
       # composite action in this repo lives.
