@@ -1,10 +1,10 @@
 {
   "gitignore": true,
   // disable VS Code extension from flagging this file in Problems
-  "ignores": ["tmp/ad-hoc-prompts.md"],
-  // MD013 (line length): prose here is never rewrapped, so `line_length` is effectively off.
-  // `heading_line_length` stays enforced at 100 (matching .editorconfig's [*.py] and ruff) —
-  // an oversized heading is a real smell, unlike an unwrapped paragraph.
+  "ignores": [
+    "tmp/ad-hoc-prompts.md"
+  ],
+  // MD013 (line length): prose here is never rewrapped, so `line_length` is effectively off
   "config": {
     "default": true,
     "MD013": {
