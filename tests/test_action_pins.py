@@ -1,5 +1,9 @@
+import json
+import os
 import re
+import urllib.request
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -11,6 +15,37 @@ SELF_WORKFLOW = "turboBasic/github-actions/.github/workflows/"
 SELF_PREFIXES = ("$/", "./")
 SHA = re.compile(r"^[0-9a-f]{40}$")
 TAG_COMMENT = re.compile(r"#\s*v?\d")
+
+# GitHub composes a called job's check name as `<caller job id> / <called job name>`, so both halves
+# live in different files from the ruleset that requires them. Renaming either silently retires the
+# context and blocks every pull request. This table is the single statement of that contract: the
+# tree is checked against it offline, the live ruleset against it in CI.
+REQUIRED_CHECKS = [
+    ("ci / CI", "ci.yml", "python-ci.yml"),
+    ("commits / PR title", "commit-messages.yml", "conventional-commits.yml"),
+    ("commits / Commit messages", "commit-messages.yml", "conventional-commits.yml"),
+]
+# Applied rules for a branch, unlike the rulesets API, need no `administration` scope — it answers
+# unauthenticated on a public repo, so the default GITHUB_TOKEN is enough.
+BRANCH_RULES_URL = "https://api.github.com/repos/turboBasic/github-actions/rules/branches/main"
+
+
+def _live_required_contexts() -> set[str]:
+    request = urllib.request.Request(
+        BRANCH_RULES_URL, headers={"Accept": "application/vnd.github+json"}
+    )
+    # Only to lift the 60/hour unauthenticated rate limit, which shared runner IPs do reach.
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        request.add_header("Authorization", f"Bearer {token}")
+    with urllib.request.urlopen(request, timeout=30) as response:
+        rules: list[dict[str, Any]] = json.load(response)
+    return {
+        str(check["context"])
+        for rule in rules
+        if rule.get("type") == "required_status_checks"
+        for check in rule["parameters"]["required_status_checks"]
+    }
 
 
 def _yaml_files() -> list[Path]:
@@ -103,30 +138,35 @@ def test_a_self_call_resolves_at_the_commit_under_review() -> None:
         )
 
 
-def test_the_required_check_names_are_intact() -> None:
-    # `commits / PR title` and `commits / Commit messages` are required contexts on the `main`
-    # ruleset, composed from the caller's job id and the called workflow's job names. Rename
-    # any of the three and both stop reporting, blocking every pull request until the ruleset
-    # is edited by hand — and nothing in the tree would look wrong.
-    caller = REPO_ROOT / ".github" / "workflows" / "commit-messages.yml"
-    called = REPO_ROOT / ".github" / "workflows" / "conventional-commits.yml"
-    assert "\n  commits:\n" in caller.read_text(), (
-        f"{caller.name}'s calling job must keep the id `commits`; it is the prefix of both "
-        f"required checks."
+@pytest.mark.parametrize(("context", "caller_name", "called_name"), REQUIRED_CHECKS)
+def test_the_required_check_names_are_intact(
+    context: str, caller_name: str, called_name: str
+) -> None:
+    job_id, _, job_name = context.partition(" / ")
+    caller = REPO_ROOT / ".github" / "workflows" / caller_name
+    called = REPO_ROOT / ".github" / "workflows" / called_name
+    assert f"\n  {job_id}:\n" in caller.read_text(), (
+        f"{caller_name}'s calling job must keep the id `{job_id}`; it is the first half of the "
+        f"required check `{context}`."
     )
-    called_text = called.read_text()
-    for job_name in ("PR title", "Commit messages"):
-        assert f"name: {job_name}\n" in called_text, (
-            f"{called.name} must keep `name: {job_name}`; it is the second half of the "
-            f"required check `commits / {job_name}`."
-        )
-    # Same failure mode for `ci / CI`, since ci.yml calls python-ci.yml rather than running inline.
-    assert "\n  ci:\n" in (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(), (
-        "ci.yml's calling job must keep the id `ci`; it is the prefix of the required check "
-        "`ci / CI`."
+    assert f"name: {job_name}\n" in called.read_text(), (
+        f"{called_name} must keep `name: {job_name}`; it is the second half of the required "
+        f"check `{context}`."
     )
-    assert "name: CI\n" in (REPO_ROOT / ".github" / "workflows" / "python-ci.yml").read_text(), (
-        "python-ci.yml must keep `name: CI`; it is the second half of the required check `ci / CI`."
+
+
+@pytest.mark.live
+def test_the_ruleset_requires_exactly_the_checks_that_exist() -> None:
+    # The other direction, and the only assertion here that leaves the tree: REQUIRED_CHECKS is
+    # what the workflows compose, so if the ruleset has drifted from it — a context renamed in the
+    # UI, one added for a job that never ships — every pull request blocks on something that can
+    # never report. Nothing in a file would look wrong, which is why this reads the live API.
+    live = _live_required_contexts()
+    expected = {context for context, _, _ in REQUIRED_CHECKS}
+    assert live == expected, (
+        f"the `main` ruleset requires {sorted(live)}, but the workflows compose "
+        f"{sorted(expected)}. A required context that no job reports blocks every pull request; "
+        f"reconcile the ruleset with REQUIRED_CHECKS."
     )
 
 

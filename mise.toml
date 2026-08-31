@@ -55,6 +55,12 @@ run = "uv run pyright"
 description = "Run the test suite"
 run = "uv run pytest"
 
+# Not in `ci`: it reaches api.github.com, and `mise run ci` stays offline. ci.yml runs it as its
+# own job, which is also where a token is available.
+[tasks.test-live]
+description = "Check the main ruleset still requires checks the workflows report"
+run = "uv run pytest -m live"
+
 [tasks.ci]
 description = "Run everything CI runs, locally"
 depends = ["lint", "typecheck", "test"]

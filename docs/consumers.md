@@ -39,6 +39,12 @@ checks in the same change — for `python-app-baseline` they became `ci / CI`, `
 `commits / Commit messages`. This repository hit the same rename when `ci.yml` stopped running its
 checks inline and began calling `python-ci.yml`: its required `CI` became `ci / CI`.
 
+Here that pairing is no longer trusted to review alone. `REQUIRED_CHECKS` in
+`tests/test_action_pins.py` states each context once; the offline suite asserts the workflows still
+compose those names, and the `Ruleset` job asserts the live `main` ruleset requires exactly them, via
+`GET /repos/{owner}/{repo}/rules/branches/main` — which needs no `administration` scope. A consumer
+wanting the same guard needs its own copy, since the URL is repo-specific.
+
 Call `conventional-commits.yml` from `pull_request`, never `pull_request_target`: both its jobs are
 gated on `github.event_name == 'pull_request'`, so under `pull_request_target` they are skipped
 without failing, and the commit job's checkout would resolve the base ref instead of the commits
