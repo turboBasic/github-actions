@@ -38,7 +38,6 @@ on:
           revert
           style
           test
-          not.a.type
       timeout-minutes:
         type: number
         required: false
