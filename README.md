@@ -141,6 +141,9 @@ caller granting less fails the run as `startup_failure`.
 so under `pull_request_target` this becomes a required check that passes without validating anything.
 The commit job's checkout would also resolve the base ref rather than the commits under review.
 Adding `push` alongside `pull_request` is fine: both jobs skip, which is what you want on a push.
+The same holds for `check-title: false` and `check-commits: false`, which gate the same conditions:
+drop a check and remove its context from your required status checks in the same change, or the
+branch protection page keeps showing a gate that is no longer there.
 
 Commit checking uses commitizen rather than commitlint, because the same tool enforces this in the
 local `commit-msg` hook — local and CI verdicts cannot disagree.
