@@ -148,8 +148,9 @@ Python 3.14. The only Python here supports the actions and their tests.
 ## Quality gates
 
 - prek is the linting entry point. Never call `ruff` directly.
-- `actionlint` covers `.github/workflows`; it does not look in `actions/`. `zizmor` covers both and
-  is the security linter — a finding it raises is addressed, not silenced.
+- `actionlint` covers `.github/workflows`; it does not look in `actions/`. `.github/actionlint.yaml`
+  owns its ignores. `zizmor` covers both and is the security linter — a finding it raises is
+  addressed, not silenced.
 - `.yamllint.yaml` owns yamllint's rules and exempt paths.
 - A new GitHub config file gets a `check-jsonschema` hook and a `check-jsonschema` line in the
   `lint` task. Prefer
@@ -197,9 +198,21 @@ bump and this file is what every AI tool loads.
 
 `mise run ci` reproduces CI locally.
 
-**A self-call must use the relative form** — `./.github/workflows/<name>.yml`, with no
+**A self-call must use the self-repository form** — `$/.github/workflows/<name>.yml`, with no
 `{owner}/{repo}` and no `@{ref}`. It resolves at the caller's own commit, so a change to the called
 workflow is validated by the version under review; the `turboBasic/github-actions/...@vN` form
 resolves at the tag and would validate it against the last good release. `commit-messages.yml` calls
 `conventional-commits.yml` this way, and `ci.yml` calls `python-ci.yml` this way.
-`tests/test_action_pins.py` enforces it, because every other gate accepts both forms.
+`tests/test_action_pins.py` enforces it, because every other gate accepts the tagged form too.
+
+Not the older `./.github/workflows/<name>.yml`, which resolves at the same commit but reaches it
+through the runner's filesystem, so a preceding step can substitute what gets called. zizmor's
+`self-repository` audit rejects it. `$/` is unavailable on GitHub Enterprise Server; nothing here
+targets it.
+
+actionlint 1.7.12 has not learned `$/` yet (rhysd/actionlint#711) and reports it as a malformed
+call, so `.github/actionlint.yaml` ignores that one message — anchored on the `$/` prefix, so a
+genuinely malformed ref still fails. This is the one silenced rule in the repo and it is silencing a
+false positive, not a finding; delete the file when a release closing #711 ships. Unlike
+`.github/zizmor.yml`, that config **does** get a `check-jsonschema` hook: actionlint ignores an
+unknown key in it without a word, so a typo would silently turn the ignore into nothing.

@@ -6,6 +6,9 @@ import pytest
 REPO_ROOT = Path(__file__).parent.parent
 FIRST_PARTY = "turboBasic/"
 SELF_WORKFLOW = "turboBasic/github-actions/.github/workflows/"
+# `$/` is GitHub's self-repository form and `./` its older workspace-relative spelling; neither
+# carries a ref, because both resolve at the caller's own commit.
+SELF_PREFIXES = ("$/", "./")
 SHA = re.compile(r"^[0-9a-f]{40}$")
 TAG_COMMENT = re.compile(r"#\s*v?\d")
 
@@ -32,7 +35,7 @@ def _uses_lines(path: Path) -> list[tuple[int, str]]:
 def test_third_party_actions_are_pinned_to_a_full_sha(path: Path) -> None:
     for number, ref in _uses_lines(path):
         target = ref.split("#")[0].strip()
-        if target.startswith((FIRST_PARTY, "./")):
+        if target.startswith((FIRST_PARTY, *SELF_PREFIXES)):
             continue
         assert "@" in target, f"{path.name}:{number} has no ref: {target}"
         _, _, version = target.partition("@")
@@ -85,13 +88,19 @@ def test_a_self_call_resolves_at_the_commit_under_review() -> None:
             assert not target.startswith(SELF_WORKFLOW), (
                 f"{path.name}:{number} calls this repo's own workflow at a tag ({target}), so a "
                 f"change to it would be validated by the previous release of itself. Use "
-                f"`./.github/workflows/<name>.yml`, which resolves at the caller's own commit."
+                f"`$/.github/workflows/<name>.yml`, which resolves at the caller's own commit."
             )
-    caller = REPO_ROOT / ".github" / "workflows" / "commit-messages.yml"
-    assert "uses: ./.github/workflows/conventional-commits.yml" in caller.read_text(), (
-        f"{caller.name} must keep calling conventional-commits.yml relatively; that call is what "
-        f"exercises it before it is tagged."
-    )
+    # zizmor's self-repository audit rejects the older `./` spelling, which resolves the same way
+    # but off the runner's filesystem, so a preceding step can substitute what gets called.
+    for caller_name, called in (
+        ("commit-messages.yml", "conventional-commits.yml"),
+        ("ci.yml", "python-ci.yml"),
+    ):
+        caller = REPO_ROOT / ".github" / "workflows" / caller_name
+        assert f"uses: $/.github/workflows/{called}" in caller.read_text(), (
+            f"{caller_name} must keep calling {called} at this same commit; that call is what "
+            f"exercises it before it is tagged."
+        )
 
 
 def test_the_required_check_names_are_intact() -> None:
@@ -111,6 +120,14 @@ def test_the_required_check_names_are_intact() -> None:
             f"{called.name} must keep `name: {job_name}`; it is the second half of the "
             f"required check `commits / {job_name}`."
         )
+    # Same failure mode for `ci / CI`, since ci.yml calls python-ci.yml rather than running inline.
+    assert "\n  ci:\n" in (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(), (
+        "ci.yml's calling job must keep the id `ci`; it is the prefix of the required check "
+        "`ci / CI`."
+    )
+    assert "name: CI\n" in (REPO_ROOT / ".github" / "workflows" / "python-ci.yml").read_text(), (
+        "python-ci.yml must keep `name: CI`; it is the second half of the required check `ci / CI`."
+    )
 
 
 def test_every_reusable_workflow_declares_workflow_call() -> None:

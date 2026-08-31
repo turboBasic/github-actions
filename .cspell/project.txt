@@ -29,6 +29,7 @@ hverlin
 jdx
 mhutchie
 monokai
+rhysd
 tamasfe
 vivaxy
 wagoid

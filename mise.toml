@@ -43,6 +43,7 @@ run = [
   "uv run check-jsonschema --builtin-schema vendor.github-issue-config .github/ISSUE_TEMPLATE/config.yml",
   "uv run check-jsonschema --builtin-schema vendor.github-actions actions/*/action.yml",
   "uv run check-jsonschema --schemafile https://www.schemastore.org/github-release-config.json .github/release.yml",
+  "uv run check-jsonschema --schemafile https://www.schemastore.org/actionlint.json .github/actionlint.yaml",
   "uv run check-jsonschema --builtin-schema custom.github-workflows-require-timeout .github/workflows/*.yml",
 ]
 

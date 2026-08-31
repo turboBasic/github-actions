@@ -1,5 +1,5 @@
-# Calls python-ci.yml relatively, so a change to it is validated by the version under
-# review rather than by the last release of itself.
+# Calls python-ci.yml at this same commit, so a change to it is validated by the version
+# under review rather than by the last release of itself.
 
 name: CI
 
@@ -17,6 +17,6 @@ concurrency:
 
 jobs:
   ci:
-    uses: ./.github/workflows/python-ci.yml
+    uses: $/.github/workflows/python-ci.yml
     permissions:
       contents: read
