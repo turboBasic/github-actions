@@ -20,9 +20,15 @@ zizmor
 
 # --- Publisher handles: GitHub actions and VS Code extensions ---
 amannn
+arahata
 charliermarsh
+davidanson
+hverlin
 jdx
+mhutchie
+monokai
 tamasfe
+vivaxy
 wagoid
 zizmorcore
 

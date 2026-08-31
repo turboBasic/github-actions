@@ -1,14 +1,19 @@
 {
   "recommendations": [
+    "arahata.linter-actionlint",
+    "charliermarsh.ruff",
+    "davidanson.vscode-markdownlint",
+    "editorconfig.editorconfig",
+    "github.copilot-chat",
+    "github.vscode-github-actions",
+    "hverlin.mise-vscode",
+    "mhutchie.git-graph",
+    "monokai.theme-monokai-pro-vscode",
     "ms-python.python",
     "ms-python.vscode-pylance",
-    "charliermarsh.ruff",
-    "github.copilot",
-    "github.copilot-chat",
-    "editorconfig.editorconfig",
+    "redhat.vscode-yaml",
     "streetsidesoftware.code-spell-checker",
     "tamasfe.even-better-toml",
-    "redhat.vscode-yaml",
-    "github.vscode-github-actions"
+    "vivaxy.vscode-conventional-commits"
   ]
 }
