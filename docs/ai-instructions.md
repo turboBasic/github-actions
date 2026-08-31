@@ -79,13 +79,13 @@ change that shipped it.
 4. **`mise exec -- <tool>`** — system tools mise manages (`actionlint`, `zizmor`, `shellcheck`).
 
 Never `pip install`. Never activate a venv by hand. Nothing is installed globally: a new runtime or
-CLI is pinned in `mise.toml`, which owns every tool version here.
+CLI is pinned in `mise.toml`, which owns every version in its `[tools]` table — Python tool versions
+are `pyproject.toml`'s.
 
-**`latest` is not a version.** Every `[tools]` entry names one explicitly, so two machines on the same
-commit resolve the same linters — a floating entry made `mise run ci` pass locally and fail in CI on
-the same commit. Renovate's `mise` manager bumps them on the weekend schedule, as `chore(deps):` pull
-requests where the version change is the subject rather than a red check on someone else's work.
-`tests/test_action_pins.py::test_no_mise_tool_version_floats` enforces it.
+**No `[tools]` entry is `latest`.** Each names a version, so two machines on one commit resolve the
+same linters. `.github/renovate.json` enables the `mise` manager that bumps them, and
+`tests/test_action_pins.py::test_no_mise_tool_version_floats` is what stops a new tool arriving
+unpinned.
 
 ### Dependencies
 
