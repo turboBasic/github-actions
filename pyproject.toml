@@ -15,7 +15,6 @@ dev = [
   "pytest>=8.3",
   "ruff>=0.9",
   "pyright>=1.1.390",
-  "pre-commit>=4.0",
   "commitizen>=4.17",
   # Not a runtime dep: the composite action installs it via uvx. Here so pyright can
   # resolve the import when checking actions/populate-pr-description/populate.py.

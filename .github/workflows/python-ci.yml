@@ -38,7 +38,7 @@ on:
         default: test
       lint-changed-only:
         description: >
-          Run pre-commit over changed files instead of the lint task. Faster on a large
+          Run prek over changed files instead of the lint task. Faster on a large
           tree, but a PR can pass while the tree is broken — pair it with a call to
           precommit-advisory.yml, which is the compensating control.
         type: boolean
@@ -46,7 +46,7 @@ on:
         default: false
       hook-stage:
         description: >
-          pre-commit hook stage for the changed-files run. Empty runs the default stage;
+          prek hook stage for the changed-files run. Empty runs the default stage;
           set pre-push for repos that reserve the slow hooks for it, otherwise those
           hooks silently stop running on PRs. Pass the same value to
           precommit-advisory.yml if you call it.
@@ -83,11 +83,11 @@ jobs:
       - name: Sync dependencies
         run: uv sync --locked
 
-      - name: Cache pre-commit environments
+      - name: Cache prek environments
         if: inputs.cache-pre-commit && inputs.lint-changed-only
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.cache/pre-commit
+          path: ~/.cache/prek
           key: precommit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
           restore-keys: |
             precommit-${{ runner.os }}-
@@ -109,10 +109,10 @@ jobs:
         run: |
           args=(run --show-diff-on-failure)
           if [ -n "${HOOK_STAGE}" ]; then
-            args+=(--hook-stage "${HOOK_STAGE}")
+            args+=(--stage "${HOOK_STAGE}")
           fi
           # shellcheck disable=SC2086
-          uv run pre-commit "${args[@]}" --files $ALL_CHANGED_FILES
+          mise exec -- prek "${args[@]}" --files $ALL_CHANGED_FILES
 
       # Task names arrive through env, never inlined into `run:`: an interpolation there
       # is a script-injection sink even when the value looks tame.

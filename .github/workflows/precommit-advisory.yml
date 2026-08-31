@@ -4,7 +4,7 @@
 # anywhere forces every caller to grant it — and a caller that does not gets
 # `startup_failure` with no job, no log and no diagnostic.
 
-name: Pre-commit advisory
+name: prek advisory
 
 on:
   workflow_call:
@@ -16,7 +16,7 @@ on:
         default: ""
       hook-stage:
         description: >
-          pre-commit hook stage to run. Empty runs the default stage; set pre-push for
+          prek hook stage to run. Empty runs the default stage; set pre-push for
           repos that reserve the slow hooks for it. Match whatever python-ci.yml is
           given, or the two runs disagree about which hooks apply.
         type: string
@@ -55,11 +55,11 @@ jobs:
       - name: Sync dependencies
         run: uv sync --locked
 
-      - name: Cache pre-commit environments
+      - name: Cache prek environments
         if: inputs.cache-pre-commit
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.cache/pre-commit
+          path: ~/.cache/prek
           key: precommit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
           restore-keys: |
             precommit-${{ runner.os }}-

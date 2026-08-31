@@ -23,11 +23,6 @@ repos:
     hooks:
       - id: actionlint-system
 
-  - repo: https://github.com/streetsidesoftware/cspell-cli
-    rev: v10.0.1
-    hooks:
-      - id: cspell
-
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.17.0
     hooks:
@@ -66,3 +61,13 @@ repos:
         entry: mise exec -- markdownlint-cli2
         language: system
         types: [markdown]
+
+      # cspell.config.yaml owns dictionaries and ignored paths. Scoped to the
+      # pre-commit stage: `types: [text]` also matches the commit-msg stage's
+      # message file, which cspell then fails on ("0 files checked").
+      - id: cspell
+        name: cspell
+        entry: mise exec -- cspell lint --no-progress
+        language: system
+        types: [text]
+        stages: [pre-commit]

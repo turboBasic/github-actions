@@ -8,7 +8,8 @@ Scope: reusable GitHub Actions workflows and composite actions consumed by other
 the YAML.
 
 Committed configuration is authoritative for settings it already declares — read `mise.toml`,
-`pyproject.toml`, `.pre-commit-config.yaml`, and `cspell.config.yaml` rather than assuming. Extend
+`pyproject.toml`, `.pre-commit-config.yaml` (prek reads this same file), and `cspell.config.yaml`
+rather than assuming. Extend
 those files; never regenerate them.
 
 ## Working style
@@ -42,7 +43,7 @@ alternative that still meets the underlying need. Then stop and wait.
 ### Tooling hierarchy
 
 1. **Project task** — a `mise.toml` task (`lint`, `test`, `typecheck`, `fmt`). Never bypass it.
-2. **Pre-commit** — `mise exec -- pre-commit run`.
+2. **prek** — `mise exec -- prek run`.
 3. **`uv run <tool>`** — project-local Python tools.
 4. **`mise exec -- <tool>`** — system tools mise manages (`actionlint`, `zizmor`, `shellcheck`).
 
@@ -112,7 +113,7 @@ Python 3.14. The only Python here supports the actions and their tests.
 
 ## Quality gates
 
-- Pre-commit is the linting entry point. Never call `ruff` directly.
+- prek is the linting entry point. Never call `ruff` directly.
 - `actionlint` covers `.github/workflows`; it does not look in `actions/`. `zizmor` covers both and
   is the security linter — a finding it raises is addressed, not silenced.
 - pyright strict. Never a blanket `# type: ignore` or a loosened mode to clear an error.

@@ -5,16 +5,18 @@ actionlint = "latest"
 shellcheck = "latest"
 zizmor = "latest"
 taplo = "latest"
+prek = "latest"
 "npm:markdownlint-cli2" = "0.23.2"
+"npm:cspell" = "10.0.1"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
 
 [tasks.setup]
-description = "Install dependencies and pre-commit hooks"
+description = "Install dependencies and git hooks"
 run = [
   "uv sync --locked",
-  "uv run pre-commit install",
+  "prek install",
 ]
 
 [tasks.fmt]
@@ -25,12 +27,14 @@ run = [
 ]
 
 [tasks.lint]
-description = "Lint workflows with actionlint and zizmor, scripts with ruff"
+description = "Lint workflows, scripts, prose, and spelling"
 run = [
   "uv run ruff check .",
   "actionlint",
   # Composite actions live outside .github/, where actionlint does not look.
   "zizmor --pedantic .github/workflows actions",
+  "markdownlint-cli2 \"**/*.md\"",
+  "cspell lint --no-progress .",
 ]
 
 [tasks.typecheck]
