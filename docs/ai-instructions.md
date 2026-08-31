@@ -150,7 +150,10 @@ Python 3.14. The only Python here supports the actions and their tests.
 - A workflow change is not verified by lint alone. A reusable workflow that has never been called
   is unverified: exercise it from a real PR before tagging. Every linter here passes on a workflow
   that no caller can run — a permission the caller cannot know to grant, an input that resolves to
-  nothing — because nothing is wrong with the file in isolation.
+  nothing — because nothing is wrong with the file in isolation. A relative self-call satisfies this
+  (principle VI); where a workflow's behaviour turns on caller-side configuration — `python-ci.yml`'s
+  `hook-stage`, `run-typecheck`, a consumer with no mise config — it does not, and a consumer has to
+  exercise it at the ref it pins.
 - **The allowed commit types are declared once**, as `conventional-commits.yml`'s `types` default,
   and asserted equal to commitizen's built-in set by `tests/test_action_pins.py`. Both the title and
   the commit-message check read it from there. It may not fall back to a tool's own default:
