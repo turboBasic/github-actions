@@ -1,5 +1,6 @@
 {
   "recommendations": [
+    "anthropic.claude-code",
     "arahata.linter-actionlint",
     "charliermarsh.ruff",
     "davidanson.vscode-markdownlint",

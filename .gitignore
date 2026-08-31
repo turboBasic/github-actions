@@ -23,6 +23,9 @@ __pycache__/
 .idea/
 .DS_Store
 
+# Claude settings example file
+!.claude/settings.local.example.json
+
 # Logs, temp, build files
 tmp/
 *.tmp
