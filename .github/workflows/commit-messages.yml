@@ -1,19 +1,11 @@
-# The reference is relative on purpose. GitHub resolves `./` without `{owner}/{repo}` and
-# `@{ref}` at the caller's own commit, so a defect in conventional-commits.yml fails the
-# pull request that introduces it. The `turboBasic/github-actions/...@v2` form resolves at
-# the tag instead, and would validate a change to that workflow against the previous
-# version of itself.
-#
-# Its own workflow rather than a step in ci.yml: ci.yml's bare `pull_request` subscribes to
-# the default activity types, which do not include `edited`. Squash is the only merge
-# method here, so the title becomes the commit subject on main — a rejected title has to be
-# re-checked when it is corrected, and correcting it is an edit, not a push.
+# Relative `./` ref rather than `@vN`: it resolves at this commit, so a defect in
+# conventional-commits.yml fails the pull request that introduces it. See docs/ai-instructions.md.
 
 name: Commit messages
 
 on:
   pull_request:
-    types: [opened, edited, reopened, synchronize]
+    types: [opened, edited, reopened, synchronize] # a corrected title is an edit, not a push
 
 permissions:
   contents: read # the commits job checks out the PR range
@@ -24,10 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Job id `commits` and no `name:`: it prefixes the called jobs' check names, giving
-  # `commits / PR title` and `commits / Commit messages` — the names the ruleset requires.
-  # No `timeout-minutes` either; a calling job may not declare one, and the callee defaults
-  # to 5.
+  # The job id prefixes the called jobs' check names: `commits / PR title` and
+  # `commits / Commit messages`, which the ruleset requires.
   commits:
     uses: ./.github/workflows/conventional-commits.yml
     permissions:

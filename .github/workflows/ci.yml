@@ -1,10 +1,5 @@
 # The checks run inline rather than through this repo's own python-ci.yml, which has no
 # input for a fourth task and so would skip `lint-schemas`.
-#
-# Not for the reason once recorded here — that a self-call is always resolved at the
-# called ref and would validate a broken change against the last good tag. That is true
-# of the `@vN` form only; a relative `./` reference resolves at the caller's own commit,
-# which is how commit-messages.yml calls conventional-commits.yml.
 
 name: CI
 

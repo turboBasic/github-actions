@@ -154,8 +154,7 @@ Python 3.14. The only Python here supports the actions and their tests.
 - **The allowed commit types are declared once**, as `conventional-commits.yml`'s `types` default,
   and asserted equal to commitizen's built-in set by `tests/test_action_pins.py`. Both the title and
   the commit-message check read it from there. It may not fall back to a tool's own default:
-  commitizen's set and the action's differ, `bump` being the one that does. A second copy anywhere is
-  a defect — that is what the single declaration replaced.
+  commitizen's set and the action's differ, `bump` being the one that does.
 
 ## Shipping
 
@@ -179,13 +178,12 @@ a new `v2` tag, with `v1` left where it is — not a `v1` move.
 
 `mise run ci` reproduces CI locally.
 
-**A self-call must use the relative form.** `./.github/workflows/<name>.yml`, with no
-`{owner}/{repo}` and no `@{ref}`, resolves at the caller's own commit — so a change to the called
-workflow is validated by the version under review. `commit-messages.yml` calls
-`conventional-commits.yml` that way, which is how a reusable workflow here gets exercised before it
-is tagged. The `turboBasic/github-actions/...@vN` form resolves at the tag instead and
-would validate a broken change against the last good release; `tests/test_action_pins.py` asserts the
-caller has not been rewritten into it, because every other gate accepts both forms.
+**A self-call must use the relative form** — `./.github/workflows/<name>.yml`, with no
+`{owner}/{repo}` and no `@{ref}`. It resolves at the caller's own commit, so a change to the called
+workflow is validated by the version under review; the `turboBasic/github-actions/...@vN` form
+resolves at the tag and would validate it against the last good release. `commit-messages.yml` calls
+`conventional-commits.yml` this way, and `tests/test_action_pins.py` enforces it, because every other
+gate accepts both forms.
 
-`ci.yml` still runs its checks inline, but only because `python-ci.yml` has no input for a fourth
-task and would skip `lint-schemas` — not because a self-call is impossible.
+`ci.yml` runs its checks inline only because `python-ci.yml` has no input for a fourth task and would
+skip `lint-schemas`.

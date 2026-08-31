@@ -121,8 +121,12 @@ jobs:
 
 **Spell out `types` and include `edited`.** A bare `pull_request:` subscribes to the default activity
 types, which do not include it — so a rejected title stays rejected until something is pushed, and
-correcting a title is an edit, not a push. Give this its own workflow rather than folding it into a
-repository-wide one, which would then re-run lint, typecheck and tests on every title edit.
+correcting a title is an edit, not a push. Keep it in its own workflow, or every title edit re-runs
+your whole suite.
+
+**`pull-requests: read` is required at the call site**, at both levels shown above, and for the same
+reason `precommit-advisory.yml` needs `write`: permissions are validated before any job exists, so a
+caller granting less fails the run as `startup_failure`.
 
 | Input | Default | Purpose |
 | --- | --- | --- |

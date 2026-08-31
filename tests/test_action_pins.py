@@ -5,6 +5,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).parent.parent
 FIRST_PARTY = "turboBasic/"
+SELF_WORKFLOW = "turboBasic/github-actions/.github/workflows/"
 SHA = re.compile(r"^[0-9a-f]{40}$")
 TAG_COMMENT = re.compile(r"#\s*v?\d")
 
@@ -58,19 +59,22 @@ def test_first_party_actions_use_the_major_tag(path: Path) -> None:
         )
 
 
-def test_the_self_call_is_relative() -> None:
-    # A `./` reference without {owner}/{repo} and @{ref} resolves at the caller's own commit,
-    # which is the whole point of this caller: a defect in conventional-commits.yml has to
-    # fail the PR introducing it. Rewritten to
-    # turboBasic/github-actions/.github/workflows/conventional-commits.yml@v2 it would
-    # resolve at the tag and silently restore the staleness bug, while satisfying every other
-    # gate here — test_first_party_actions_use_the_major_tag accepts that form by design,
-    # because precommit-advisory.yml needs it.
+def test_a_self_call_resolves_at_the_commit_under_review() -> None:
+    # Every other gate accepts both forms — test_first_party_actions_use_the_major_tag accepts the
+    # tagged one by design, since precommit-advisory.yml references a composite action that way —
+    # so nothing else here would notice a self-call rewritten to resolve at the tag instead.
+    for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+        for number, ref in _uses_lines(path):
+            target = ref.split("#")[0].strip()
+            assert not target.startswith(SELF_WORKFLOW), (
+                f"{path.name}:{number} calls this repo's own workflow at a tag ({target}), so a "
+                f"change to it would be validated by the previous release of itself. Use "
+                f"`./.github/workflows/<name>.yml`, which resolves at the caller's own commit."
+            )
     caller = REPO_ROOT / ".github" / "workflows" / "commit-messages.yml"
-    refs = [ref.split("#")[0].strip() for _, ref in _uses_lines(caller)]
-    assert refs == ["./.github/workflows/conventional-commits.yml"], (
-        f"{caller.name} must reference conventional-commits.yml relatively so the call "
-        f"resolves at the commit under review, not at a tag; got {refs}"
+    assert "uses: ./.github/workflows/conventional-commits.yml" in caller.read_text(), (
+        f"{caller.name} must keep calling conventional-commits.yml relatively; that call is what "
+        f"exercises it before it is tagged."
     )
 
 
