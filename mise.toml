@@ -29,7 +29,7 @@ run = [
 ]
 
 [tasks.lint]
-description = "Lint workflows, scripts, prose, and spelling"
+description = "Lint workflows, scripts, prose, spelling, and GitHub config schemas"
 run = [
   "uv run ruff check .",
   "uv run yamllint --strict .",
@@ -38,11 +38,6 @@ run = [
   "zizmor --pedantic .github/workflows actions",
   "markdownlint-cli2 \"**/*.md\"",
   "cspell lint --no-progress .",
-]
-
-[tasks.lint-schemas]
-description = "Validate GitHub config YAML against its published schemas"
-run = [
   "uv run check-jsonschema --builtin-schema vendor.dependabot .github/dependabot.yml",
   "uv run check-jsonschema --builtin-schema vendor.github-issue-forms .github/ISSUE_TEMPLATE/[0-9]-*.yml",
   "uv run check-jsonschema --builtin-schema vendor.github-issue-config .github/ISSUE_TEMPLATE/config.yml",
@@ -61,7 +56,7 @@ run = "uv run pytest"
 
 [tasks.ci]
 description = "Run everything CI runs, locally"
-depends = ["lint", "lint-schemas", "typecheck", "test"]
+depends = ["lint", "typecheck", "test"]
 
 # Never `specify self upgrade` — it replaces the binary behind mise's back, leaving
 # the committed manifests describing a version nothing here pins. Bump

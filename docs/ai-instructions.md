@@ -151,7 +151,8 @@ Python 3.14. The only Python here supports the actions and their tests.
 - `actionlint` covers `.github/workflows`; it does not look in `actions/`. `zizmor` covers both and
   is the security linter — a finding it raises is addressed, not silenced.
 - `.yamllint.yaml` owns yamllint's rules and exempt paths.
-- A new GitHub config file gets a `check-jsonschema` hook and a `lint-schemas` line. Prefer
+- A new GitHub config file gets a `check-jsonschema` hook and a `check-jsonschema` line in the
+  `lint` task. Prefer
   `--builtin-schema` to `--schemafile <url>`: a vendored schema needs no network and cannot be
   repointed. `.github/zizmor.yml` gets none — its only published schema is served off a floating
   `main` ref, and zizmor rejects an unknown field in its own config anyway.
@@ -200,8 +201,5 @@ bump and this file is what every AI tool loads.
 `{owner}/{repo}` and no `@{ref}`. It resolves at the caller's own commit, so a change to the called
 workflow is validated by the version under review; the `turboBasic/github-actions/...@vN` form
 resolves at the tag and would validate it against the last good release. `commit-messages.yml` calls
-`conventional-commits.yml` this way, and `tests/test_action_pins.py` enforces it, because every other
-gate accepts both forms.
-
-`ci.yml` runs its checks inline only because `python-ci.yml` has no input for a fourth task and would
-skip `lint-schemas`.
+`conventional-commits.yml` this way, and `ci.yml` calls `python-ci.yml` this way.
+`tests/test_action_pins.py` enforces it, because every other gate accepts both forms.
