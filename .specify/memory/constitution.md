@@ -39,7 +39,9 @@ No secret is written to a file, a log, an artifact, or this repository — in an
 ### VI. Verification By Real Invocation
 
 Lint does not verify a workflow. Every linter here passes on a workflow no caller can run. A
-reusable workflow is unverified until a real PR has exercised it at the ref a consumer would use.
+reusable workflow is unverified until a real PR has exercised it at a ref that resolves to the code
+under review. Where its behaviour depends on caller-side configuration, that is not enough — it is
+unverified until a consumer has exercised it at the ref that consumer pins.
 
 ### VII. Gates Are Never Loosened
 
@@ -71,4 +73,4 @@ eroding a principle would only be a side effect.
 Conventions are not governed here. Naming, file placement, how a test is organised — those live in
 `docs/ai-instructions.md` and a request to change one is just a request.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-31 | **Last Amended**: 2026-08-31
+**Version**: 1.1.0 | **Ratified**: 2026-08-31 | **Last Amended**: 2026-08-31
