@@ -61,6 +61,14 @@ Specs, plans and task lists live only where Spec Kit puts them. Scratch — note
 anything not meant to be reviewed — goes in `tmp/`, which is gitignored. `docs/` is for documentation
 that ships.
 
+A completed feature directory stays under `specs/` permanently and is never edited again — Spec Kit
+calls this *flow-forward*, one of the three persistence models it names and declines to choose
+between. A changed requirement gets a new numbered directory that cross-links the one it supersedes,
+rather than a revision of a shipped one. So `specs/` is a record of how this repository got here, not
+documentation: nothing in it is authoritative for current behaviour, which is `README.md`, `docs/`,
+and the workflows themselves. Read a ticked `tasks.md` or a passed checklist as a work log of the
+change that shipped it.
+
 ## Environment
 
 ### Tooling hierarchy
