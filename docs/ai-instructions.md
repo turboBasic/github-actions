@@ -40,15 +40,16 @@ alternative that still meets the underlying need. Then stop and wait.
 
 ### Specs
 
-Spec Kit is installed — `.specify/` holds the machinery, the `/speckit-*` skills drive it. It is
-not the default path for a change; size decides.
+Each `/speckit-*` skill documents its own step and `.specify/templates/` holds what they produce.
+Read those, not a summary here.
 
-`.specify/` and `.claude/skills/speckit-*/` are vendored and version-locked to the
-`pipx:specify-cli` pin in `mise.toml`: `.specify/integrations/*.manifest.json` records a hash per
-managed file. To move versions, bump the pin and run `mise run spec-kit-upgrade` — never
-`specify self upgrade`, which replaces the binary outside mise and leaves those manifests
-describing a version nothing here pins. Only
-`memory/constitution.md` there is ours to edit; everything else is overwritten on upgrade.
+`.specify/memory/constitution.md` is ours to edit — it states the non-negotiables above as gates a
+spec fails against. Everything else under `.specify/` and `.claude/skills/speckit-*/` is vendored
+and version-locked to the `pipx:specify-cli` pin in `mise.toml`: bump the pin and run
+`mise run spec-kit-upgrade`, never `specify self upgrade`, which replaces the binary outside mise
+and leaves `.specify/integrations/*.manifest.json` describing a version nothing here pins.
+
+A spec is not the default path. Size decides:
 
 | Change | Path |
 | --- | --- |
@@ -56,13 +57,9 @@ describing a version nothing here pins. Only
 | A new input, a new workflow, a behaviour change consumers can see | `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` → PR |
 | Versioning, permissions policy, the pinning rule itself | decision record first, then a spec |
 
-`.specify/memory/constitution.md` restates the non-negotiables above as gates a spec can fail
-against, and adds the cross-repository impact every spec must answer before it may be planned. It is
-a summary with pointers, not a second source of truth — the rules live in this file.
-
-A spec lands in `specs/NNN-slug/` on the feature branch and merges with the code it describes. Until
-that merge it is a proposal; the PR review is what makes it an artifact. `docs/plans/` predates this
-and holds only the in-flight extraction plan — it goes away with it, and new work goes to `specs/`.
+Specs, plans and task lists live only where Spec Kit puts them. Scratch — notes, throwaway drafts,
+anything not meant to be reviewed — goes in `tmp/`, which is gitignored. `docs/` is for documentation
+that ships.
 
 ## Environment
 

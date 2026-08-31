@@ -31,8 +31,19 @@ One command; it wires up the `pre-commit` and `commit-msg` hooks together.
 ## The loop
 
 ```sh
-mise run ci      # lint, typecheck, test — exactly what CI runs
+mise run ci      # lint, schema validation, typecheck, test — exactly what CI runs
 ```
+
+## Specs
+
+Most changes are an issue and a PR. A new input, a new workflow, or any behaviour a consumer can see
+gets a spec first — `/speckit-specify`, then `/speckit-plan`, then `/speckit-tasks`. Which changes
+need one is settled in [ai-instructions][ai-instructions-specs]; the gates a spec is read against
+are in [the constitution][constitution].
+
+A spec lands in `specs/NNN-slug/` on your branch and merges with the code it describes. Until that
+merge it is a proposal — the PR review is what makes it an artifact, so put it up for review before
+building against it.
 
 ## Verifying a workflow change
 
@@ -66,6 +77,8 @@ input contract moves. Agent-written code is welcome; you are still the author of
 [security]: SECURITY.md
 [ai-instructions]: docs/ai-instructions.md
 [ai-instructions-changes]: docs/ai-instructions.md#changes-to-these-rules
+[ai-instructions-specs]: docs/ai-instructions.md#specs
+[constitution]: .specify/memory/constitution.md
 [ai-instructions-tooling]: docs/ai-instructions.md#tooling-hierarchy
 [ai-instructions-workflows]: docs/ai-instructions.md#workflows-and-actions
 [ai-instructions-quality]: docs/ai-instructions.md#quality-gates

@@ -1,8 +1,9 @@
 {
   "gitignore": true,
-  // disable VS Code extension from flagging this file in Problems
+  // `gitignore` covers tmp/ on the CLI; the VS Code extension needs it spelled out or it
+  // flags scratch files in Problems.
   "ignores": [
-    "tmp/ad-hoc-prompts.md",
+    "tmp/**",
     // Vendored Spec Kit machinery, rewritten by `specify` on every refresh.
     // `.specify/memory/constitution.md` is ours, so it stays linted.
     ".specify/templates/**",
