@@ -51,7 +51,10 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["-ra"]
+# `live` is deselected by default so the suite stays offline: `mise run ci` must not depend on
+# api.github.com being reachable. `mise run test-live` opts in, and CI runs it as its own job.
+addopts = ["-ra", "-m", "not live"]
+markers = ["live: asserts against GitHub's live API rather than the tree"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"

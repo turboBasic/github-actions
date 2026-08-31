@@ -83,6 +83,14 @@ repos:
         language: system
         files: ^\.github/release\.ya?ml$
 
+      # A URL for the same reason as the release config. Load-bearing: actionlint ignores an
+      # unknown key in its own config silently, so a typo there would disable nothing, quietly.
+      - id: check-actionlint-config
+        name: check-jsonschema (actionlint config)
+        entry: uv run check-jsonschema --schemafile https://www.schemastore.org/actionlint.json
+        language: system
+        files: ^\.github/actionlint\.ya?ml$
+
       # Not a schema: asserts every job sets timeout-minutes.
       - id: check-workflow-timeouts
         name: check-jsonschema (workflow timeouts)

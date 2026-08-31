@@ -8,7 +8,7 @@ current in the same change that alters an input contract.
 
 | Repository | Visibility | Calls | Notable inputs |
 | --- | --- | --- | --- |
-| `github-actions` (this one) | public | `conventional-commits`, **relatively** | defaults throughout |
+| `github-actions` (this one) | public | `python-ci`, `conventional-commits`, both **as self-calls** | defaults throughout |
 | `python-app-baseline` | public | `python-ci`, `conventional-commits` | defaults throughout |
 | `repo-factory` | public | `populate-pr-description` action only | — |
 | `opus-magnum` | private, **not yet migrated** | `python-ci`, `precommit-advisory`, `conventional-commits` | `lint-changed-only: true`, `hook-stage: pre-push` on both, `run-typecheck: false`, `run-tests: false`, `mise-version` pinned |
@@ -36,7 +36,12 @@ Settings → Actions → General → Access → "Accessible from repositories ow
 A call site changes the names of the repo's status checks to `<caller job> / <called job>`, so a
 required check named after the old job stops reporting and blocks every merge. Update the required
 checks in the same change — for `python-app-baseline` they became `ci / CI`, `commits / PR title` and
-`commits / Commit messages`.
+`commits / Commit messages`. This repository hit the same rename when `ci.yml` stopped running its
+checks inline and began calling `python-ci.yml`: its required `CI` became `ci / CI`.
+
+`REQUIRED_CHECKS` in `tests/test_action_pins.py` is the single statement of these contexts, checked
+against both the workflows and the live ruleset. A consumer wanting the same guard needs its own
+copy — the URL is repo-specific.
 
 Call `conventional-commits.yml` from `pull_request`, never `pull_request_target`: both its jobs are
 gated on `github.event_name == 'pull_request'`, so under `pull_request_target` they are skipped

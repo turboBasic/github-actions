@@ -148,16 +148,22 @@ Python 3.14. The only Python here supports the actions and their tests.
 ## Quality gates
 
 - prek is the linting entry point. Never call `ruff` directly.
-- `actionlint` covers `.github/workflows`; it does not look in `actions/`. `zizmor` covers both and
-  is the security linter — a finding it raises is addressed, not silenced.
+- `actionlint` covers `.github/workflows`; it does not look in `actions/`. `.github/actionlint.yaml`
+  owns its ignores. `zizmor` covers both and is the security linter — a finding it raises is
+  addressed, not silenced.
 - `.yamllint.yaml` owns yamllint's rules and exempt paths.
-- A new GitHub config file gets a `check-jsonschema` hook and a `lint-schemas` line. Prefer
-  `--builtin-schema` to `--schemafile <url>`: a vendored schema needs no network and cannot be
+- A new GitHub config file gets a `check-jsonschema` hook and a matching line in the `lint` task.
+  Prefer `--builtin-schema` to `--schemafile <url>`: a vendored schema needs no network and cannot be
   repointed. `.github/zizmor.yml` gets none — its only published schema is served off a floating
-  `main` ref, and zizmor rejects an unknown field in its own config anyway.
+  `main` ref, and zizmor rejects an unknown field in its own config anyway. `.github/actionlint.yaml`
+  does get one, because actionlint accepts an unknown key there silently.
 - pyright strict. Never a blanket `# type: ignore` or a loosened mode to clear an error.
 - pytest. Never `unittest.TestCase`. `tests/` asserts properties of the YAML, since there is no
   application to test.
+- **The suite is offline; `mise run ci` must never need the network.** The one exception is marked
+  `@pytest.mark.live` and deselected by default, run by `mise run test-live` from its own `ci.yml`
+  job where a token exists. Reach for it only where the thing being asserted is repository state no
+  file can express — the required status checks on the `main` ruleset are the case that earns it.
 - A workflow change is not verified by lint alone. A reusable workflow that has never been called
   is unverified: exercise it from a real PR before tagging. Every linter here passes on a workflow
   that no caller can run — a permission the caller cannot know to grant, an input that resolves to
@@ -196,12 +202,21 @@ bump and this file is what every AI tool loads.
 
 `mise run ci` reproduces CI locally.
 
-**A self-call must use the relative form** — `./.github/workflows/<name>.yml`, with no
+**A self-call must use the self-repository form** — `$/.github/workflows/<name>.yml`, with no
 `{owner}/{repo}` and no `@{ref}`. It resolves at the caller's own commit, so a change to the called
 workflow is validated by the version under review; the `turboBasic/github-actions/...@vN` form
 resolves at the tag and would validate it against the last good release. `commit-messages.yml` calls
-`conventional-commits.yml` this way, and `tests/test_action_pins.py` enforces it, because every other
-gate accepts both forms.
+`conventional-commits.yml` this way, and `ci.yml` calls `python-ci.yml` this way.
+`tests/test_action_pins.py` enforces it, because every other gate accepts the tagged form too.
 
-`ci.yml` runs its checks inline only because `python-ci.yml` has no input for a fourth task and would
-skip `lint-schemas`.
+**Never write the older `./.github/workflows/<name>.yml`.** It resolves at the same commit, but
+reaches the file through the runner's filesystem, so a step running earlier can substitute what gets
+called; zizmor's `self-repository` audit rejects it. `$/` is unavailable on GitHub Enterprise Server —
+nothing here targets it, and that is not a reason to reach for `./`.
+
+actionlint 1.7.12 has not learned `$/` yet (rhysd/actionlint#711) and reports it as a malformed
+call, so `.github/actionlint.yaml` ignores that one message — anchored on the `$/` prefix, so a
+genuinely malformed ref still fails. This is the one silenced rule in the repo, and it silences a
+false positive rather than a finding. It cannot outlive the bug: `test_the_actionlint_ignore_is_still_needed`
+asserts actionlint still rejects `$/`, so the day #711 ships the suite says to delete the file. Do not
+treat it as precedent — a second ignore needs the same two things, a false positive and an expiry.

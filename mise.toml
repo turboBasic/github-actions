@@ -29,7 +29,7 @@ run = [
 ]
 
 [tasks.lint]
-description = "Lint workflows, scripts, prose, and spelling"
+description = "Lint workflows, scripts, prose, spelling, and GitHub config schemas"
 run = [
   "uv run ruff check .",
   "uv run yamllint --strict .",
@@ -38,16 +38,12 @@ run = [
   "zizmor --pedantic .github/workflows actions",
   "markdownlint-cli2 \"**/*.md\"",
   "cspell lint --no-progress .",
-]
-
-[tasks.lint-schemas]
-description = "Validate GitHub config YAML against its published schemas"
-run = [
   "uv run check-jsonschema --builtin-schema vendor.dependabot .github/dependabot.yml",
   "uv run check-jsonschema --builtin-schema vendor.github-issue-forms .github/ISSUE_TEMPLATE/[0-9]-*.yml",
   "uv run check-jsonschema --builtin-schema vendor.github-issue-config .github/ISSUE_TEMPLATE/config.yml",
   "uv run check-jsonschema --builtin-schema vendor.github-actions actions/*/action.yml",
   "uv run check-jsonschema --schemafile https://www.schemastore.org/github-release-config.json .github/release.yml",
+  "uv run check-jsonschema --schemafile https://www.schemastore.org/actionlint.json .github/actionlint.yaml",
   "uv run check-jsonschema --builtin-schema custom.github-workflows-require-timeout .github/workflows/*.yml",
 ]
 
@@ -59,9 +55,15 @@ run = "uv run pyright"
 description = "Run the test suite"
 run = "uv run pytest"
 
+# Not in `ci`: it reaches api.github.com, and `mise run ci` stays offline. ci.yml runs it as its
+# own job, which is also where a token is available.
+[tasks.test-live]
+description = "Check the main ruleset still requires checks the workflows report"
+run = "uv run pytest -m live"
+
 [tasks.ci]
 description = "Run everything CI runs, locally"
-depends = ["lint", "lint-schemas", "typecheck", "test"]
+depends = ["lint", "typecheck", "test"]
 
 # Never `specify self upgrade` — it replaces the binary behind mise's back, leaving
 # the committed manifests describing a version nothing here pins. Bump
