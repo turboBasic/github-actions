@@ -218,7 +218,7 @@ Third-party actions *inside* this repo are pinned to full SHAs with no exception
 ```sh
 mise run setup     # uv sync --locked, then prek install
 mise run ci        # lint, typecheck, test — offline
-mise run test-live # check the main ruleset against the checks the workflows report
+mise run test-live # check GitHub's own state: the main ruleset, and this repo's public visibility
 ```
 
 `actionlint` does not look outside `.github/workflows`, which is where none of the composite actions
