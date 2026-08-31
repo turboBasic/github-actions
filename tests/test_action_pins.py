@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import subprocess
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -125,17 +126,32 @@ def test_a_self_call_resolves_at_the_commit_under_review() -> None:
                 f"change to it would be validated by the previous release of itself. Use "
                 f"`$/.github/workflows/<name>.yml`, which resolves at the caller's own commit."
             )
-    # zizmor's self-repository audit rejects the older `./` spelling, which resolves the same way
-    # but off the runner's filesystem, so a preceding step can substitute what gets called.
-    for caller_name, called in (
-        ("commit-messages.yml", "conventional-commits.yml"),
-        ("ci.yml", "python-ci.yml"),
-    ):
+    for caller_name, called in sorted({(c, d) for _, c, d in REQUIRED_CHECKS}):
         caller = REPO_ROOT / ".github" / "workflows" / caller_name
         assert f"uses: $/.github/workflows/{called}" in caller.read_text(), (
             f"{caller_name} must keep calling {called} at this same commit; that call is what "
             f"exercises it before it is tagged."
         )
+
+
+def test_the_actionlint_ignore_is_still_needed(tmp_path: Path) -> None:
+    # Asserts an upstream bug persists, so the workaround cannot outlive it: `.github/actionlint.yaml`
+    # exists only because actionlint rejects `$/`, and nothing else would ever say that stopped being
+    # true. Run against a config without the ignore — when this fails, rhysd/actionlint#711 has
+    # shipped and the file should be deleted along with this test.
+    empty = tmp_path / "actionlint.yaml"
+    empty.write_text("paths: {}\n")
+    result = subprocess.run(
+        ["actionlint", "-config-file", str(empty), ".github/workflows/ci.yml"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert "is not following the format" in result.stdout, (
+        "actionlint no longer rejects the `$/` self-repository syntax, so the ignore in "
+        ".github/actionlint.yaml is dead weight. Delete that file and this test."
+    )
 
 
 @pytest.mark.parametrize(("context", "caller_name", "called_name"), REQUIRED_CHECKS)

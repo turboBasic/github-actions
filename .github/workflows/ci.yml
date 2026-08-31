@@ -1,6 +1,3 @@
-# Calls python-ci.yml at this same commit, so a change to it is validated by the version
-# under review rather than by the last release of itself.
-
 name: CI
 
 on:
@@ -21,10 +18,8 @@ jobs:
     permissions:
       contents: read
 
-  # Separate from `ci` because it needs a token and network, and python-ci.yml passes neither to
-  # `mise run test` — handing every consumer's test run an API token to suit this repo would be a
-  # poor trade. Not a required context: a red check is signal enough, and requiring it would mean
-  # editing the ruleset to add a context that does not exist until this lands.
+  # Separate: needs a token and network, which python-ci.yml gives `mise run test` neither of.
+  # Deliberately not a required context — a red check is signal enough here.
   ruleset:
     name: Ruleset
     runs-on: ubuntu-latest

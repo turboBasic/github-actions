@@ -152,11 +152,11 @@ Python 3.14. The only Python here supports the actions and their tests.
   owns its ignores. `zizmor` covers both and is the security linter — a finding it raises is
   addressed, not silenced.
 - `.yamllint.yaml` owns yamllint's rules and exempt paths.
-- A new GitHub config file gets a `check-jsonschema` hook and a `check-jsonschema` line in the
-  `lint` task. Prefer
-  `--builtin-schema` to `--schemafile <url>`: a vendored schema needs no network and cannot be
+- A new GitHub config file gets a `check-jsonschema` hook and a matching line in the `lint` task.
+  Prefer `--builtin-schema` to `--schemafile <url>`: a vendored schema needs no network and cannot be
   repointed. `.github/zizmor.yml` gets none — its only published schema is served off a floating
-  `main` ref, and zizmor rejects an unknown field in its own config anyway.
+  `main` ref, and zizmor rejects an unknown field in its own config anyway. `.github/actionlint.yaml`
+  does get one, because actionlint accepts an unknown key there silently.
 - pyright strict. Never a blanket `# type: ignore` or a loosened mode to clear an error.
 - pytest. Never `unittest.TestCase`. `tests/` asserts properties of the YAML, since there is no
   application to test.
@@ -216,7 +216,6 @@ targets it.
 
 actionlint 1.7.12 has not learned `$/` yet (rhysd/actionlint#711) and reports it as a malformed
 call, so `.github/actionlint.yaml` ignores that one message — anchored on the `$/` prefix, so a
-genuinely malformed ref still fails. This is the one silenced rule in the repo and it is silencing a
-false positive, not a finding; delete the file when a release closing #711 ships. Unlike
-`.github/zizmor.yml`, that config **does** get a `check-jsonschema` hook: actionlint ignores an
-unknown key in it without a word, so a typo would silently turn the ignore into nothing.
+genuinely malformed ref still fails. This is the one silenced rule in the repo, and it silences a
+false positive rather than a finding. It cannot outlive the bug: `test_the_actionlint_ignore_is_still_needed`
+asserts actionlint still rejects `$/`, so the day #711 ships the suite says to delete the file.

@@ -1,10 +1,7 @@
-# actionlint 1.7.12 does not recognise GitHub's `$/` self-repository `uses:` syntax and reports it
-# as a malformed reusable-workflow call. The syntax is valid and is the form GitHub recommends;
-# zizmor's self-repository audit requires it. Tracked as rhysd/actionlint#711 — delete this file
-# once a release closing it is out, and drop the `--ignore` note from docs/ai-instructions.md.
-#
-# The pattern is anchored on the `$/.github/workflows/` prefix so a genuinely malformed ref still
-# fails: only the one spelling actionlint has yet to learn is ignored.
+# actionlint 1.7.12 reports GitHub's valid `$/` self-repository `uses:` syntax as a malformed call
+# (rhysd/actionlint#711). Anchored on the prefix, so a genuinely malformed ref still fails. Delete
+# this file when a release closing #711 ships — test_action_pins.py fails when that day comes.
+# Why `$/` and not `./`: docs/ai-instructions.md, CI section.
 paths:
   .github/workflows/*.yml:
     ignore:
