@@ -1,0 +1,29 @@
+{
+  "folders": [
+    {
+      "path": "turboBasic/github-actions"
+    }
+  ],
+  "settings": {
+    "hide-files.files": []
+  },
+  "extensions": {
+    "recommendations": [
+      "arahata.linter-actionlint",
+      "charliermarsh.ruff",
+      "davidanson.vscode-markdownlint",
+      "editorconfig.editorconfig",
+      "github.copilot-chat",
+      "github.vscode-github-actions",
+      "hverlin.mise-vscode",
+      "mhutchie.git-graph",
+      "monokai.theme-monokai-pro-vscode",
+      "ms-python.python",
+      "ms-python.vscode-pylance",
+      "redhat.vscode-yaml",
+      "streetsidesoftware.code-spell-checker",
+      "tamasfe.even-better-toml",
+      "vivaxy.vscode-conventional-commits"
+    ]
+  }
+}
