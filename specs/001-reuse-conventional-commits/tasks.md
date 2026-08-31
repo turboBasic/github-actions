@@ -148,7 +148,7 @@ pushed.
   `gh pr checks` — expect `CI`, `commits / PR title` and `commits / Commit messages`. The `commits /`
   prefix is the calling job's id; if it reads otherwise, the job in
   `.github/workflows/commit-messages.yml` is misnamed
-- [ ] T014 [US3] Update ruleset `20657426` via
+- [X] T014 [US3] Update ruleset `20657426` via
   `gh api --method PUT repos/turboBasic/github-actions/rulesets/20657426`: drop `PR title`, add
   `commits / PR title` and `commits / Commit messages`, keep `CI`, preserve `integration_id` 15368 and
   every other rule (squash-only, linear history, one approving review). This cannot be done in a
