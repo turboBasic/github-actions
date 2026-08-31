@@ -58,11 +58,27 @@ def test_first_party_actions_use_the_major_tag(path: Path) -> None:
         )
 
 
+def test_the_self_call_is_relative() -> None:
+    # A `./` reference without {owner}/{repo} and @{ref} resolves at the caller's own commit,
+    # which is the whole point of this caller: a defect in conventional-commits.yml has to
+    # fail the PR introducing it. Rewritten to
+    # turboBasic/github-actions/.github/workflows/conventional-commits.yml@v2 it would
+    # resolve at the tag and silently restore the staleness bug, while satisfying every other
+    # gate here — test_first_party_actions_use_the_major_tag accepts that form by design,
+    # because precommit-advisory.yml needs it.
+    caller = REPO_ROOT / ".github" / "workflows" / "commit-messages.yml"
+    refs = [ref.split("#")[0].strip() for _, ref in _uses_lines(caller)]
+    assert refs == ["./.github/workflows/conventional-commits.yml"], (
+        f"{caller.name} must reference conventional-commits.yml relatively so the call "
+        f"resolves at the commit under review, not at a tag; got {refs}"
+    )
+
+
 def test_every_reusable_workflow_declares_workflow_call() -> None:
     reusable = [
         p
         for p in (REPO_ROOT / ".github" / "workflows").glob("*.yml")
-        if p.name not in {"ci.yml", "semantic-pull-request.yml"}
+        if p.name not in {"ci.yml", "commit-messages.yml", "semantic-pull-request.yml"}
     ]
     assert reusable, "no reusable workflows found"
     for path in reusable:

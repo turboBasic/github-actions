@@ -36,10 +36,10 @@ Repository root. Workflows in `.github/workflows/`, tests in `tests/`, documenta
 **Purpose**: Capture the state the change has to be reverted to, and establish that the branch is
 green before anything is touched.
 
-- [ ] T001 Record the current required status checks as the rollback target, from
+- [X] T001 Record the current required status checks as the rollback target, from
   `gh api repos/turboBasic/github-actions/rulesets/20657426`, into the pull request description draft
   at `tmp/pr-body.md` — expect exactly `CI` and `PR title`, both with `integration_id` 15368
-- [ ] T002 Establish the baseline with `mise run ci` on the branch tip, so any later failure is
+- [X] T002 Establish the baseline with `mise run ci` on the branch tip, so any later failure is
   attributable to a task rather than pre-existing
 
 ---
