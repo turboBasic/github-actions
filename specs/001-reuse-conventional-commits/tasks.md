@@ -123,9 +123,11 @@ default in `conventional-commits.yml`; `rg -n 'pull_request_target' .github/` re
   `if: github.event_name == 'pull_request'` guard, and drop `fetch-depth: 0` with its
   "cz check needs the full range" comment from the checkout — nothing else in that job reads git
   history, so leaving it makes the comment a lie about why a full clone is fetched (research R7)
-- [X] T012 [US2] Run `mise run ci`, then push. Expect the pull request to become **blocked**: the
-  required check `PR title` can no longer report, because the workflow producing it is gone. This is
-  the expected state, not a defect, and Phase 5 resolves it
+- [X] T012 [US2] Run `mise run ci`, then push. The pull request does become **blocked** — but not for
+  the reason predicted here. `PR title` *keeps reporting*: `semantic-pull-request.yml` triggers on
+  `pull_request_target`, which resolves the workflow from the **base** branch, where the file survives
+  until this merges. Measured on the head commit: all four checks green. The block is the ruleset's
+  one-approving-review rule, unrelated to this change. Corrected in plan.md and quickstart.md
 
 **Checkpoint**: One declaration of the types. No `pull_request_target` anywhere in the repository. The
 pull request is green on every check that runs, and blocked on one that cannot.
@@ -150,10 +152,14 @@ pushed.
   `gh api --method PUT repos/turboBasic/github-actions/rulesets/20657426`: drop `PR title`, add
   `commits / PR title` and `commits / Commit messages`, keep `CI`, preserve `integration_id` 15368 and
   every other rule (squash-only, linear history, one approving review). This cannot be done in a
-  commit and cannot be done before T013 — the new names must have reported at least once
+  commit and cannot be done before T013 — the new names must have reported at least once.
+  **BLOCKED, not done.** The payload is prepared and verified at `tmp/ruleset-after.json` (prior state
+  at `tmp/ruleset-before.json`); the `PUT` was refused by the local permission classifier, so it needs
+  a human to run it. The deadline is the merge: once `semantic-pull-request.yml` leaves `main`,
+  `PR title` can never report again and every subsequent pull request is blocked on it
 - [X] T015 [US3] Verify FR-005: edit the pull request title to something invalid without pushing
   anything, confirm `commits / PR title` re-runs and fails, correct it, confirm it re-runs and passes
-- [ ] T016 [US3] Verify FR-007: with a `CI` run in progress, edit the pull request title and confirm
+- [X] T016 [US3] Verify FR-007: with a `CI` run in progress, edit the pull request title and confirm
   the `CI` run is neither restarted nor cancelled — the two workflows have separate `concurrency`
   groups and separate triggers
 
