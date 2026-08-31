@@ -1,0 +1,25 @@
+# Relative `./` ref rather than `@vN`: it resolves at this commit, so a defect in
+# conventional-commits.yml fails the pull request that introduces it. See docs/ai-instructions.md.
+
+name: Commit messages
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize] # a corrected title is an edit, not a push
+
+permissions:
+  contents: read # the commits job checks out the PR range
+  pull-requests: read # the action reads the PR title from the API
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The job id prefixes the called jobs' check names: `commits / PR title` and
+  # `commits / Commit messages`, which the ruleset requires.
+  commits:
+    uses: ./.github/workflows/conventional-commits.yml
+    permissions:
+      contents: read # the commits job checks out the PR range
+      pull-requests: read # the action reads the PR title from the API

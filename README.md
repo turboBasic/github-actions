@@ -105,6 +105,7 @@ rebase merge puts on the default branch).
 ```yaml
 on:
   pull_request:
+    types: [opened, edited, reopened, synchronize]
 
 permissions:
   contents: read
@@ -117,6 +118,15 @@ jobs:
       contents: read
       pull-requests: read
 ```
+
+**Spell out `types` and include `edited`.** A bare `pull_request:` subscribes to the default activity
+types, which do not include it — so a rejected title stays rejected until something is pushed, and
+correcting a title is an edit, not a push. Keep it in its own workflow, or every title edit re-runs
+your whole suite.
+
+**`pull-requests: read` is required at the call site**, at both levels shown above, and for the same
+reason `precommit-advisory.yml` needs `write`: permissions are validated before any job exists, so a
+caller granting less fails the run as `startup_failure`.
 
 | Input | Default | Purpose |
 | --- | --- | --- |

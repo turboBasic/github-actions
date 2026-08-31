@@ -5,6 +5,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).parent.parent
 FIRST_PARTY = "turboBasic/"
+SELF_WORKFLOW = "turboBasic/github-actions/.github/workflows/"
 SHA = re.compile(r"^[0-9a-f]{40}$")
 TAG_COMMENT = re.compile(r"#\s*v?\d")
 
@@ -58,11 +59,49 @@ def test_first_party_actions_use_the_major_tag(path: Path) -> None:
         )
 
 
+def test_a_self_call_resolves_at_the_commit_under_review() -> None:
+    # Every other gate accepts both forms — test_first_party_actions_use_the_major_tag accepts the
+    # tagged one by design, since precommit-advisory.yml references a composite action that way —
+    # so nothing else here would notice a self-call rewritten to resolve at the tag instead.
+    for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+        for number, ref in _uses_lines(path):
+            target = ref.split("#")[0].strip()
+            assert not target.startswith(SELF_WORKFLOW), (
+                f"{path.name}:{number} calls this repo's own workflow at a tag ({target}), so a "
+                f"change to it would be validated by the previous release of itself. Use "
+                f"`./.github/workflows/<name>.yml`, which resolves at the caller's own commit."
+            )
+    caller = REPO_ROOT / ".github" / "workflows" / "commit-messages.yml"
+    assert "uses: ./.github/workflows/conventional-commits.yml" in caller.read_text(), (
+        f"{caller.name} must keep calling conventional-commits.yml relatively; that call is what "
+        f"exercises it before it is tagged."
+    )
+
+
+def test_the_required_check_names_are_intact() -> None:
+    # `commits / PR title` and `commits / Commit messages` are required contexts on the `main`
+    # ruleset, composed from the caller's job id and the called workflow's job names. Rename
+    # any of the three and both stop reporting, blocking every pull request until the ruleset
+    # is edited by hand — and nothing in the tree would look wrong.
+    caller = REPO_ROOT / ".github" / "workflows" / "commit-messages.yml"
+    called = REPO_ROOT / ".github" / "workflows" / "conventional-commits.yml"
+    assert "\n  commits:\n" in caller.read_text(), (
+        f"{caller.name}'s calling job must keep the id `commits`; it is the prefix of both "
+        f"required checks."
+    )
+    called_text = called.read_text()
+    for job_name in ("PR title", "Commit messages"):
+        assert f"name: {job_name}\n" in called_text, (
+            f"{called.name} must keep `name: {job_name}`; it is the second half of the "
+            f"required check `commits / {job_name}`."
+        )
+
+
 def test_every_reusable_workflow_declares_workflow_call() -> None:
     reusable = [
         p
         for p in (REPO_ROOT / ".github" / "workflows").glob("*.yml")
-        if p.name not in {"ci.yml", "semantic-pull-request.yml"}
+        if p.name not in {"ci.yml", "commit-messages.yml"}
     ]
     assert reusable, "no reusable workflows found"
     for path in reusable:
@@ -82,20 +121,36 @@ def _commitizen_types() -> set[str]:
 
 
 def _block_of_words(path: Path, key: str) -> set[str]:
-    block = re.search(rf"{key}: \|\n((?:[ ]+[\w-]+\n)+)", path.read_text())
-    assert block, f"could not find a `{key}: |` block in {path.name}"
-    return set(block.group(1).split())
+    # Found by dedent, not by matching what an entry ought to look like: the old
+    # `[ ]+[\w-]+` pattern ended the block at the first malformed line and hid everything
+    # after it, so an appended `foo|bar` widened the accepted types unseen by this test.
+    lines = path.read_text().splitlines()
+    start = next((i for i, line in enumerate(lines) if line.strip() == f"{key}: |"), None)
+    assert start is not None, f"could not find a `{key}: |` block in {path.name}"
+    indent = len(lines[start]) - len(lines[start].lstrip())
+    entries: list[str] = []
+    for line in lines[start + 1 :]:
+        if not line.strip():
+            continue
+        if len(line) - len(line.lstrip()) <= indent:
+            break
+        entries.extend(line.split())
+    malformed = [e for e in entries if not re.fullmatch(r"[\w-]+", e)]
+    assert not malformed, (
+        f"{path.name} `{key}` has entries that are not bare words: {malformed}. The workflow "
+        f"joins them with `|` into a regex alternation, so one containing `|` silently widens "
+        f"what it accepts past commitizen's set."
+    )
+    return set(entries)
 
 
-@pytest.mark.parametrize(
-    ("workflow", "key"),
-    [("conventional-commits.yml", "default"), ("semantic-pull-request.yml", "types")],
-)
-def test_allowed_types_match_the_commitizen_builtin_set(workflow: str, key: str) -> None:
+def test_allowed_types_match_the_commitizen_builtin_set() -> None:
     # commitizen has the final say on commit messages, through the commit-msg hook and
-    # `cz check`. A type it accepts that one of these lists rejects is a gate disagreeing
-    # with the tool it mirrors, and `bump` is the one that differs from the actions' own
-    # defaults — which is why neither list may be left to a default.
+    # `cz check`. A type it accepts that this list rejects is a gate disagreeing with the
+    # tool it mirrors, and `bump` is the one that differs from the action's own default —
+    # which is why the list may not be left to a default. There is one declaration now:
+    # the title and commit checks both read it from this input.
+    workflow, key = "conventional-commits.yml", "default"
     declared = _block_of_words(REPO_ROOT / ".github" / "workflows" / workflow, key)
     builtin = _commitizen_types()
     assert declared == builtin, (
