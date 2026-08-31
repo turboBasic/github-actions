@@ -63,7 +63,7 @@ one test module, three documents, one repository ruleset.
 | IV. Untrusted Input Is Data, Never Code | **Strengthened** | A `pull_request_target` trigger is removed from the repository, and with it the only `dangerous-triggers` suppression in `.github/zizmor.yml`. No `run:` block is added; no `${{ }}` reaches a shell. |
 | V. Secrets Never Persist | **Pass** | No secret is read, written or referenced. The called workflow uses `secrets.GITHUB_TOKEN` through `env`, unchanged. |
 | VI. Verification By Real Invocation | **This is the feature** | The change exists to close a principle VI gap. It is itself verified the same way: the deliberate-break scenario in [quickstart.md](./quickstart.md) is the acceptance test, and lint alone does not close it. |
-| VII. Gates Are Never Loosened | **Pass** | No rule disabled, no mode relaxed, no finding silenced. A zizmor suppression is *removed*. Two test assertions change because the thing they asserted no longer exists, and a new assertion is added to cover the property this change introduces (R8). Net test count rises. |
+| VII. Gates Are Never Loosened | **Pass** | No rule disabled, no mode relaxed, no finding silenced. A zizmor suppression is *removed*. Two test assertions change because the thing they asserted no longer exists, and a new assertion is added to cover the property this change introduces (R8). Measured after the fact: the collected-test count is flat at 18, not risen — the new relative-reference test and the two file-parametrised cases the new caller adds are offset exactly by the three cases the deleted workflow took with it. No property lost coverage. |
 
 **Cross-Repository Impact**: answered in the spec — no affected consumers, empty interface delta, no
 migration, one revert commit plus a ruleset revert to roll back.
@@ -124,7 +124,11 @@ inside it.
    time. The old required check `PR title` does not report and cannot: its workflow is deleted in this
    very pull request.
 3. Update the ruleset: drop `PR title`, add `commits / PR title` and `commits / Commit messages`,
-   keep `CI`. The pull request is blocked until this happens, so it is a landing step, not a follow-up.
+   keep `CI`. A landing step, not a follow-up — though not for the reason recorded here originally.
+   `PR title` does keep reporting on this pull request, because `pull_request_target` resolves its
+   workflow from the base branch, where the file survives until the merge. The deadline is the merge
+   itself: once `semantic-pull-request.yml` leaves `main`, `PR title` can never report again and every
+   subsequent pull request is blocked on a required check nothing produces.
 4. Prove the point before merging: push a commit that deliberately breaks `conventional-commits.yml`,
    confirm the pull request fails, then revert it. This is the principle VI acceptance test and the
    only evidence that the feature works — see [quickstart.md](./quickstart.md).

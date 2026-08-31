@@ -123,7 +123,7 @@ default in `conventional-commits.yml`; `rg -n 'pull_request_target' .github/` re
   `if: github.event_name == 'pull_request'` guard, and drop `fetch-depth: 0` with its
   "cz check needs the full range" comment from the checkout — nothing else in that job reads git
   history, so leaving it makes the comment a lie about why a full clone is fetched (research R7)
-- [ ] T012 [US2] Run `mise run ci`, then push. Expect the pull request to become **blocked**: the
+- [X] T012 [US2] Run `mise run ci`, then push. Expect the pull request to become **blocked**: the
   required check `PR title` can no longer report, because the workflow producing it is gone. This is
   the expected state, not a defect, and Phase 5 resolves it
 
@@ -142,7 +142,7 @@ pushed.
 
 ### Implementation for User Story 3
 
-- [ ] T013 [US3] Confirm the check names on the open pull request with
+- [X] T013 [US3] Confirm the check names on the open pull request with
   `gh pr checks` — expect `CI`, `commits / PR title` and `commits / Commit messages`. The `commits /`
   prefix is the calling job's id; if it reads otherwise, the job in
   `.github/workflows/commit-messages.yml` is misnamed
@@ -151,7 +151,7 @@ pushed.
   `commits / PR title` and `commits / Commit messages`, keep `CI`, preserve `integration_id` 15368 and
   every other rule (squash-only, linear history, one approving review). This cannot be done in a
   commit and cannot be done before T013 — the new names must have reported at least once
-- [ ] T015 [US3] Verify FR-005: edit the pull request title to something invalid without pushing
+- [X] T015 [US3] Verify FR-005: edit the pull request title to something invalid without pushing
   anything, confirm `commits / PR title` re-runs and fails, correct it, confirm it re-runs and passes
 - [ ] T016 [US3] Verify FR-007: with a `CI` run in progress, edit the pull request title and confirm
   the `CI` run is neither restarted nor cancelled — the two workflows have separate `concurrency`
@@ -165,19 +165,19 @@ pushed.
 
 **Purpose**: The documentation this change falsifies, and the final pass.
 
-- [ ] T017 [P] In `docs/ai-instructions.md`, change the workflow-table row (line ~93) from
+- [X] T017 [P] In `docs/ai-instructions.md`, change the workflow-table row (line ~93) from
   `{ci,semantic-pull-request}.yml` to `{ci,commit-messages}.yml`; rewrite the allowed-types bullet
   (line ~155) from two workflows to one; and rewrite the CI paragraph claiming this repository cannot
   call its own reusable workflows — the claim is true of the `@vN` form only, and the relative form
   that resolves at the caller's commit is now the repository's own practice
-- [ ] T018 [P] In `docs/consumers.md`, correct "Every other consumer grants `contents: read` and
+- [X] T018 [P] In `docs/consumers.md`, correct "Every other consumer grants `contents: read` and
   nothing more" — every consumer of `conventional-commits.yml` also grants `pull-requests: read`, as
   `python-app-baseline`'s call site shows, and without it the run dies as `startup_failure` before any
   job exists (research R4)
-- [ ] T019 [P] Verify `README.md` needs no edit: its canonical `conventional-commits.yml` call site
+- [X] T019 [P] Verify `README.md` needs no edit: its canonical `conventional-commits.yml` call site
   (lines ~100-131) already documents the `pull_request` trigger and both `pull-requests: read` grants,
   which is now exactly what this repository's own caller does. Correct it only if it disagrees
-- [ ] T020 Run `mise run ci` and walk quickstart Scenarios 1–3 end to end as a final pass
+- [X] T020 Run `mise run ci` and walk quickstart Scenarios 1–3 end to end as a final pass
 - [ ] T021 Squash merge
 
 ---

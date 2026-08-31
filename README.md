@@ -105,6 +105,7 @@ rebase merge puts on the default branch).
 ```yaml
 on:
   pull_request:
+    types: [opened, edited, reopened, synchronize]
 
 permissions:
   contents: read
@@ -117,6 +118,11 @@ jobs:
       contents: read
       pull-requests: read
 ```
+
+**Spell out `types` and include `edited`.** A bare `pull_request:` subscribes to the default activity
+types, which do not include it — so a rejected title stays rejected until something is pushed, and
+correcting a title is an edit, not a push. Give this its own workflow rather than folding it into a
+repository-wide one, which would then re-run lint, typecheck and tests on every title edit.
 
 | Input | Default | Purpose |
 | --- | --- | --- |

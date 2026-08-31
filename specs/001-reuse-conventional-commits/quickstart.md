@@ -48,9 +48,17 @@ gh api repos/turboBasic/github-actions/rulesets/20657426 \
 Expected **after** the ruleset is updated: `CI`, `commits / PR title`, `commits / Commit messages`.
 
 Order matters. Run this against the open pull request's checks first — the new names must have
-reported at least once before they are made required, and the old `PR title` must be dropped in the
-same edit, because the workflow producing it is deleted by this pull request and it can never report
-again.
+reported at least once before they are made required.
+
+**Measured correction.** `PR title` does keep reporting on *this* pull request, so the pull request is
+not blocked on it: `semantic-pull-request.yml` triggers on `pull_request_target`, which resolves the
+workflow from the **base** branch, where the file still exists until this merges. What is actually
+blocking here is the ruleset's one-approving-review rule, which has nothing to do with this change.
+
+The deadline is therefore the merge, not this pull request: the moment `semantic-pull-request.yml`
+leaves `main`, `PR title` can never report again, and every *subsequent* pull request would be
+permanently blocked on a required check no workflow produces. Drop it in the same edit that adds the
+new names, at or before the merge.
 
 ## Scenario 4 — the acceptance test: a break fails its own pull request
 
@@ -58,13 +66,19 @@ This is the one that matters. Everything above passes equally well on a workflow
 
 With the pull request open and its checks green:
 
-1. Break `conventional-commits.yml` on the branch — the smallest useful break is a `types` value that
-   cannot be a commit type, e.g. adding `not a type` to the list, which the workflow's own bare-word
-   guard rejects:
+1. Break `conventional-commits.yml` on the branch — the smallest useful break is a `types` value the
+   workflow's own bare-word guard rejects:
 
    ```text
    *[^a-zA-Z0-9_\|-]*) echo "::error::the types input must be bare words: ${types_pattern}"
    ```
+
+   Add `not.a.type` to the list. **Not a value containing a space** — the guard runs on the pattern
+   *after* `tr -s '[:space:]' '\n'`, so `not a type` arrives as three separate bare words and is
+   accepted. Measured, not assumed. The character has to survive that normalisation: a dot does.
+
+   Put the broken value last in the block, so `tests/test_action_pins.py` still passes and the only
+   thing failing is the check under observation.
 
 2. Push it. Expected: `commits / Commit messages` **fails**, on this pull request, naming that error.
 

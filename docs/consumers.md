@@ -8,6 +8,7 @@ current in the same change that alters an input contract.
 
 | Repository | Visibility | Calls | Notable inputs |
 | --- | --- | --- | --- |
+| `github-actions` (this one) | public | `conventional-commits`, **relatively** | defaults throughout |
 | `python-app-baseline` | public | `python-ci`, `conventional-commits` | defaults throughout |
 | `repo-factory` | public | `populate-pr-description` action only | — |
 | `opus-magnum` | private, **not yet migrated** | `python-ci`, `precommit-advisory`, `conventional-commits` | `lint-changed-only: true`, `hook-stage: pre-push` on both, `run-typecheck: false`, `run-tests: false`, `mise-version` pinned |
@@ -21,8 +22,20 @@ so it needs `run-typecheck: false` and `run-tests: false` alongside the lint inp
 `opus-magnum` needs `hook-stage: pre-push`: it reserves mypy for that stage, and without the input
 those hooks silently stop running on PRs. It is also the only repo calling `precommit-advisory.yml`,
 so the only one granting `pull-requests: write` — pass `hook-stage` to both, or the blocking run and
-the advisory run check different hooks. Every other consumer grants `contents: read` and nothing
-more.
+the advisory run check different hooks. No other consumer needs `write` on anything.
+
+Every caller of `conventional-commits.yml` grants `pull-requests: read` as well as `contents: read`,
+at workflow level and on the calling job. It is not optional: its title job asks for
+`pull-requests: read`, a caller granting only `contents: read` reduces that to none, and permissions
+are validated before any job exists — so the run dies as `startup_failure` with no job, no log and no
+diagnostic. `python-app-baseline`'s call site shows the shape, and this repository's own
+`commit-messages.yml` is now an instance of it.
+
+This repository is its own first consumer of `conventional-commits.yml`, through
+`.github/workflows/commit-messages.yml` and a relative `./` reference that resolves at the caller's
+own commit. So a change to that workflow is exercised by the pull request making it, before any
+consumer sees a tag — but it also means a break there fails this repository's own pull requests
+immediately, with no tag to lag behind. That is the point, not a hazard.
 
 `conventional-commits.yml` installs `uv` directly rather than through `mise-action` so that a repo
 with no mise config can still have its commit messages checked.

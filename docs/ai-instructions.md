@@ -90,7 +90,7 @@ The repository layout is load-bearing:
 | Path | Contents | Referenced as |
 | --- | --- | --- |
 | `.github/workflows/*.yml` with `workflow_call` | reusable workflows | `turboBasic/github-actions/.github/workflows/<name>.yml@v1` |
-| `.github/workflows/{ci,semantic-pull-request}.yml` | this repo's own CI | not referenced |
+| `.github/workflows/{ci,commit-messages}.yml` | this repo's own CI | not referenced |
 | `actions/<name>/action.yml` | composite actions | `turboBasic/github-actions/actions/<name>@v1` |
 
 Composite actions live in `actions/`, not `.github/actions/`. The latter is the convention for
@@ -151,10 +151,11 @@ Python 3.14. The only Python here supports the actions and their tests.
   is unverified: exercise it from a real PR before tagging. Every linter here passes on a workflow
   that no caller can run — a permission the caller cannot know to grant, an input that resolves to
   nothing — because nothing is wrong with the file in isolation.
-- **The allowed commit types are written out in two workflows** — `conventional-commits.yml`'s
-  `types` default and `semantic-pull-request.yml`'s `types` input — and both are asserted equal to
-  commitizen's built-in set by `tests/test_action_pins.py`. Neither may be edited alone, and neither
-  may fall back to a tool's own default: commitizen's set and the actions' sets differ.
+- **The allowed commit types are declared once**, as `conventional-commits.yml`'s `types` default,
+  and asserted equal to commitizen's built-in set by `tests/test_action_pins.py`. Both the title and
+  the commit-message check read it from there. It may not fall back to a tool's own default:
+  commitizen's set and the action's differ, `bump` being the one that does. A second copy anywhere is
+  a defect — that is what the single declaration replaced.
 
 ## Shipping
 
@@ -176,6 +177,15 @@ a new `v2` tag, with `v1` left where it is — not a `v1` move.
 
 ### CI
 
-`mise run ci` reproduces CI locally. This repo's own CI runs the checks inline rather than calling
-its own reusable workflows: a `workflow_call` reference resolves at the called ref, so a broken
-change would be validated by the last good tag and pass.
+`mise run ci` reproduces CI locally.
+
+**A self-call must use the relative form.** `./.github/workflows/<name>.yml`, with no
+`{owner}/{repo}` and no `@{ref}`, resolves at the caller's own commit — so a change to the called
+workflow is validated by the version under review. `commit-messages.yml` calls
+`conventional-commits.yml` that way, which is how a reusable workflow here gets exercised before it
+is tagged (principle VI). The `turboBasic/github-actions/...@vN` form resolves at the tag instead and
+would validate a broken change against the last good release; `tests/test_action_pins.py` asserts the
+caller has not been rewritten into it, because every other gate accepts both forms.
+
+`ci.yml` still runs its checks inline, but only because `python-ci.yml` has no input for a fourth
+task and would skip `lint-schemas` — not because a self-call is impossible.
