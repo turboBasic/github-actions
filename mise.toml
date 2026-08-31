@@ -8,13 +8,15 @@ taplo = "latest"
 prek = "latest"
 "npm:markdownlint-cli2" = "0.23.2"
 "npm:cspell" = "10.0.1"
+"pipx:specify-cli" = "1.0.1"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
 
 [tasks.setup]
-description = "Install dependencies and git hooks"
+description = "Install tools, dependencies and git hooks"
 run = [
+  "mise install",
   "uv sync --locked",
   "prek install",
 ]
@@ -48,3 +50,10 @@ run = "uv run pytest"
 [tasks.ci]
 description = "Run everything CI runs, locally"
 depends = ["lint", "typecheck", "test"]
+
+# Never `specify self upgrade` — it replaces the binary behind mise's back, leaving
+# the committed manifests describing a version nothing here pins. Bump
+# `pipx:specify-cli` above, then run this to bring the vendored files with it.
+[tasks.spec-kit-upgrade]
+description = "Re-sync .specify/ and the speckit skills to the pinned specify-cli"
+run = "specify integration upgrade claude"

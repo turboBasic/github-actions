@@ -2,7 +2,11 @@
   "gitignore": true,
   // disable VS Code extension from flagging this file in Problems
   "ignores": [
-    "tmp/ad-hoc-prompts.md"
+    "tmp/ad-hoc-prompts.md",
+    // Vendored Spec Kit machinery, rewritten by `specify` on every refresh.
+    // `.specify/memory/constitution.md` is ours, so it stays linted.
+    ".specify/templates/**",
+    ".claude/skills/speckit-*/**"
   ],
   // MD013 (line length): prose here is never rewrapped, so `line_length` is effectively off
   "config": {

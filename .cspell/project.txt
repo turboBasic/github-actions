@@ -16,6 +16,7 @@ pyright
 pytest
 ruff
 shellcheck
+speckit
 taplo
 zizmor
 

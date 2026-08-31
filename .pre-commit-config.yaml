@@ -4,8 +4,15 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      # Vendored Spec Kit files are rewritten byte-for-byte by
+      # `specify integration upgrade`, so reformatting them here churns on every
+      # upgrade. `workflow-registry.json` ships with no final newline. The one file
+      # there we author, memory/constitution.md, is still covered by markdownlint
+      # (MD009, MD047).
       - id: trailing-whitespace
+        exclude: &vendored_speckit ^(\.specify/|\.claude/skills/speckit-)
       - id: end-of-file-fixer
+        exclude: *vendored_speckit
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files
@@ -65,9 +72,12 @@ repos:
       # cspell.config.yaml owns dictionaries and ignored paths. Scoped to the
       # pre-commit stage: `types: [text]` also matches the commit-msg stage's
       # message file, which cspell then fails on ("0 files checked").
+      # `--no-must-find-files` covers the same failure inside the pre-commit stage:
+      # a batch consisting only of ignorePaths matches (the vendored Spec Kit files)
+      # leaves cspell with nothing to check, which is not an error.
       - id: cspell
         name: cspell
-        entry: mise exec -- cspell lint --no-progress
+        entry: mise exec -- cspell lint --no-progress --no-must-find-files
         language: system
         types: [text]
         stages: [pre-commit]

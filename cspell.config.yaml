@@ -1,6 +1,9 @@
 version: "0.2"
 language: en,en-GB
 caseSensitive: false
+# Without this, `cspell lint .` silently skips every dot-directory — including
+# `.github/` and `.specify/memory/constitution.md`.
+enableGlobDot: true
 
 dictionaryDefinitions:
   - name: project
@@ -24,6 +27,17 @@ dictionaries:
 ignorePaths:
   - .git/**
   - .cspell/**
+  # Vendored Spec Kit machinery, rewritten by `specify` on every refresh. Listed
+  # per-directory rather than as `.specify/**` because `memory/constitution.md`
+  # is ours and stays checked; cspell rejects negative globs here.
+  - .specify/*.json
+  - .specify/integrations/**
+  - .specify/memory/.constitution-template.json
+  - .specify/scripts/**
+  - .specify/templates/**
+  - .specify/workflows/**
+  - .claude/skills/speckit-*/**
+  - tmp/**
   - .ruff_cache/**
   - .pytest_cache/**
   - "**/__pycache__/**"
