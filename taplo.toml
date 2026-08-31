@@ -1,0 +1,8 @@
+# taplo does not respect .gitignore, so without this it formats the ~200 vendored
+# METADATA.toml/Cargo.toml files that ship inside .venv's installed packages.
+exclude = ["**/.venv/**"]
+
+[formatting]
+# mise.toml's task `run` lists are written one entry per line on purpose, even where they'd
+# fit on one line — taplo's default auto-collapse would rewrite them against that convention.
+array_auto_collapse = false

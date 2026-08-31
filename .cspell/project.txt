@@ -15,6 +15,7 @@ pyright
 pytest
 ruff
 shellcheck
+taplo
 zizmor
 
 # --- Publisher handles: GitHub actions and VS Code extensions ---

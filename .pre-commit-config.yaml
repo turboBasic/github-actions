@@ -51,3 +51,18 @@ repos:
         language: system
         pass_filenames: true
         files: ^(\.github/workflows/.*\.ya?ml|actions/.*/action\.ya?ml)$
+
+      # No filenames: taplo.toml's exclude/include decide which TOML is ours.
+      - id: taplo-fmt
+        name: taplo fmt
+        entry: mise exec -- taplo fmt
+        language: system
+        types: [toml]
+        pass_filenames: false
+
+      # .markdownlint-cli2.jsonc owns which rules apply and which files are exempt.
+      - id: markdownlint-cli2
+        name: markdownlint-cli2
+        entry: mise exec -- markdownlint-cli2
+        language: system
+        types: [markdown]

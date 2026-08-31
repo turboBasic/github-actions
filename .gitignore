@@ -9,6 +9,7 @@ __pycache__/
 # Tooling caches
 .pyright/
 .ruff_cache/
+.pytest_cache/
 .cache/
 
 # mise
@@ -20,3 +21,8 @@ __pycache__/
 !.vscode/extensions.json
 .idea/
 .DS_Store
+
+# Logs, temp, build files
+tmp/
+*.tmp
+*.log

@@ -4,6 +4,8 @@ uv = "latest"
 actionlint = "latest"
 shellcheck = "latest"
 zizmor = "latest"
+taplo = "latest"
+"npm:markdownlint-cli2" = "0.23.2"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
@@ -16,8 +18,11 @@ run = [
 ]
 
 [tasks.fmt]
-description = "Format code with ruff"
-run = "uv run ruff format ."
+description = "Format code with ruff, TOML with taplo"
+run = [
+  "uv run ruff format .",
+  "taplo fmt .",
+]
 
 [tasks.lint]
 description = "Lint workflows with actionlint and zizmor, scripts with ruff"

@@ -363,6 +363,7 @@ not yet.
   `dev` group includes `lint` and `uv sync` installs `dev` by default, so `uv run pre-commit` works
   there too (verified). Still one convention too many for the same tool; worth unifying on `uv run`
   in the composite action, which would also drop its implicit dependency on mise.
+
 ## Abort
 
 Nothing is destructive before step 4. Each consumer migration is a single PR that can be reverted. If the approach
