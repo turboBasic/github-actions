@@ -209,13 +209,14 @@ resolves at the tag and would validate it against the last good release. `commit
 `conventional-commits.yml` this way, and `ci.yml` calls `python-ci.yml` this way.
 `tests/test_action_pins.py` enforces it, because every other gate accepts the tagged form too.
 
-Not the older `./.github/workflows/<name>.yml`, which resolves at the same commit but reaches it
-through the runner's filesystem, so a preceding step can substitute what gets called. zizmor's
-`self-repository` audit rejects it. `$/` is unavailable on GitHub Enterprise Server; nothing here
-targets it.
+**Never write the older `./.github/workflows/<name>.yml`.** It resolves at the same commit, but
+reaches the file through the runner's filesystem, so a step running earlier can substitute what gets
+called; zizmor's `self-repository` audit rejects it. `$/` is unavailable on GitHub Enterprise Server —
+nothing here targets it, and that is not a reason to reach for `./`.
 
 actionlint 1.7.12 has not learned `$/` yet (rhysd/actionlint#711) and reports it as a malformed
 call, so `.github/actionlint.yaml` ignores that one message — anchored on the `$/` prefix, so a
 genuinely malformed ref still fails. This is the one silenced rule in the repo, and it silences a
 false positive rather than a finding. It cannot outlive the bug: `test_the_actionlint_ignore_is_still_needed`
-asserts actionlint still rejects `$/`, so the day #711 ships the suite says to delete the file.
+asserts actionlint still rejects `$/`, so the day #711 ships the suite says to delete the file. Do not
+treat it as precedent — a second ignore needs the same two things, a false positive and an expiry.
