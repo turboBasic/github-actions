@@ -30,6 +30,9 @@
   "pre-commit": {
     "enabled": true
   },
+  "mise": {
+    "enabled": true
+  },
   "lockFileMaintenance": {
     "enabled": true,
     "commitMessageAction": "update lock file",
