@@ -183,7 +183,7 @@ a new `v2` tag, with `v1` left where it is — not a `v1` move.
 `{owner}/{repo}` and no `@{ref}`, resolves at the caller's own commit — so a change to the called
 workflow is validated by the version under review. `commit-messages.yml` calls
 `conventional-commits.yml` that way, which is how a reusable workflow here gets exercised before it
-is tagged (principle VI). The `turboBasic/github-actions/...@vN` form resolves at the tag instead and
+is tagged. The `turboBasic/github-actions/...@vN` form resolves at the tag instead and
 would validate a broken change against the last good release; `tests/test_action_pins.py` asserts the
 caller has not been rewritten into it, because every other gate accepts both forms.
 

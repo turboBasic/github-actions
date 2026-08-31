@@ -74,6 +74,25 @@ def test_the_self_call_is_relative() -> None:
     )
 
 
+def test_the_required_check_names_are_intact() -> None:
+    # `commits / PR title` and `commits / Commit messages` are required contexts on the `main`
+    # ruleset, composed from the caller's job id and the called workflow's job names. Rename
+    # any of the three and both stop reporting, blocking every pull request until the ruleset
+    # is edited by hand — and nothing in the tree would look wrong.
+    caller = REPO_ROOT / ".github" / "workflows" / "commit-messages.yml"
+    called = REPO_ROOT / ".github" / "workflows" / "conventional-commits.yml"
+    assert "\n  commits:\n" in caller.read_text(), (
+        f"{caller.name}'s calling job must keep the id `commits`; it is the prefix of both "
+        f"required checks."
+    )
+    called_text = called.read_text()
+    for job_name in ("PR title", "Commit messages"):
+        assert f"name: {job_name}\n" in called_text, (
+            f"{called.name} must keep `name: {job_name}`; it is the second half of the "
+            f"required check `commits / {job_name}`."
+        )
+
+
 def test_every_reusable_workflow_declares_workflow_call() -> None:
     reusable = [
         p
@@ -98,9 +117,27 @@ def _commitizen_types() -> set[str]:
 
 
 def _block_of_words(path: Path, key: str) -> set[str]:
-    block = re.search(rf"{key}: \|\n((?:[ ]+[\w-]+\n)+)", path.read_text())
-    assert block, f"could not find a `{key}: |` block in {path.name}"
-    return set(block.group(1).split())
+    # Found by dedent, not by matching what an entry ought to look like: the old
+    # `[ ]+[\w-]+` pattern ended the block at the first malformed line and hid everything
+    # after it, so an appended `foo|bar` widened the accepted types unseen by this test.
+    lines = path.read_text().splitlines()
+    start = next((i for i, line in enumerate(lines) if line.strip() == f"{key}: |"), None)
+    assert start is not None, f"could not find a `{key}: |` block in {path.name}"
+    indent = len(lines[start]) - len(lines[start].lstrip())
+    entries: list[str] = []
+    for line in lines[start + 1 :]:
+        if not line.strip():
+            continue
+        if len(line) - len(line.lstrip()) <= indent:
+            break
+        entries.extend(line.split())
+    malformed = [e for e in entries if not re.fullmatch(r"[\w-]+", e)]
+    assert not malformed, (
+        f"{path.name} `{key}` has entries that are not bare words: {malformed}. The workflow "
+        f"joins them with `|` into a regex alternation, so one containing `|` silently widens "
+        f"what it accepts past commitizen's set."
+    )
+    return set(entries)
 
 
 def test_allowed_types_match_the_commitizen_builtin_set() -> None:

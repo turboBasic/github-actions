@@ -153,10 +153,12 @@ pushed.
   `commits / PR title` and `commits / Commit messages`, keep `CI`, preserve `integration_id` 15368 and
   every other rule (squash-only, linear history, one approving review). This cannot be done in a
   commit and cannot be done before T013 — the new names must have reported at least once.
-  **BLOCKED, not done.** The payload is prepared and verified at `tmp/ruleset-after.json` (prior state
-  at `tmp/ruleset-before.json`); the `PUT` was refused by the local permission classifier, so it needs
-  a human to run it. The deadline is the merge: once `semantic-pull-request.yml` leaves `main`,
-  `PR title` can never report again and every subsequent pull request is blocked on it
+  **Applied.** Required contexts are now `CI`, `commits / PR title` and `commits / Commit messages`,
+  with `integration_id` 15368 and the squash-only, linear-history and one-approval rules intact. The
+  deadline was the merge: once `semantic-pull-request.yml` leaves `main`, `PR title` can never report
+  again, and a ruleset still requiring it would block every subsequent pull request. Rolling this
+  change back means restoring `PR title` and dropping the two new contexts by hand — the one step no
+  revert commit performs
 - [X] T015 [US3] Verify FR-005: edit the pull request title to something invalid without pushing
   anything, confirm `commits / PR title` re-runs and fails, correct it, confirm it re-runs and passes
 - [X] T016 [US3] Verify FR-007: with a `CI` run in progress, edit the pull request title and confirm
