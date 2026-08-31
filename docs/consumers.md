@@ -33,6 +33,13 @@ with no mise config can still have its commit messages checked.
 it ever made private, every consumer would need
 Settings → Actions → General → Access → "Accessible from repositories owned by 'turboBasic'".
 
+That policy cannot be guarded directly: `GET /repos/{owner}/{repo}/actions/permissions/access`
+answers `422 Access policy only applies to internal and private repositories` while this repository
+is public, so there is nothing to read and nothing to need. What a test can guard is the
+precondition, and `test_this_repository_is_still_public` in `tests/test_action_pins.py` does — a private
+repository fails it, with the setting above as the failure message. Set the policy and delete the
+test, in that order.
+
 A call site changes the names of the repo's status checks to `<caller job> / <called job>`, so a
 required check named after the old job stops reporting and blocks every merge. Update the required
 checks in the same change — for `python-app-baseline` they became `ci / CI`, `commits / PR title` and

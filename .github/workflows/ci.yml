@@ -20,8 +20,8 @@ jobs:
 
   # Separate: needs a token and network, which python-ci.yml gives `mise run test` neither of.
   # Deliberately not a required context — a red check is signal enough here.
-  ruleset:
-    name: Ruleset
+  live:
+    name: Live
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

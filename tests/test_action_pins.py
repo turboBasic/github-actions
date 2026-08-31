@@ -2,6 +2,7 @@ import json
 import os
 import re
 import subprocess
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -26,21 +27,30 @@ REQUIRED_CHECKS = [
     ("commits / PR title", "commit-messages.yml", "conventional-commits.yml"),
     ("commits / Commit messages", "commit-messages.yml", "conventional-commits.yml"),
 ]
+REPO_URL = "https://api.github.com/repos/turboBasic/github-actions"
 # Applied rules for a branch, unlike the rulesets API, need no `administration` scope — it answers
 # unauthenticated on a public repo, so the default GITHUB_TOKEN is enough.
-BRANCH_RULES_URL = "https://api.github.com/repos/turboBasic/github-actions/rules/branches/main"
+BRANCH_RULES_URL = f"{REPO_URL}/rules/branches/main"
+WENT_PRIVATE = (
+    "this repository is no longer public, so every consumer's call to these workflows stops "
+    'resolving until Settings → Actions → General → Access is set to "Accessible from '
+    "repositories owned by 'turboBasic'\". Set that policy, then delete this test — it cannot "
+    "assert the policy itself, which is why it asserts the visibility that makes it unnecessary."
+)
 
 
-def _live_required_contexts() -> set[str]:
-    request = urllib.request.Request(
-        BRANCH_RULES_URL, headers={"Accept": "application/vnd.github+json"}
-    )
+def _api_json(url: str) -> Any:
+    request = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
     # Only to lift the 60/hour unauthenticated rate limit, which shared runner IPs do reach.
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
     if token:
         request.add_header("Authorization", f"Bearer {token}")
     with urllib.request.urlopen(request, timeout=30) as response:
-        rules: list[dict[str, Any]] = json.load(response)
+        return json.load(response)
+
+
+def _live_required_contexts() -> set[str]:
+    rules: list[dict[str, Any]] = _api_json(BRANCH_RULES_URL)
     return {
         str(check["context"])
         for rule in rules
@@ -184,6 +194,23 @@ def test_the_ruleset_requires_exactly_the_checks_that_exist() -> None:
         f"{sorted(expected)}. A required context that no job reports blocks every pull request; "
         f"reconcile the ruleset with REQUIRED_CHECKS."
     )
+
+
+@pytest.mark.live
+def test_this_repository_is_still_public() -> None:
+    # Private `opus-magnum` can call these workflows only because this repository is public. The
+    # setting that would replace that cannot be asserted — `actions/permissions/access` answers 422
+    # while a repo is public — so this guards the precondition instead, and its message carries the
+    # instruction nobody will remember at the moment of flipping the switch.
+    try:
+        repo: dict[str, Any] = _api_json(REPO_URL)
+    except urllib.error.HTTPError as error:
+        # Unauthenticated, a private repo is indistinguishable from a deleted one; either way the
+        # consumers' precondition is gone.
+        if error.code != 404:
+            raise
+        pytest.fail(WENT_PRIVATE)
+    assert repo["private"] is False, WENT_PRIVATE
 
 
 def test_every_reusable_workflow_declares_workflow_call() -> None:

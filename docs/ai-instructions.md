@@ -160,10 +160,11 @@ Python 3.14. The only Python here supports the actions and their tests.
 - pyright strict. Never a blanket `# type: ignore` or a loosened mode to clear an error.
 - pytest. Never `unittest.TestCase`. `tests/` asserts properties of the YAML, since there is no
   application to test.
-- **The suite is offline; `mise run ci` must never need the network.** The one exception is marked
+- **The suite is offline; `mise run ci` must never need the network.** The exceptions are marked
   `@pytest.mark.live` and deselected by default, run by `mise run test-live` from its own `ci.yml`
-  job where a token exists. Reach for it only where the thing being asserted is repository state no
-  file can express — the required status checks on the `main` ruleset are the case that earns it.
+  job where a token exists. Reach for one only where the thing being asserted is repository state no
+  file can express: the required status checks on the `main` ruleset, and this repository still being
+  public, which is what lets a private consumer resolve these workflows at all.
 - A workflow change is not verified by lint alone. A reusable workflow that has never been called
   is unverified: exercise it from a real PR before tagging. Every linter here passes on a workflow
   that no caller can run — a permission the caller cannot know to grant, an input that resolves to
