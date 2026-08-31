@@ -2,11 +2,11 @@
 
 Reusable GitHub Actions workflows and composite actions shared across `turboBasic` repositories.
 
-[![CI](https://github.com/turboBasic/github-actions/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/turboBasic/github-actions/actions/workflows/ci.yml?query=branch%3Amain)
-[![License: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+[![CI][ci-badge]][ci-workflow]
+[![License: MIT][license-badge]][license]
 
-Conventions live in [`docs/ai-instructions.md`](docs/ai-instructions.md); how to send a change is
-in [`CONTRIBUTING.md`](CONTRIBUTING.md). [`docs/consumers.md`](docs/consumers.md) lists which
+Conventions live in [`docs/ai-instructions.md`][ai-instructions]; how to send a change is
+in [`CONTRIBUTING.md`][contributing]. [`docs/consumers.md`][consumers] lists which
 repository calls what.
 
 ## Reusable workflows
@@ -43,15 +43,15 @@ jobs:
 | `mise-version` | `""` | Pin the mise release; empty uses the action's default. |
 | `run-lint` / `run-typecheck` / `run-tests` | `true` | Skip a stage a repo does not have. |
 | `lint-task` / `typecheck-task` / `test-task` | `lint` / `typecheck` / `test` | Override a differently-named `mise` task. |
-| `lint-changed-only` | `false` | Lint changed files via pre-commit instead of the lint task. |
-| `hook-stage` | `""` | pre-commit hook stage for the changed-files run; empty is the default stage. |
-| `cache-pre-commit` | `true` | Cache `~/.cache/pre-commit`, keyed on the config hash. |
+| `lint-changed-only` | `false` | Lint changed files via prek instead of the lint task. |
+| `hook-stage` | `""` | prek hook stage for the changed-files run; empty is the default stage. |
+| `cache-pre-commit` | `true` | Cache `~/.cache/prek`, keyed on the config hash. |
 | `timeout-minutes` | `20` | Job timeout. |
 
 `contents: read` is all this workflow needs, and all you should grant it.
 
 `lint-changed-only` is faster on a large tree but lets a PR pass while the tree is broken. Pair it
-with [`precommit-advisory.yml`](#precommit-advisoryyml), which is the compensating control.
+with [`precommit-advisory.yml`][precommit-advisory-heading], which is the compensating control.
 
 Set `hook-stage: pre-push` if the repo reserves its slow hooks for that stage — without it those
 hooks silently stop running on PRs. Pass the same value to `precommit-advisory.yml` if you call it,
@@ -63,7 +63,7 @@ re-running `uv lock`.
 
 ### `precommit-advisory.yml`
 
-Runs pre-commit over every file, non-blocking, and reports the result as a single PR comment that is
+Runs prek over every file, non-blocking, and reports the result as a single PR comment that is
 updated in place on each push. The compensating control for `lint-changed-only`.
 
 ```yaml
@@ -85,8 +85,8 @@ jobs:
 | Input | Default | Purpose |
 | --- | --- | --- |
 | `mise-version` | `""` | Pin the mise release; empty uses the action's default. |
-| `hook-stage` | `""` | pre-commit hook stage; match what `python-ci.yml` is given. |
-| `cache-pre-commit` | `true` | Cache `~/.cache/pre-commit`, keyed on the config hash. |
+| `hook-stage` | `""` | prek hook stage; match what `python-ci.yml` is given. |
+| `cache-pre-commit` | `true` | Cache `~/.cache/prek`, keyed on the config hash. |
 | `timeout-minutes` | `20` | Job timeout. |
 
 Trigger on `pull_request`: the job is gated on that event name and silently skips under any other,
@@ -127,7 +127,7 @@ jobs:
 
 **Trigger on `pull_request`, never `pull_request_target`.** Both jobs are gated on
 `github.event_name == 'pull_request'`, and a skipped job
-[reports success](https://docs.github.com/en/actions/using-jobs/using-conditions-to-control-job-execution),
+[reports success][job-conditions],
 so under `pull_request_target` this becomes a required check that passes without validating anything.
 The commit job's checkout would also resolve the base ref rather than the commits under review.
 Adding `push` alongside `pull_request` is fine: both jobs skip, which is what you want on a push.
@@ -148,7 +148,7 @@ still have its commit messages checked.
 
 ### `actions/precommit-advisory-pr`
 
-Runs pre-commit over every file, non-blocking, and reports failures as a job summary plus a single
+Runs prek over every file, non-blocking, and reports failures as a job summary plus a single
 PR comment that is *updated* rather than duplicated on later pushes.
 
 ```yaml
@@ -158,7 +158,7 @@ PR comment that is *updated* rather than duplicated on later pushes.
     hook-stage: pre-push # optional
 ```
 
-Requires `pull-requests: write` and a `mise`-provisioned pre-commit.
+Requires `pull-requests: write` and a `mise`-provisioned prek.
 
 ### `actions/populate-pr-description`
 
@@ -203,9 +203,21 @@ Third-party actions *inside* this repo are pinned to full SHAs with no exception
 ## Local development
 
 ```sh
-mise run setup   # uv sync --locked, then pre-commit install
+mise run setup   # uv sync --locked, then prek install
 mise run ci      # lint (actionlint + zizmor + ruff), typecheck, test
 ```
 
 `actionlint` does not look outside `.github/workflows`, which is where none of the composite actions
 live — `zizmor` covers both trees and is the security linter.
+
+<!-- Links -->
+
+[ci-badge]: https://github.com/turboBasic/github-actions/actions/workflows/ci.yml/badge.svg?branch=main
+[ci-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/ci.yml?query=branch%3Amain
+[license-badge]: https://img.shields.io/badge/licence-MIT-blue.svg
+[license]: LICENSE
+[ai-instructions]: docs/ai-instructions.md
+[contributing]: CONTRIBUTING.md
+[consumers]: docs/consumers.md
+[precommit-advisory-heading]: #precommit-advisoryyml
+[job-conditions]: https://docs.github.com/en/actions/using-jobs/using-conditions-to-control-job-execution

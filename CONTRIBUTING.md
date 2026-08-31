@@ -1,29 +1,29 @@
 # Contributing
 
 This repo holds the CI that other `turboBasic` repositories run. A change here executes in every
-consumer listed in [`docs/consumers.md`](docs/consumers.md) — read that list before starting.
-Forking to suit your own conventions is an expected use; the [MIT licence](LICENSE) asks nothing
+consumer listed in [`docs/consumers.md`][consumers] — read that list before starting.
+Forking to suit your own conventions is an expected use; the [MIT licence][license] asks nothing
 beyond keeping the notice.
 
-Taking part means following the [Code of Conduct](CODE_OF_CONDUCT.md). Report anything exploitable
-privately instead of opening an issue — see the [security policy](SECURITY.md).
+Taking part means following the [Code of Conduct][coc]. Report anything exploitable
+privately instead of opening an issue — see the [security policy][security].
 
 ## Read this first
 
-[`docs/ai-instructions.md`](docs/ai-instructions.md) is the source of truth and binds humans and AI
+[`docs/ai-instructions.md`][ai-instructions] is the source of truth and binds humans and AI
 tools alike. This file does not repeat it.
 
-Start with [Changes to these rules](docs/ai-instructions.md#changes-to-these-rules): it marks which
+Start with [Changes to these rules][ai-instructions-changes]: it marks which
 rules are non-negotiable and what to do when a change would trade one away. The rest covers
-[tooling](docs/ai-instructions.md#tooling-hierarchy),
-[workflows and actions](docs/ai-instructions.md#workflows-and-actions),
-[quality gates](docs/ai-instructions.md#quality-gates), and
-[versioning](docs/ai-instructions.md#versioning).
+[tooling][ai-instructions-tooling],
+[workflows and actions][ai-instructions-workflows],
+[quality gates][ai-instructions-quality], and
+[versioning][ai-instructions-versioning].
 
 ## Setup
 
 ```sh
-mise run setup   # uv sync --locked, then pre-commit install
+mise run setup
 ```
 
 One command; it wires up the `pre-commit` and `commit-msg` hooks together.
@@ -33,10 +33,6 @@ One command; it wires up the `pre-commit` and `commit-msg` hooks together.
 ```sh
 mise run ci      # lint, typecheck, test — exactly what CI runs
 ```
-
-`mise run lint`, `typecheck`, `test`, and `fmt` run the pieces while iterating. Lint means
-`actionlint` over `.github/workflows`, `zizmor` over that *and* `actions/`, and `ruff` over the
-Python.
 
 ## Verifying a workflow change
 
@@ -59,5 +55,19 @@ Branch first. Title the PR as a Conventional Commit — a squash merge takes its
 Both workflows must pass.
 
 Say which consumers a change affects and what you ran to verify it, and update
-[`docs/consumers.md`](docs/consumers.md) and the [README](README.md) in the same change when an
+[`docs/consumers.md`][consumers] and the [README][readme] in the same change when an
 input contract moves. Agent-written code is welcome; you are still the author of it.
+
+<!-- Links -->
+
+[consumers]: docs/consumers.md
+[license]: LICENSE
+[coc]: CODE_OF_CONDUCT.md
+[security]: SECURITY.md
+[ai-instructions]: docs/ai-instructions.md
+[ai-instructions-changes]: docs/ai-instructions.md#changes-to-these-rules
+[ai-instructions-tooling]: docs/ai-instructions.md#tooling-hierarchy
+[ai-instructions-workflows]: docs/ai-instructions.md#workflows-and-actions
+[ai-instructions-quality]: docs/ai-instructions.md#quality-gates
+[ai-instructions-versioning]: docs/ai-instructions.md#versioning
+[readme]: README.md
