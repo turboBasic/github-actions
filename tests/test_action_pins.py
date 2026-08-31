@@ -55,8 +55,24 @@ def test_first_party_actions_use_the_major_tag(path: Path) -> None:
         _, _, version = target.partition("@")
         assert re.match(r"^v\d+$", version), (
             f"{path.name}:{number} references first-party {target}; these track the "
-            f"moving major tag (@v1), not a SHA — see README."
+            f"moving major tag, not a SHA — see README."
         )
+
+
+def test_ai_instructions_names_no_concrete_major() -> None:
+    # CLAUDE.md is one line pointing at this file, so a literal `@v2` here is what an agent writes
+    # into a consumer — and it keeps resolving after that major is frozen. README's Versioning
+    # section is the only place a major is written; this file states the form, `@vN`.
+    doc = REPO_ROOT / "docs" / "ai-instructions.md"
+    stale = [
+        f"{number}: {line.strip()}"
+        for number, line in enumerate(doc.read_text().splitlines(), start=1)
+        if re.search(r"@v\d", line)
+    ]
+    assert not stale, (
+        f"{doc.name} names a concrete major, which goes stale at the next bump: {stale}. "
+        f"Write `@vN` and cite README's Versioning section for the value."
+    )
 
 
 def test_a_self_call_resolves_at_the_commit_under_review() -> None:

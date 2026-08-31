@@ -97,9 +97,12 @@ The repository layout is load-bearing:
 
 | Path | Contents | Referenced as |
 | --- | --- | --- |
-| `.github/workflows/*.yml` with `workflow_call` | reusable workflows | `turboBasic/github-actions/.github/workflows/<name>.yml@v1` |
+| `.github/workflows/*.yml` with `workflow_call` | reusable workflows | `turboBasic/github-actions/.github/workflows/<name>.yml@vN` |
 | `.github/workflows/{ci,commit-messages}.yml` | this repo's own CI | not referenced |
-| `actions/<name>/action.yml` | composite actions | `turboBasic/github-actions/actions/<name>@v1` |
+| `actions/<name>/action.yml` | composite actions | `turboBasic/github-actions/actions/<name>@vN` |
+
+`vN` is the current major tag. `README.md`'s Versioning section declares which one that is, and is
+the only place a major is written literally.
 
 Composite actions live in `actions/`, not `.github/actions/`. The latter is the convention for
 *repo-local* actions and would read as private-by-convention here.
@@ -108,7 +111,7 @@ Composite actions live in `actions/`, not `.github/actions/`. The latter is the 
   trailing `# vX.Y.Z` comment. A tag can be retroactively repointed at malicious code — this is
   not hypothetical: CVE-2025-30066 did exactly that to `tj-actions/changed-files`. Enforced by
   `tests/test_action_pins.py`.
-- **First-party references use the moving major tag** (`@v1`), never a SHA. See **Versioning**.
+- **First-party references use the moving major tag** (`@vN`), never a SHA. See **Versioning**.
 - **Every input needs a `description` and an explicit `default`** unless genuinely required. A
   consumer reads the input list as the contract.
 - **Declare the narrowest `permissions`** the workflow needs. Permissions can only be reduced down
@@ -171,13 +174,17 @@ Python 3.14. The only Python here supports the actions and their tests.
 
 ### Versioning
 
-Consumers pin `@v1`; `v1.x.y` tags are immutable and `v1` is force-moved to each release. This is
-a deliberate exception to the SHA-pinning rule above, and the distinction matters: that rule exists
-because a *third party* can repoint a tag. This repo shares its owner with every consumer, and
-SHA-pinning first-party workflows would mean one Dependabot PR per consumer for every one-line fix.
+Consumers pin a moving major tag rather than a SHA. This is a deliberate exception to the
+SHA-pinning rule above, and the distinction matters: that rule exists because a *third party* can
+repoint a tag. This repo shares its owner with every consumer, and SHA-pinning first-party
+workflows would mean one Dependabot PR per consumer for every one-line fix.
 
-A change to a workflow's input contract that would break an existing call site is a major bump —
-a new `v2` tag, with `v1` left where it is — not a `v1` move.
+A change to a workflow's input contract that would break an existing call site is a major bump — a
+new major tag, with the old one left where it is — not a move of the current one.
+
+Which major is current, which tags are immutable, and which are frozen live in `README.md`'s
+Versioning section. Read the value from there; never restate it here, or it goes stale at the next
+bump and this file is what every AI tool loads.
 
 ### Git
 
