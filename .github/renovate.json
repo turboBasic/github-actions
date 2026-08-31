@@ -24,13 +24,13 @@
     "enabled": true,
     "pinDigests": true
   },
+  "mise": {
+    "enabled": true
+  },
   "pep621": {
     "enabled": true
   },
   "pre-commit": {
-    "enabled": true
-  },
-  "mise": {
     "enabled": true
   },
   "lockFileMaintenance": {
