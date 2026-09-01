@@ -222,6 +222,25 @@ def test_the_release_gates_on_a_required_context() -> None:
     )
 
 
+def test_the_release_workflow_gives_gh_a_repository() -> None:
+    # Nothing is cloned there, so a `gh` subcommand other than `gh api` — which carries the full
+    # path — has no remote to infer the repository from and dies with `not a git repository`. That
+    # is how the first dispatch failed, after the version tag had already been created. Every other
+    # gate passed on that file: the shell is valid, the call is well-formed, and the flag it needs
+    # is only discoverable by running it somewhere without a checkout.
+    workflow = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text()
+    without_repo = [
+        line
+        for raw in workflow.splitlines()
+        if not (line := raw.strip()).startswith("#")
+        if re.search(r"(?<!\S)gh (?!api\b)[a-z]", line) and "--repo" not in line
+    ]
+    assert not without_repo or "GH_REPO:" in workflow, (
+        f"release.yml runs {without_repo} with no repository context. Set GH_REPO in the job env, "
+        f"or pass --repo on the line."
+    )
+
+
 def _declared_version() -> str:
     manifest: dict[str, Any] = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
     project: dict[str, Any] = manifest["project"]
