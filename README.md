@@ -66,6 +66,11 @@ re-running `uv lock`.
 Runs prek over every file, non-blocking, and reports the result as a single PR comment that is
 updated in place on each push. The compensating control for `lint-changed-only`.
 
+Non-blocking covers prek's verdict, not the job: a lint finding becomes a comment, while this
+workflow's own setup still fails it. It runs `uv sync --locked` first, so lockfile drift reddens this
+check as well as `python-ci.yml`'s. That is deliberate — a broken lockfile is not a lint opinion to
+report and move past — but it means a green check here means prek ran, not that prek passed.
+
 ```yaml
 on:
   pull_request:
