@@ -98,7 +98,21 @@ jobs:
 
       # commitizen rather than commitlint: the same tool runs in the commit-msg hook, so
       # local and CI verdicts cannot diverge.
+      #
+      # `<5` and no floor, for the same reason jinja2 is bounded in
+      # actions/populate-pr-description: bare `--from commitizen` resolves whatever PyPI
+      # serves on the day, so a major would land in every consumer at once with no PR
+      # anywhere. An exact pin instead would need a release here before any consumer could
+      # move. There is no floor because nothing used below is new — `--config`,
+      # cz_customize's schema_pattern and `check --rev-range` are all long-standing — so a
+      # lower bound would be a literal to keep in sync for nothing. Renovate does not
+      # manage this or the jinja2 line: `<5` only needs revisiting when a major ships.
+      #
+      # The version is printed because it is not pinned: a consumer whose commit check
+      # starts failing needs to see which commitizen judged it.
       - name: Check commit messages
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: uvx --from commitizen cz --config "${RUNNER_TEMP}/cz.toml" check --rev-range "${BASE_SHA}..HEAD"
+        run: |
+          uvx --from 'commitizen<5' cz version
+          uvx --from 'commitizen<5' cz --config "${RUNNER_TEMP}/cz.toml" check --rev-range "${BASE_SHA}..HEAD"
