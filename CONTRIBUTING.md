@@ -80,8 +80,8 @@ and it only moves when a release is cut, which is two steps:
    consumers resolve — `.github/workflows/` and `actions/` — not by this repo's commit history. A
    `feat:` that only touched our own linting is a patch.
 2. **Run the [Release workflow][release-workflow]** against `main`. It tags that commit `vX.Y.Z`,
-   publishes the release with notes generated from `.github/release.yml`, and force-moves `vX` last,
-   once the rest has succeeded.
+   publishes the release with notes generated from `.github/release.yml` covering everything since the
+   previous version tag, and force-moves `vX` last, once the rest has succeeded.
 
 Nothing is built and nothing is uploaded. A consumer resolves this repository's tree at a ref, so
 the tag *is* the artifact — which is also why the version in `pyproject.toml` is the only place the
