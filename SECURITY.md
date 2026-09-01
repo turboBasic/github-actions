@@ -21,8 +21,8 @@ In scope, roughly in order of how much it matters:
   call chain, so a reusable workflow asking for `write` where `read` suffices cannot be constrained
   by its callers.
 
-There are no supported versions to list beyond the current major tag. `v1` moves; if you pinned a
-SHA or an immutable `v1.x.y` tag, you own that copy.
+There are no supported versions to list beyond the current major tag, which moves. If you pinned a
+SHA or an immutable patch tag, you own that copy.
 
 ## Reporting
 

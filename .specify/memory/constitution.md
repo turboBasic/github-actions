@@ -12,7 +12,7 @@ be violated*; read that for *how to work*.
 ### I. Consumer Contract Stability
 
 A workflow's inputs, outputs, secrets and permissions are a public interface. A change that breaks
-an existing call site is a new major tag, never a move of an existing one. `v1.x.y` tags are
+an existing call site is a new major tag, never a move of an existing one. Patch tags are
 immutable.
 
 ### II. Supply-Chain Pinning
