@@ -2,6 +2,7 @@ import json
 import os
 import re
 import subprocess
+import tomllib
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -106,6 +107,28 @@ def test_first_party_actions_use_the_major_tag(path: Path) -> None:
             f"{path.name}:{number} references first-party {target}; these track the "
             f"moving major tag, not a SHA — see README."
         )
+
+
+def _mise_tool_versions() -> dict[str, str]:
+    manifest: dict[str, Any] = tomllib.loads((REPO_ROOT / "mise.toml").read_text())
+    tools: dict[str, Any] = manifest["tools"]
+    return {name: str(spec) for name, spec in tools.items()}
+
+
+def test_no_mise_tool_version_floats() -> None:
+    # A `latest` resolves at install time, so one commit runs different linters on different
+    # machines: zizmor 1.30.0 shipped a new audit and reddened a pull request that had passed
+    # `mise run ci` locally minutes earlier. The digit rule admits a partial pin like `3.14` and
+    # rejects every form that leaves the choice to whoever runs `mise install`.
+    floating = sorted(
+        f"{name} = {version!r}"
+        for name, version in _mise_tool_versions().items()
+        if not version[:1].isdigit()
+    )
+    assert not floating, (
+        f"mise.toml leaves {floating} for install time to decide, so two machines on this commit "
+        f"can lint it with different tools. Name the version — Renovate's mise manager bumps it."
+    )
 
 
 def test_ai_instructions_names_no_concrete_major() -> None:

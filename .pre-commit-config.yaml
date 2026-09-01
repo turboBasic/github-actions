@@ -27,6 +27,9 @@ repos:
   - repo: https://github.com/rhysd/actionlint
     rev: v1.7.12
     hooks:
+      # `-system` runs the actionlint on PATH, so mise.toml owns the version and this rev pins only
+      # the hook definition. The plain `actionlint` id builds its own at this rev and
+      # `actionlint-docker` hardcodes an image tag — either would lint with a second version.
       - id: actionlint-system
 
   - repo: https://github.com/commitizen-tools/commitizen
