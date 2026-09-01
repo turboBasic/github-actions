@@ -47,9 +47,9 @@ building against it.
 
 ## Verifying a workflow change
 
-Lint is necessary and not sufficient. **A reusable workflow that has never been called is
-unverified** — YAML that parses can still fail on a missing input, a permission it was not granted,
-or an expression that evaluates to the wrong branch.
+Lint is necessary and not sufficient. **Run every workflow you change.** YAML that parses still
+fails on a missing input, a permission nobody granted, an expression that picks the wrong branch, or
+a CLI that wants a context the runner lacks.
 
 Before a change to a reusable workflow is done:
 
@@ -58,7 +58,10 @@ Before a change to a reusable workflow is done:
    outcomes — the passing path and the failing one. A check that cannot fail is not a check.
 3. Delete the throwaway repo afterwards.
 
-The major tag is only moved once that has happened.
+Move the major tag only after that.
+
+A workflow only this repo runs — `ci.yml`, `commit-messages.yml`, `release.yml` — has no throwaway
+repository to call it. Dispatch it, or open a PR that triggers it, and read the run.
 
 ## Pull requests
 

@@ -172,13 +172,17 @@ Python 3.14. The only Python here supports the actions and their tests.
   file can express: the required status checks on the `main` ruleset, this repository still being
   public, which is what lets a private consumer resolve these workflows at all, and whether the major
   tag still predates a change consumers resolve.
-- A workflow change is not verified by lint alone. A reusable workflow that has never been called
-  is unverified: exercise it from a real PR before tagging. Every linter here passes on a workflow
-  that no caller can run — a permission the caller cannot know to grant, an input that resolves to
-  nothing — because nothing is wrong with the file in isolation. A relative self-call satisfies this
-  (principle VI); where a workflow's behaviour turns on caller-side configuration — `python-ci.yml`'s
-  `hook-stage`, `run-typecheck`, a consumer with no mise config — it does not, and a consumer has to
-  exercise it at the ref it pins.
+- **Lint does not verify a workflow. Run it.** Exercise every changed workflow before tagging: a
+  reusable one from a real PR, anything else from a dispatch. Every linter here passes on a workflow
+  that fails on its first run, because the file is correct and its environment is not: the caller
+  cannot know to grant a permission, an input resolves to nothing, or a CLI needs a context the
+  runner lacks — `gh release create` reads the repository from a git remote and `release.yml` clones
+  nothing, so the first dispatch died on that line with every gate green. A relative self-call
+  exercises a reusable workflow (principle VI). Where behaviour turns on caller-side
+  configuration — `python-ci.yml`'s `hook-stage`, `run-typecheck`, a consumer with no mise config —
+  it does not, so a consumer exercises it at the ref it pins.
+- **Pre-flight the line out of the file, never a retyping of it.** Retype it and you test your
+  typing: that pre-flight typed the missing `--repo` and passed.
 - **The allowed commit types are declared once**, as `conventional-commits.yml`'s `types` default,
   and asserted equal to commitizen's built-in set by `tests/test_action_pins.py`. Both the title and
   the commit-message check read it from there. It may not fall back to a tool's own default:
