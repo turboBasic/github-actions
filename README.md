@@ -198,8 +198,6 @@ Pin `@v2`. `v2.x.y` tags are immutable; `v2` is force-moved to each release, so 
 next run without a PR in every consumer. A change that breaks an existing call site gets a new
 major tag instead.
 
-`v1` is frozen and unmaintained.
-
 One exception to that immutability: `precommit-advisory.yml` references
 `actions/precommit-advisory-pr@v2`, because a reusable workflow cannot interpolate its own ref into
 a `uses:`. A consumer pinned to `@v2.1.3` therefore still gets the *current* `v2` composite action

@@ -195,7 +195,7 @@ workflows would mean one Dependabot PR per consumer for every one-line fix.
 A change to a workflow's input contract that would break an existing call site is a major bump — a
 new major tag, with the old one left where it is — not a move of the current one.
 
-Which major is current, which tags are immutable, and which are frozen live in `README.md`'s
+Which major is current and which tags are immutable live in `README.md`'s
 Versioning section. Read the value from there; never restate it here, or it goes stale at the next
 bump and this file is what every AI tool loads.
 

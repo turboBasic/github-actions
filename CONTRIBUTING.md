@@ -58,7 +58,7 @@ Before a change to a reusable workflow is done:
    outcomes — the passing path and the failing one. A check that cannot fail is not a check.
 3. Delete the throwaway repo afterwards.
 
-`v1` is only moved once that has happened.
+The major tag is only moved once that has happened.
 
 ## Pull requests
 
