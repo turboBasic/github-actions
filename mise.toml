@@ -58,7 +58,7 @@ run = "uv run pytest"
 # Not in `ci`: it reaches api.github.com, and `mise run ci` stays offline. ci.yml runs it as its
 # own job, which is also where a token is available.
 [tasks.test-live]
-description = "Check GitHub's own state: the main ruleset, and this repo staying public"
+description = "Check GitHub's own state: the main ruleset, this repo staying public, and whether a release is owed"
 run = "uv run pytest -m live"
 
 [tasks.ci]

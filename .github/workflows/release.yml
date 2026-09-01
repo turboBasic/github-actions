@@ -1,0 +1,123 @@
+# Cuts a release: tags this commit with the version `pyproject.toml` declares, publishes the
+# release notes `.github/release.yml` shapes, then force-moves the major tag consumers pin.
+#
+# The version bump is not done here. `main`'s ruleset requires a pull request and bypasses only for
+# the Repository admin role, which `GITHUB_TOKEN` does not hold, so a bump commit pushed from here
+# would be rejected. It arrives the same way every other change does — reviewed, CI-green — which
+# also makes the patch-vs-minor call a one-line diff someone can argue with. This workflow only
+# tags what that PR already decided, and refuses if the tag is already there.
+#
+# Nothing is cloned. Every step goes through the API, so no credential is written to a workspace
+# for a later step to pick up, and there is no working tree to push from.
+#
+# Not `.github/release.yml`, which is the release-notes *configuration* this consumes.
+
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false # two of these racing would leave the major tag pointing anywhere
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # creates the version tag, publishes the release, moves the major tag
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # `ci / CI` is the context the `main` ruleset requires, so on a merged commit it is the
+      # verdict that covers this tree. Releasing past it would move the major tag — the ref every
+      # consumer resolves — onto code nothing has run. `filter=latest` is the endpoint's default,
+      # so a re-run supersedes the run it replaced.
+      #
+      # `ci / Live` is deliberately not consulted, and must not be: it is red precisely when a
+      # release is owed, because that is what its drift test asserts. Gating on it would mean a
+      # release can only be cut when none is needed.
+      - name: Verify the release
+        id: verify
+        run: |
+          set -euo pipefail
+
+          if [[ ${GITHUB_REF} != refs/heads/main ]]; then
+            echo "::error::releases are cut from main; this run is on ${GITHUB_REF}"
+            exit 1
+          fi
+
+          # Read as TOML, not as the first `version = ` line: this is a one-shot write path, and
+          # positional parsing would take a version from whichever table happened to come first.
+          gh api "repos/${GITHUB_REPOSITORY}/contents/pyproject.toml?ref=${GITHUB_SHA}" \
+            -H 'Accept: application/vnd.github.raw' > "${RUNNER_TEMP}/pyproject.toml"
+          version=$(python3 -c 'import sys, tomllib; print(tomllib.load(open(sys.argv[1], "rb"))["project"]["version"])' "${RUNNER_TEMP}/pyproject.toml")
+
+          if [[ ! ${version} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::pyproject.toml declares no plain semantic version: '${version}'"
+            exit 1
+          fi
+
+          # Must be ahead of every existing release, not merely untagged. A version *below* the
+          # current one is untagged too, and tagging it would publish it as latest and move the
+          # major tag onto a number consumers read as older than what they already have. Compared
+          # across all majors because a frozen major is never backported, only left where it is.
+          highest=$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/v" --jq '.[].ref' |
+            sed 's|^refs/tags/v||' | { grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' || true; } | sort -V | tail -1)
+          if [[ -n ${highest} ]]; then
+            newest=$(printf '%s\n%s\n' "${version}" "${highest}" | sort -V | tail -1)
+            if [[ ${version} == "${highest}" || ${newest} != "${version}" ]]; then
+              echo "::error::pyproject.toml declares ${version}, which is not ahead of the highest release v${highest}. Bump [project].version in a pull request — that is what decides the next version."
+              exit 1
+            fi
+          fi
+
+          conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs" \
+            --jq '[.check_runs[] | select(.name == "ci / CI") | .conclusion] | first // "missing"')
+          if [[ ${conclusion} != success ]]; then
+            echo "::error::ci / CI on ${GITHUB_SHA} is '${conclusion}', not success — the major tag would move onto unverified code"
+            exit 1
+          fi
+
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      # Annotated, like every tag already here: the tag is the artifact consumers resolve, so it
+      # carries a tagger and a date rather than being a bare pointer.
+      #
+      # The major tag moves last, after the release exists. It is the only ref consumers resolve,
+      # so a failure earlier leaves them on the previous release rather than half-way into this
+      # one — recover by re-running once the cause is fixed, deleting the version tag first if it
+      # was already created.
+      - name: Tag and publish
+        env:
+          VERSION: ${{ steps.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          tag="v${VERSION}"
+          major="v${VERSION%%.*}"
+
+          tag_object() {
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/git/tags" \
+              -f "tag=$1" -f "message=$2" -f "object=${GITHUB_SHA}" -f type=commit --jq .sha
+          }
+
+          cut=$(tag_object "${tag}" "${tag}")
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" --silent \
+            -f "ref=refs/tags/${tag}" -f "sha=${cut}"
+
+          gh release create "${tag}" --title "${tag}" --generate-notes --latest --verify-tag
+
+          # PATCH moves it; the POST is for the first release of a new major, where there is no
+          # ref to move yet.
+          moved=$(tag_object "${major}" "${major} tracks ${tag}")
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/${major}" --silent \
+            -f "sha=${moved}" -F force=true ||
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" --silent \
+              -f "ref=refs/tags/${major}" -f "sha=${moved}"
+
+          echo "Released [${tag}](https://github.com/${GITHUB_REPOSITORY}/releases/tag/${tag}); \`${major}\` now resolves to it." >> "${GITHUB_STEP_SUMMARY}"
