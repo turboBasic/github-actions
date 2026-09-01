@@ -32,6 +32,10 @@ jobs:
       contents: write # creates the version tag, publishes the release, moves the major tag
     env:
       GH_TOKEN: ${{ github.token }}
+      # Every `gh` subcommand that is not `gh api` infers the repository from a git remote, and
+      # nothing is cloned here, so `gh release create` failed with `not a git repository` the first
+      # time this ran. One variable covers every such command rather than a `--repo` per call.
+      GH_REPO: ${{ github.repository }}
     steps:
       # `ci / CI` is the context the `main` ruleset requires, so on a merged commit it is the
       # verdict that covers this tree. Releasing past it would move the major tag — the ref every
