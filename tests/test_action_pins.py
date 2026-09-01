@@ -29,6 +29,11 @@ REQUIRED_CHECKS = [
     ("commits / Commit messages", "commit-messages.yml", "conventional-commits.yml"),
 ]
 REPO_URL = "https://api.github.com/repos/turboBasic/github-actions"
+# This repo's own plumbing: nothing outside resolves these, so they are neither callable nor a
+# reason to cut a release.
+OWN_CI = {"ci.yml", "commit-messages.yml", "release.yml"}
+# What a consumer resolves. `.github/workflows/` minus OWN_CI, plus every composite action.
+CONSUMER_FACING = (".github/workflows/", "actions/")
 # Applied rules for a branch, unlike the rulesets API, need no `administration` scope — it answers
 # unauthenticated on a public repo, so the default GITHUB_TOKEN is enough.
 BRANCH_RULES_URL = f"{REPO_URL}/rules/branches/main"
@@ -204,6 +209,25 @@ def test_the_required_check_names_are_intact(
     )
 
 
+def test_the_release_gates_on_a_required_context() -> None:
+    # release.yml refuses to tag unless one named check passed on the commit being released. That
+    # name is composed from a job id in one file and a job name in another, so a rename would turn
+    # the gate into a permanent `missing` — it fails closed, but a release that refuses with no
+    # visible cause is its own outage. REQUIRED_CHECKS stays the single statement of the name.
+    workflow = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text()
+    gated = [context for context, _, _ in REQUIRED_CHECKS if f'"{context}"' in workflow]
+    assert gated, (
+        "release.yml gates on no context from REQUIRED_CHECKS, so it either tags unverified "
+        "code or waits on a check name nothing reports."
+    )
+
+
+def _declared_version() -> str:
+    manifest: dict[str, Any] = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    project: dict[str, Any] = manifest["project"]
+    return str(project["version"])
+
+
 @pytest.mark.live
 def test_the_ruleset_requires_exactly_the_checks_that_exist() -> None:
     # The other direction, and the only assertion here that leaves the tree: REQUIRED_CHECKS is
@@ -236,11 +260,46 @@ def test_this_repository_is_still_public() -> None:
     assert repo["private"] is False, WENT_PRIVATE
 
 
+@pytest.mark.live
+def test_no_consumer_facing_change_is_waiting_for_a_release() -> None:
+    # The major tag is force-moved by hand-initiated dispatch, so nothing stops it sitting behind
+    # main: it once did for 19 days and 29 commits, stranding four changes consumers resolve. No
+    # file can show that — the state is a ref on GitHub — which is why this is live.
+    #
+    # Scoped to what a consumer resolves rather than to `main` being ahead at all. A docs or test
+    # commit owes nobody a release, and a check that reddens after every merge is one nobody reads.
+    major = f"v{_declared_version().split('.')[0]}"
+    try:
+        comparison: dict[str, Any] = _api_json(f"{REPO_URL}/compare/{major}...main")
+    except urllib.error.HTTPError as error:
+        if error.code != 404:
+            raise
+        # The state between a major bump merging and its first release: [project].version names a
+        # major nothing has tagged, so there is no ref to compare against and a release is owed.
+        pytest.fail(
+            f"[project].version names major {major}, which has never been tagged. Run the Release "
+            f"workflow to cut it."
+        )
+
+    files: list[dict[str, Any]] = comparison.get("files", [])
+    stranded = sorted(
+        {
+            name
+            for file in files
+            if (name := str(file["filename"])).startswith(CONSUMER_FACING)
+            and Path(name).name not in OWN_CI
+        }
+    )
+    assert not stranded, (
+        f"{major} predates changes to {stranded}, so every consumer pinned to @{major} still runs "
+        f"the previous version of them. Bump [project].version in a pull request — that decides "
+        f"the next version — then run the Release workflow."
+    )
+
+
 def test_every_reusable_workflow_declares_workflow_call() -> None:
     reusable = [
-        p
-        for p in (REPO_ROOT / ".github" / "workflows").glob("*.yml")
-        if p.name not in {"ci.yml", "commit-messages.yml"}
+        p for p in (REPO_ROOT / ".github" / "workflows").glob("*.yml") if p.name not in OWN_CI
     ]
     assert reusable, "no reusable workflows found"
     for path in reusable:

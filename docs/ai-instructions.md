@@ -104,7 +104,7 @@ The repository layout is load-bearing:
 | Path | Contents | Referenced as |
 | --- | --- | --- |
 | `.github/workflows/*.yml` with `workflow_call` | reusable workflows | `turboBasic/github-actions/.github/workflows/<name>.yml@vN` |
-| `.github/workflows/{ci,commit-messages}.yml` | this repo's own CI | not referenced |
+| `.github/workflows/{ci,commit-messages,release}.yml` | this repo's own CI and its release | not referenced |
 | `actions/<name>/action.yml` | composite actions | `turboBasic/github-actions/actions/<name>@vN` |
 
 `vN` is the current major tag. `README.md`'s Versioning section declares which one that is, and is
@@ -169,8 +169,9 @@ Python 3.14. The only Python here supports the actions and their tests.
 - **The suite is offline; `mise run ci` must never need the network.** The exceptions are marked
   `@pytest.mark.live` and deselected by default, run by `mise run test-live` from its own `ci.yml`
   job where a token exists. Reach for one only where the thing being asserted is repository state no
-  file can express: the required status checks on the `main` ruleset, and this repository still being
-  public, which is what lets a private consumer resolve these workflows at all.
+  file can express: the required status checks on the `main` ruleset, this repository still being
+  public, which is what lets a private consumer resolve these workflows at all, and whether the major
+  tag still predates a change consumers resolve.
 - A workflow change is not verified by lint alone. A reusable workflow that has never been called
   is unverified: exercise it from a real PR before tagging. Every linter here passes on a workflow
   that no caller can run — a permission the caller cannot know to grant, an input that resolves to
@@ -194,6 +195,14 @@ workflows would mean one Dependabot PR per consumer for every one-line fix.
 
 A change to a workflow's input contract that would break an existing call site is a major bump — a
 new major tag, with the old one left where it is — not a move of the current one.
+
+**The version describes the consumer-facing surface, not this repository's commit history.** Judge a
+bump by what changed under `.github/workflows/` and `actions/`; a `feat:` touching only our own
+linting or editor config is a patch. So the number is a human decision recorded as a one-line diff to
+`pyproject.toml`'s `[project].version`, merged like any other change, and never computed
+unattended — `cz bump` may propose an increment, it does not get to pick one. `release.yml` tags what
+that field declares and refuses if the tag already exists, so the release cannot disagree with the
+reviewed decision. `CONTRIBUTING.md`'s Releasing section is the procedure.
 
 Which major is current and which tags are immutable live in `README.md`'s
 Versioning section. Read the value from there; never restate it here, or it goes stale at the next

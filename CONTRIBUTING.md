@@ -69,6 +69,38 @@ Say which consumers a change affects and what you ran to verify it, and update
 [`docs/consumers.md`][consumers] and the [README][readme] in the same change when an
 input contract moves. Agent-written code is welcome; you are still the author of it.
 
+## Releasing
+
+Merging changes nothing for consumers. They pin the major tag — see [Versioning][readme-versioning] —
+and it only moves when a release is cut, which is two steps:
+
+1. **Bump `[project].version` in `pyproject.toml`** and re-run `uv lock` so the lockfile agrees, then
+   merge that as a normal pull request. `uv run cz bump --version-files-only` makes the edit and will
+   offer an increment computed from the commit range; the number is still yours. Judge it by the surface
+   consumers resolve — `.github/workflows/` and `actions/` — not by this repo's commit history. A
+   `feat:` that only touched our own linting is a patch.
+2. **Run the [Release workflow][release-workflow]** against `main`. It tags that commit `vX.Y.Z`,
+   publishes the release with notes generated from `.github/release.yml`, and force-moves `vX` last,
+   once the rest has succeeded.
+
+Nothing is built and nothing is uploaded. A consumer resolves this repository's tree at a ref, so
+the tag *is* the artifact — which is also why the version in `pyproject.toml` is the only place the
+number is decided, and why deciding it in a reviewed pull request is the whole point.
+
+The workflow refuses to tag when the version is already tagged, when `ci / CI` has not passed on the
+commit, or when it is dispatched from anywhere but `main`. If it fails after the version tag exists,
+delete that tag and re-run once the cause is fixed.
+
+A major bump is a new tag rather than a move: the old major stays where it is, and the
+[README][readme]'s Versioning section is updated to name the new one in the same pull request as the
+version bump.
+
+Neither step existed until now, which is how the major tag came to sit 29 commits behind `main` for 19
+days with four consumer-facing changes stranded. `mise run test-live` fails while a reusable workflow
+or a composite action is newer than the major tag — `ci.yml`, `commit-messages.yml` and `release.yml`
+are excluded, since nothing outside resolves those — so the next pull request says a release is owed
+rather than someone noticing by accident.
+
 <!-- Links -->
 
 [consumers]: docs/consumers.md
@@ -84,3 +116,5 @@ input contract moves. Agent-written code is welcome; you are still the author of
 [ai-instructions-quality]: docs/ai-instructions.md#quality-gates
 [ai-instructions-versioning]: docs/ai-instructions.md#versioning
 [readme]: README.md
+[readme-versioning]: README.md#versioning
+[release-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release.yml

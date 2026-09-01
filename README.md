@@ -198,6 +198,10 @@ Pin `@v2`. `v2.x.y` tags are immutable; `v2` is force-moved to each release, so 
 next run without a PR in every consumer. A change that breaks an existing call site gets a new
 major tag instead.
 
+`v2` moves when a release is cut, which is a dispatch of the [`Release`][release-workflow] workflow
+against `main`. Nothing is built or published from here, so the tag itself is the artifact. The
+procedure, and what decides the next version, are in [CONTRIBUTING][contributing-releasing].
+
 One exception to that immutability: `precommit-advisory.yml` references
 `actions/precommit-advisory-pr@v2`, because a reusable workflow cannot interpolate its own ref into
 a `uses:`. A consumer pinned to `@v2.1.3` therefore still gets the *current* `v2` composite action
@@ -216,7 +220,8 @@ Third-party actions *inside* this repo are pinned to full SHAs with no exception
 ```sh
 mise run setup     # uv sync --locked, then prek install
 mise run ci        # lint, typecheck, test — offline
-mise run test-live # check GitHub's own state: the main ruleset, and this repo's public visibility
+mise run test-live # check GitHub's own state: the main ruleset, this repo's public visibility,
+                   # and whether the major tag is behind a change consumers resolve
 ```
 
 `actionlint` does not look outside `.github/workflows`, which is where none of the composite actions
@@ -232,6 +237,8 @@ validates those against their published JSON schemas.
 [license]: LICENSE
 [ai-instructions]: docs/ai-instructions.md
 [contributing]: CONTRIBUTING.md
+[contributing-releasing]: CONTRIBUTING.md#releasing
+[release-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release.yml
 [consumers]: docs/consumers.md
 [precommit-advisory-heading]: #precommit-advisoryyml
 [job-conditions]: https://docs.github.com/en/actions/using-jobs/using-conditions-to-control-job-execution
