@@ -54,14 +54,17 @@ a CLI that wants a context the runner lacks.
 Before a change to a reusable workflow is done:
 
 1. Push the branch and open a PR here, so this repo's own CI runs.
-2. Call the changed workflow at `@<your-branch>` from a throwaway repository, and exercise both
-   outcomes — the passing path and the failing one. A check that cannot fail is not a check.
-3. Delete the throwaway repo afterwards.
+2. Open a branch in [`github-actions-test`][test-consumer], point its call site at `@<your-branch>`,
+   and exercise both outcomes — the passing path and the failing one. A check that cannot fail is not
+   a check.
+3. Leave that branch. Nothing there needs deleting, and a scenario worth running once is worth
+   keeping: `tests/scenario-*/README.md` says what each existing branch covers and what it asserts in
+   the log, so start from the nearest one.
 
 Move the major tag only after that.
 
-A workflow only this repo runs — `ci.yml`, `commit-messages.yml`, `release.yml` — has no throwaway
-repository to call it. Dispatch it, or open a PR that triggers it, and read the run.
+A workflow only this repo runs — `ci.yml`, `commit-messages.yml`, `release.yml` — has no consumer to
+call it. Dispatch it, or open a PR that triggers it, and read the run.
 
 ## Pull requests
 
@@ -119,5 +122,6 @@ rather than someone noticing by accident.
 [ai-instructions-quality]: docs/ai-instructions.md#quality-gates
 [ai-instructions-versioning]: docs/ai-instructions.md#versioning
 [readme]: README.md
+[test-consumer]: https://github.com/turboBasic/github-actions-test
 [readme-versioning]: README.md#versioning
 [release-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release.yml
