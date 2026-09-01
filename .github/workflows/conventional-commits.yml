@@ -74,7 +74,7 @@ jobs:
           persist-credentials: false
       # setup-uv rather than mise-action: only uvx is needed, and a consumer must not
       # have to keep a mise.toml just to get its commit messages checked.
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       # `types` is compiled into a throwaway config rather than letting cz fall back to
       # the consumer's own [tool.commitizen], which would let this job and the title job
