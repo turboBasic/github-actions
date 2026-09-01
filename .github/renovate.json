@@ -18,6 +18,15 @@
       "description": "First-party references track the moving major tag by design; a digest pin here would defeat it.",
       "matchPackageNames": ["turboBasic/**"],
       "enabled": false
+    },
+    {
+      "description": "This pin version-locks the vendored .specify/ and speckit skills, and only `mise run spec-kit-upgrade` re-syncs them — so the bump is half a change until a human runs it. Grouped alone, never with anything mergeable as-is.",
+      "matchDepNames": ["pipx:specify-cli"],
+      "groupName": "specify-cli",
+      "groupSlug": "specify-cli",
+      "prBodyNotes": [
+        ":warning: Merging this alone leaves `.specify/integrations/*.manifest.json` describing a version nothing pins. Run `mise run spec-kit-upgrade` on this branch and commit the re-synced `.specify/` and `.claude/skills/speckit-*/` files first. Never `specify self upgrade` — it replaces the binary outside mise."
+      ]
     }
   ],
   "github-actions": {
