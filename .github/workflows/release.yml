@@ -84,6 +84,7 @@ jobs:
           fi
 
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "previous=${highest:+v${highest}}" >> "${GITHUB_OUTPUT}"
 
       # Annotated, like every tag already here: the tag is the artifact consumers resolve, so it
       # carries a tagger and a date rather than being a bare pointer.
@@ -95,6 +96,7 @@ jobs:
       - name: Tag and publish
         env:
           VERSION: ${{ steps.verify.outputs.version }}
+          PREVIOUS: ${{ steps.verify.outputs.previous }}
         run: |
           set -euo pipefail
 
@@ -110,7 +112,15 @@ jobs:
           gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" --silent \
             -f "ref=refs/tags/${tag}" -f "sha=${cut}"
 
-          gh release create "${tag}" --title "${tag}" --generate-notes --latest --verify-tag
+          # Notes run from the previous version *tag*, not from the previous release, which is what
+          # `--generate-notes` alone would use. The two differ whenever a tag has no release — as
+          # every tag here did until the first one was cut, which would have made that release's
+          # notes the entire history of the repository.
+          notes_from=()
+          if [[ -n ${PREVIOUS} ]]; then
+            notes_from=(--notes-start-tag "${PREVIOUS}")
+          fi
+          gh release create "${tag}" --title "${tag}" --generate-notes "${notes_from[@]}" --latest --verify-tag
 
           # PATCH moves it; the POST is for the first release of a new major, where there is no
           # ref to move yet.
