@@ -25,14 +25,20 @@ repos:
       # `actionlint-docker` hardcodes an image tag — either would lint with a second version.
       - id: actionlint-system
 
-  - repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.18.0
-    hooks:
-      - id: commitizen
-        stages: [commit-msg]
-
   - repo: local
     hooks:
+      # uv.lock owns commitizen's version, for the same reason it owns ruff's below and with a
+      # sharper consequence: upstream's `commitizen` hook is `language: python`, so prek would build
+      # its own at a `rev` Renovate bumps independently of the lockfile — and then the commit-msg
+      # gate runs one commitizen while `test_allowed_types_match_the_commitizen_builtin_set` imports
+      # another. `--allow-abort` and `--commit-msg-file` are upstream's own args; the runner appends
+      # the message path.
+      - id: commitizen
+        name: commitizen check
+        entry: uv run cz check --allow-abort --commit-msg-file
+        language: system
+        stages: [commit-msg]
+
       # uv.lock owns ruff's version, as it already owns pyright's below. The ruff-pre-commit repo
       # builds its own ruff at a `rev` Renovate bumps independently of the lockfile, so the hook and
       # `mise run lint` could format one file two ways with neither file looking wrong.
