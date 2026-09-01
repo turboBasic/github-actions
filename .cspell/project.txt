@@ -8,9 +8,19 @@ Melnyk
 # --- Repository and tooling ---
 turboBasic
 actionlint
+aicommits
+changie
+cocogitto
+commisery
 commitizen
+convco
 cspell
+gitlint
+goreleaser
+jreleaser
+knope
 mise
+opencommit
 prek
 pyright
 pytest
@@ -18,30 +28,47 @@ ruff
 shellcheck
 speckit
 taplo
+vfox
 zizmor
 
 # --- Publisher handles: GitHub actions and VS Code extensions ---
+agenthunt
 amannn
 arahata
 charliermarsh
+compilerla
+cookpete
 davidanson
+deepakputhraya
 hverlin
 jdx
+jorisroovers
 mhutchie
+miniscruff
 monokai
+orhun
+renovatebot
 rhysd
 tamasfe
+thehanimo
+tomtom
 vivaxy
 wagoid
+webiny
 zizmorcore
 
 # --- Library and API identifiers ---
 allfiles
+czrc
+keepachangelog
 levelname
+postprocessors
 precommit
 pyupgrade
 ruamel
 schemafile
+tera
+versionrc
 
 # --- Config keys ---
 addopts
@@ -49,10 +76,15 @@ autouse
 testpaths
 
 # --- Repository jargon ---
+bumpable
 callee
 commitlint
 docstrings
+footgun
 frontmatter
 negotiables
+pinnable
 relitigate
+steelman
 typecheck
+widenable
