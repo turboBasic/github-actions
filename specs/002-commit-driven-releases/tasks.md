@@ -40,16 +40,30 @@ Repository root. No `src/`, no new Python package — `.cliff.toml` at the root,
 - [ ] T003 [P] Add the words this feature introduces to `.cspell/project.txt` — `cliff`, `Tera`,
       `postprocessors`, `revspec`, `unreleased` and any others `cspell lint --no-progress .` reports
       once the files below exist. Re-run it rather than guessing the list.
-- [ ] T004 [P] **Out of band, one-off, not expressible in this repository**: register a GitHub App
-      under the `turboBasic` account with `Contents: Read and write` and `Pull requests: Read and
-      write` and nothing else, install it on `turboBasic/github-actions`, and store its id and
-      private key as Actions secrets named **`RELEASE_APP_ID`** and **`RELEASE_APP_PRIVATE_KEY`** —
-      the names T032 reads, and a typo in either yields an empty token and no proposal, silently.
-      Leave *Settings → Actions → General → "Allow GitHub Actions to
-      create and approve pull requests"* **off** (research.md decision 11). Confirm with the two
-      commands in quickstart.md's stage 3: `gh api repos/turboBasic/github-actions/installation` and
-      `gh api repos/turboBasic/github-actions/actions/permissions/workflow` (expect
-      `can_approve_pull_request_reviews: false`). Blocks Phase 4 only — Phase 3 needs none of it.
+- [ ] T004 [P] **Out of band, one-off, not expressible in this repository**: register a **new** private
+      GitHub App under the `turboBasic` account — `turbobasic-release-proposal` — with
+      `Contents: Read and write` and `Pull requests: Read and write` and nothing else, no webhook,
+      installed on `turboBasic/github-actions` alone. Store its id and private key as Actions secrets
+      named **`RELEASE_APP_ID`** and **`RELEASE_APP_PRIVATE_KEY`** — the names T032 reads, and a typo
+      in either yields an empty token and no proposal, silently. Delete the downloaded `.pem` once the
+      secret is set; a private key on disk is a secret persisting (Principle V).
+      **Do not reuse either app that already exists.** `turboBasic` owns two:
+      `turbobasic-repo-automation` (public, installed on the `cargonautica` org) holds
+      `administration`, `organization_administration`, `members` and `workflows` write, so its key
+      could rewrite the `main` ruleset and every workflow here; `popcircles-agent` (private, installed
+      for `PopulationCircles2026`) is close on permissions but is a comment-triggered coding agent, and
+      one app means one key — adding this repository to its installation would give that agent write
+      access to the CI every consumer resolves, and make this repository's secret a key to
+      `PopulationCircles2026`. `create-github-app-token` can narrow the *token*; nothing narrows the
+      key. A dedicated app is the only option that keeps Principle III's claim true.
+      Leave *Settings → Actions → General → "Allow GitHub Actions to create and approve pull
+      requests"* **off** (research.md decision 11); `gh api
+      repos/turboBasic/github-actions/actions/permissions/workflow` confirms it, and read
+      `can_approve_pull_request_reviews: false`. **There is no API check for the installation itself**
+      — `gh api repos/{owner}/{repo}/installation` answers `401 A JSON web token could not be decoded`
+      to a user token, since it authenticates as the app. Read
+      <https://github.com/settings/installations> instead; the real proof is
+      `create-github-app-token` succeeding in T047. Blocks Phase 4 only — Phase 3 needs none of it.
 
 ---
 

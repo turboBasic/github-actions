@@ -176,24 +176,34 @@ trigger** — left in, it raises proposals on pushes to a branch that will not e
 **Do this before anything in this stage can pass** — one-off, out of band, and not expressible in this
 repository:
 
-1. Register a GitHub App under the `turboBasic` account. `Contents: Read and write` and
-   `Pull requests: Read and write`; nothing else.
-2. Install it on `turboBasic/github-actions`.
+1. Register a **new private** GitHub App under the `turboBasic` account,
+   `turbobasic-release-proposal`. `Contents: Read and write` and `Pull requests: Read and write`;
+   nothing else, and no webhook. Neither existing `turboBasic` app is reusable — see tasks.md T004 for
+   why one key per job matters here.
+2. Install it on `turboBasic/github-actions` and nothing else.
 3. Store its id and private key as Actions secrets named `RELEASE_APP_ID` and
    `RELEASE_APP_PRIVATE_KEY` — the names `release-proposal.yml` reads. A typo in either yields an empty
-   token and no proposal, silently.
+   token and no proposal, silently. Delete the downloaded `.pem` afterwards; a private key on disk is a
+   secret persisting.
 
 Leave **Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"**
 **off**. It is off today and stays off — an App is not "GitHub Actions", so it is not subject to that
 gate, and turning it on would let every workflow here approve a pull request rather than merely open one
 (research.md decision 11).
 
-Confirm the app can do what the workflow will need, before writing the workflow:
+Confirm the setting is still off, before writing the workflow:
 
 ```sh
-gh api repos/turboBasic/github-actions/installation            # the app is installed
 gh api repos/turboBasic/github-actions/actions/permissions/workflow   # expect can_approve...: false
 ```
+
+**There is no API check for the installation.** `gh api repos/{owner}/{repo}/installation` — which an
+earlier draft of this list carried — answers `401 A JSON web token could not be decoded` to a user
+token, because it authenticates *as the app*: it is the app asking which installation covers a
+repository, not a human asking which apps are installed. `GET /user/installations` needs an
+app-authorised user token and refuses an OAuth one too, and there is no user-account equivalent of
+`GET /orgs/{org}/installations`. Read <https://github.com/settings/installations> instead; the running
+proof is `create-github-app-token` succeeding in stage 3.
 
 ## Stage 4 — after merge, the first real release
 
