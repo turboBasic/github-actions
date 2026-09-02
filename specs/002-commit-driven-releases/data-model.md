@@ -103,12 +103,12 @@ at once — the spec's edge case is closed by construction rather than by a chec
 | --- | --- |
 | Branch | `release-proposal`, rebuilt from `main`'s tip, one commit ahead |
 | Commit / PR title | `bump: release vX.Y.Z` — a `bump` type, so the squash subject it becomes is excluded from the next range's notes (FR-004) |
-| Commit author | `github-actions[bot]`, set explicitly; this is what distinguishes a refresh from a reviewer's edit |
+| Commit author | one fixed bot identity, set **explicitly** in the API payload; this is what distinguishes a refresh from a reviewer's edit. Explicit because an App token would otherwise attribute the commit to `<app-name>[bot]` (research.md decision 11) |
 | Diff | `pyproject.toml`'s `[project].version` and `uv.lock`'s matching line, nothing else |
 | Body | the rendered notes verbatim, under a short preamble stating that merging publishes them |
 
-**Version ownership**: bot-owned while every commit on the branch is bot-authored; human-owned from the
-moment the reviewer pushes an edit, and then never rewritten (FR-009a).
+**Version ownership**: bot-owned while every commit on the branch carries that fixed author; human-owned
+from the moment the reviewer pushes an edit, and then never rewritten (FR-009a).
 
 ### State transitions
 
@@ -125,8 +125,9 @@ moment the reviewer pushes an edit, and then never rewritten (FR-009a).
 | approved | `ci / CI` red, or a refusal fires | no tag; the proposal is already merged, so recovery is a new pull request |
 | released | next push to `main` | absent — the declared version is now tagged and the range is empty |
 
-The proposal's own checks do not start until a reviewer clicks *Approve and run*, because it is opened
-with `GITHUB_TOKEN` (research.md, "Corrected while checking"). That is a state of the pull request, not of the proposal.
+The proposal is opened by a GitHub App installation token, so its checks report without any click — the
+reason for choosing that token over `GITHUB_TOKEN`, which cannot open a pull request here at all
+(research.md decisions 10 and 11).
 
 ## Moving major tag
 

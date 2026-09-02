@@ -352,5 +352,56 @@ pull request never exists. The probe narrowed the unknown rather than closing it
 | New pinned action | none | `actions/create-github-app-token` |
 
 The App token now avoids *two* costs rather than one, and needs no change to a security setting the
-account has left off. `GITHUB_TOKEN` remains the choice on record, and the decision is worth re-taking
-with this in hand.
+account has left off. The decision was re-taken on that basis — see decision 11, which supersedes both
+the table above and the `GITHUB_TOKEN` conclusion in **Corrected while checking**.
+
+### 11. The token is a GitHub App installation token
+
+**Decision**: `actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0`
+mints a short-lived installation token, and every write in `release-proposal.yml` uses it.
+`GITHUB_TOKEN` is left at `contents: read` for the checkout alone. **Supersedes decision 10's closing
+table and the `GITHUB_TOKEN` item under "Corrected while checking".**
+
+**The deciding factor is what the alternative would have granted.** Enabling *Allow GitHub Actions to
+create and approve pull requests* does not only let Actions *create* pull requests — it lets Actions
+*approve* them. Every workflow in the repository would gain the ability to approve, which erodes the
+review gate the `main` ruleset exists to enforce, for the benefit of one release bot. The setting being
+off in both repositories reads as a deliberate posture rather than an oversight, and Principle VII's
+spirit — gates are never loosened — applies to a repository setting as much as to a linter rule.
+
+Secondary but aligned: an App-authored pull request triggers its workflow runs normally, so the
+*Approve and run* click disappears, and with it the caveat that made SC-004's "one step" not quite one.
+
+**Cost, stated plainly**: register one app, install it on this repository, hold two secrets (app id and
+private key), add one pinned action. Against that, two problems disappear rather than being managed —
+a security setting that would have to be weakened, and a per-release click that was never verified.
+
+**App permissions**: `Contents: Read and write` and `Pull requests: Read and write`. Nothing else. The
+installation token is scoped to this repository and expires in an hour.
+
+**Constitution**: II is satisfied by the SHA pin above with its `# v3.2.0` comment, and the action is
+GitHub's own (`actions/`) rather than a third party's. III improves — `GITHUB_TOKEN` drops from
+`contents: write` plus `pull-requests: write` to `contents: read`. V holds: the private key lives in
+Actions secrets, which is where secrets belong, and neither it nor the minted token is written to a
+file, a log, an artifact or this repository.
+
+**The consequence that would otherwise bite silently.** Decision 10's second result — that an
+API-created commit is attributed to `github-actions[bot]` with no `author` field — **was measured under
+`GITHUB_TOKEN` and does not carry over.** A commit created with an App installation token is attributed
+to *that app's* bot identity, `<app-name>[bot]`. So decision 6's instruction to set the author
+explicitly goes back to being **load-bearing**, not belt-and-braces: it is what gives the refresh a
+stable identity to compare against, independent of which token minted the commit. Set it explicitly and
+key the human-versus-bot test on that same fixed value, rather than on whatever the token happens to
+imply.
+
+**Residuals**:
+
+- App registration and installation are out-of-band manual setup, done once, and not expressible in
+  this repository. The tasks phase should say so rather than pretend a workflow can do it.
+- If the private key is rotated or the installation removed, no proposal is raised. That failure is
+  silent in itself, so the backstop matters:
+  `test_no_consumer_facing_change_is_waiting_for_a_release` reddens the next pull request and says a
+  release is owed. `CONTRIBUTING.md` should record the app, its two secrets and this symptom.
+- Whether the App-authored pull request's checks report with no click at all is now the thing to watch
+  on first run. It is the documented behaviour and the reason for choosing this, but it is documented
+  behaviour rather than something observed here — the probe could not reach it.

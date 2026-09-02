@@ -156,24 +156,31 @@ Then the workflows:
 | `release.yml` refuses and renders without tagging | dispatch on this branch with `dry-run: true` | the notes in the step summary; **`git tag --list` unchanged** |
 | `release.yml` refuses an empty range | dispatch `dry-run: true` from a commit whose range holds only a `bump` | an explicit error, no tag (FR-007) |
 | `release-proposal.yml` end to end | dispatch on this branch | a `release-proposal` branch and a pull request appear, body = the rendered notes, diff = `pyproject.toml` + `uv.lock` only |
-| The proposal's checks start | click *Approve and run* on that pull request | all three required contexts report; if they never appear at all, research.md's "Corrected while checking" premise is wrong and the App-token fallback applies |
+| The proposal's checks start | nothing — watch the pull request | all three required contexts report **with no click**. This is the documented App-token behaviour and the reason for choosing it, but it is documented rather than observed here (the probe could not reach it), so it is the thing to watch on first run |
+| The commit's author is the fixed identity | `gh api repos/.../commits/<sha> --jq .commit.author.name` | the value the workflow set, **not** `<app-name>[bot]` — if it is the app's own bot, step 6 is not setting `author` and FR-009a's detection will misfire |
 | A reviewer's version survives a refresh | edit the version on that branch, then push any commit to the branch and re-dispatch | the body updates; **the edited version is untouched** (FR-009a) |
 | A refresh recomputes a bot-owned version | re-dispatch without editing | version recomputed, notes re-rendered |
 
 Then close the pull request and delete the branch.
 
-**Do this before anything in this stage can pass**: turn on **Settings → Actions → General → "Allow
-GitHub Actions to create and approve pull requests"**. It is currently **off**, and the proposal cannot
-be opened until it is on — `POST /pulls` answers
-`GitHub Actions is not permitted to create or approve pull requests` (403). Verified by probe;
-research.md decision 10 has the detail and the alternative.
+**Do this before anything in this stage can pass** — one-off, out of band, and not expressible in this
+repository:
 
-Readable and settable through the API rather than the UI, if preferred:
+1. Register a GitHub App under the `turboBasic` account. `Contents: Read and write` and
+   `Pull requests: Read and write`; nothing else.
+2. Install it on `turboBasic/github-actions`.
+3. Store its id and private key as Actions secrets.
+
+Leave **Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"**
+**off**. It is off today and stays off — an App is not "GitHub Actions", so it is not subject to that
+gate, and turning it on would let every workflow here approve a pull request rather than merely open one
+(research.md decision 11).
+
+Confirm the app can do what the workflow will need, before writing the workflow:
 
 ```sh
-gh api repos/turboBasic/github-actions/actions/permissions/workflow            # read
-# gh api -X PUT repos/turboBasic/github-actions/actions/permissions/workflow \
-#   -F can_approve_pull_request_reviews=true -f default_workflow_permissions=read
+gh api repos/turboBasic/github-actions/installation            # the app is installed
+gh api repos/turboBasic/github-actions/actions/permissions/workflow   # expect can_approve...: false
 ```
 
 ## Stage 4 — after merge, the first real release
@@ -184,7 +191,7 @@ plan.md, and it is deliberate.
 1. Merge this branch. **Expected**: `release-proposal.yml` runs on the push and, because
    `[project].version` is still the tagged one and the range is non-empty, raises a proposal.
 2. Read it — the version and the notes are the artifact under review (Story 2, FR-001).
-3. Click *Approve and run*, let the three checks pass, and merge.
+3. Let the three checks report — no click, because the App opened it — and merge.
 4. **Expected**: CI runs on the merge commit; when it reports green, `release.yml` starts by itself
    (FR-011), renders the notes again from the same rules (FR-009a), tags, publishes, and moves `vN`
    last (FR-013). No further human action (FR-009).
