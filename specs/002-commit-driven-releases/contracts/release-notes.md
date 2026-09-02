@@ -64,7 +64,7 @@ stays off (FR-015).
 
 | Fact | How | Refusal it drives |
 | --- | --- | --- |
-| Notes are empty | the redirected file has zero size | FR-007 — the proposal is not raised; a release fails with an explicit error and creates no tag |
+| Notes are empty | the redirected file holds no non-whitespace character | FR-007 — the proposal is not raised; a release fails with an explicit error and creates no tag |
 | The range contains a breaking change | `git-cliff --unreleased --context \| jq 'any(.[].commits[]; .breaking == true)'` | FR-012a — a release refuses unless the version is a new major |
 | A `feat` touched the consumer surface | the same, plus `--include-path` / `--exclude-path` scoped to the surface | the increment the proposal proposes |
 
@@ -72,9 +72,15 @@ stays off (FR-015).
 shape on distinguishable paths. The harness itself was scratch in gitignored `tmp/`; the configuration
 it validated is preserved in the appendix below. What it established:
 
-- **An empty range is `exit 0` with zero bytes on stdout and no warning** — for a range holding only a
-  `bump` and for a range holding nothing at all, indistinguishably. So FR-007 is a **file-size check**,
-  never an exit-code check. A workflow that trusted the exit code would publish an empty release body.
+- **An empty range is `exit 0` with no warning** — for a range holding only a `bump` and for a range
+  holding nothing at all, indistinguishably. So FR-007 can never be an exit-code check: a workflow
+  trusting the exit code would publish an empty release body.
+- **It is not a file-size check either, and this cost a defect.** The line above originally read "zero
+  bytes", and `release.yml` was written as `[[ ! -s ${NOTES} ]]` on the strength of it. Running it
+  against a branch whose entire range was one `bump` rendered **one** byte — a lone `\n`, which `-s`
+  accepts — so the refusal never fired and the release would have published a body containing a blank
+  line. The check is `grep -q '[^[:space:]]'`. The probe's finding was right about the exit code and
+  wrong by one byte about the output, and one byte was the whole of it.
 - **A *broken* range is `exit 1`**, with
   `SetCommitRangeError("v1.1.0..v2.0.0", … "revspec 'v1.1.0' not found")`. So the two failures are
   distinguishable and must be handled separately: a non-zero exit is a bad range or a bad config and is

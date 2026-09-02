@@ -241,17 +241,18 @@ def test_the_release_workflow_gives_gh_a_repository() -> None:
     )
 
 
-def test_the_release_decides_empty_notes_by_file_size() -> None:
-    # git-cliff exits 0 with zero bytes both for a range holding only a `bump` and for a range
-    # holding nothing at all, indistinguishably and with no warning. So a workflow that trusted
-    # the exit code would publish a release whose body is empty, which is what FR-007 forbids;
-    # a `-s` test on the rendered file is the only thing that tells the two apart. Every other
-    # gate passes either way, because the shell is valid and the call is well-formed.
+def test_the_release_refuses_notes_with_no_content() -> None:
+    # Neither the exit code nor the file's size can answer this. git-cliff exits 0 for a range
+    # holding only a `bump` and for a range holding nothing, indistinguishably; and an empty render
+    # is *one* byte, not zero, because a trailing newline is still emitted. Measured on a probe
+    # branch whose entire range was one `bump`, after this gate had been written as `-s` on the
+    # assumption of zero bytes — that version passed on the newline and would have published a
+    # release body containing a blank line, with every other gate green.
     workflow = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text()
-    assert re.search(r"\[\[\s*!\s*-s\s", workflow), (
-        "release.yml never tests the rendered notes file for size, so an empty range would be "
-        "indistinguishable from a good render and would publish an empty release body. Check "
-        "`[[ ! -s ${NOTES} ]]`, not git-cliff's exit code."
+    assert "[^[:space:]]" in workflow, (
+        "release.yml does not test the rendered notes for non-whitespace content, so a range that "
+        "renders nothing would publish a blank release body (FR-007). A `-s` test is not enough: an "
+        "empty render is a lone newline, which `-s` accepts."
     )
 
 

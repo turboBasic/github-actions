@@ -81,14 +81,16 @@ rather than from a second parser, so one commit-convention implementation stays 
 
 | Fact | Source | Used by |
 | --- | --- | --- |
-| The notes are empty | the rendered file is empty | FR-007: no proposal is raised; a release refuses and creates no tag |
+| The notes are empty | the rendered file holds no non-whitespace character | FR-007: no proposal is raised; a release refuses and creates no tag |
 | The range contains a breaking change | `--context`, then `jq 'any(.[].commits[]; .breaking == true)'` | FR-012a: a release refuses unless the version is a new major |
 | A `feat` touched the consumer surface | `--context` on a second pass filtered by `--include-path` / `--exclude-path` | the version the proposal proposes |
 
 All three were exercised against 2.13.1; `contracts/release-notes.md` records what came back. Two results
-shape the code rather than merely confirming it: an empty range exits **0** with zero bytes, so FR-007 is
-a file-size check and not an exit-code check; and `breaking` is **absent** on an unconventional commit
-rather than `false`, so the jq test compares against `true` instead of relying on truthiness.
+shape the code rather than merely confirming it: an empty range exits **0**, so FR-007 can be no
+exit-code check; and `breaking` is **absent** on an unconventional commit rather than `false`, so the jq
+test compares against `true` instead of relying on truthiness. A third correction came later, from
+running it: the empty render is a lone newline rather than zero bytes, so FR-007 is a check for content
+and a file-size test passes on it.
 
 The consumer surface is `.github/workflows/**` and `actions/**`, minus this repo's own CI —
 `ci.yml`, `commit-messages.yml`, `release.yml`, `release-proposal.yml`. That list is `OWN_CI` in
