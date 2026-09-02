@@ -127,7 +127,7 @@ repos:
         pass_filenames: true
         files: ^(\.github/workflows/.*\.ya?ml|actions/.*/action\.ya?ml)$
 
-      # No filenames: taplo.toml's exclude/include decide which TOML is ours.
+      # No filenames: .taplo.toml's exclude/include decide which TOML is ours.
       - id: taplo-fmt
         name: taplo fmt
         entry: mise exec -- taplo fmt
@@ -142,7 +142,7 @@ repos:
         language: system
         types: [markdown]
 
-      # cspell.config.yaml owns dictionaries and ignored paths. Scoped to the
+      # .cspell.config.yaml owns dictionaries and ignored paths. Scoped to the
       # pre-commit stage: `types: [text]` also matches the commit-msg stage's
       # message file, which cspell then fails on ("0 files checked").
       # `--no-must-find-files` covers the same failure inside the pre-commit stage:

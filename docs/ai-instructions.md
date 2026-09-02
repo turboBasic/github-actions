@@ -8,7 +8,7 @@ Scope: reusable GitHub Actions workflows and composite actions consumed by other
 the YAML.
 
 Committed configuration is authoritative for settings it already declares — read `mise.toml`,
-`pyproject.toml`, `.pre-commit-config.yaml` (prek reads this same file), and `cspell.config.yaml`
+`pyproject.toml`, `.pre-commit-config.yaml` (prek reads this same file), and `.cspell.config.yaml`
 rather than assuming. Extend
 those files; never regenerate them.
 
