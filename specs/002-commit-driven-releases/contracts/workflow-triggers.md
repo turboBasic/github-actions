@@ -123,7 +123,7 @@ skipped CI run leaves the check run non-`success` too.
 | Triggered by `workflow_run`, and `ci / CI` on the target commit is not `success` | `::notice::` naming the conclusion found or `missing`, exit 0 | FR-011 |
 | Dispatched, and `ci / CI` on the target commit is not `success` | **error**, naming the conclusion found or `missing` | FR-011 |
 | `[project].version` is not a plain `X.Y.Z` | **error** | existing |
-| The version is not ahead of the highest existing release | `workflow_run`: notice, exit 0. Dispatched: **error** | FR-012, research.md decision 7 |
+| The version is not ahead of the highest existing release | `workflow_run` or `dry-run`: notice, continue. Dispatched for real: **error** | FR-012, research.md decision 7 |
 | The rendered notes are empty | **error**, before any tag exists | FR-007 |
 | The range contains a breaking change and the version is not a new major | **error**, before any tag exists | FR-012a |
 | `dry-run` was requested | print the notes to the step summary, exit 0 | Principle VI |

@@ -113,7 +113,7 @@ confirm each commit appears once, `bump` commits zero times. Then dispatch `rele
 
 ### Tests for User Story 1
 
-- [ ] T009 [US1] Create `tests/test_release_notes.py` asserting `.cliff.toml`'s mapping offline, by
+- [x] T009 [US1] Create `tests/test_release_notes.py` asserting `.cliff.toml`'s mapping offline, by
       reading it with `tomllib` and never invoking git-cliff (so `mise run ci` still passes on a
       shallow clone). **Five** assertions, specified in
       [contracts/release-notes.md](contracts/release-notes.md)'s "The mapping, and what holds it":
@@ -125,7 +125,7 @@ confirm each commit appears once, `bump` commits zero times. Then dispatch `rele
       second literal list. The sixth assertion — the surface path filter against `OWN_CI` — is
       **T035a**, in Phase 4: that filter is a set of CLI flags in `release-proposal.yml`, so it has no
       subject until that file exists and it reads YAML rather than TOML.
-- [ ] T010 [US1] Add a gate to `tests/test_action_pins.py` asserting `release.yml` decides "the notes
+- [x] T010 [US1] Add a gate to `tests/test_action_pins.py` asserting `release.yml` decides "the notes
       are empty" from the **file's size**, not from git-cliff's exit code. An empty range exits 0 with
       zero bytes and no warning, indistinguishably from a range holding only a `bump`
       (research.md decision 2), so a workflow trusting the exit code publishes an empty release body —
@@ -133,52 +133,56 @@ confirm each commit appears once, `bump` commits zero times. Then dispatch `rele
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] In `.github/workflows/release.yml`, add the checkout the rendering needs:
+- [x] T011 [US1] In `.github/workflows/release.yml`, add the checkout the rendering needs:
       `actions/checkout` at the existing pinned SHA with `fetch-depth: 0` and
       `persist-credentials: false`, checking out the commit being released. Full history and tags,
       because git-cliff needs the range's lower bound; no credential, because nothing is pushed from
       the working tree and zizmor's `artipacked` audit must stay clean (FR-014, Principle V).
-- [ ] T012 [US1] In `.github/workflows/release.yml`, add `jdx/mise-action` at the SHA this repo already
+- [x] T012 [US1] In `.github/workflows/release.yml`, add `jdx/mise-action` at the SHA this repo already
       pins, so `git-cliff` comes from the `mise.toml` pin rather than a second install path.
-- [ ] T013 [US1] In `.github/workflows/release.yml`, render the notes to a file with
+- [x] T013 [US1] In `.github/workflows/release.yml`, render the notes to a file with
       `git-cliff --unreleased` **before** the first `gh api` call that creates a ref (FR-006). No
       `--config`, no `--tag`; a non-zero exit is a hard error — a bad range or a bad config — and is
       handled separately from the zero-exit empty case below (research.md decision 2).
-- [ ] T014 [US1] In `.github/workflows/release.yml`, refuse with an explicit error when the rendered
+- [x] T014 [US1] In `.github/workflows/release.yml`, refuse with an explicit error when the rendered
       notes file is zero bytes (FR-007), before any tag exists.
-- [ ] T015 [US1] In `.github/workflows/release.yml`, refuse when the range contains a breaking change
+- [x] T015 [US1] In `.github/workflows/release.yml`, refuse when the range contains a breaking change
       and the version is not a new major (FR-012a), using
       `git-cliff --unreleased --context | jq 'any(.[].commits[]; .breaking == true)'`. `== true` and
       not truthiness: the key is **absent**, not `false`, on a commit matching no Conventional Commit,
       and a `null` in a boolean test is how this reaches production as a wrong answer
       (data-model.md, Commit). `jq` is pre-installed on `ubuntu-latest` and needs no pin.
-- [ ] T016 [US1] In `.github/workflows/release.yml`, replace `--generate-notes` with
+- [x] T016 [US1] In `.github/workflows/release.yml`, replace `--generate-notes` with
       `--notes-file` reading the rendered file, and drop `--notes-start-tag` and the `notes_from`
       array — the range is git-cliff's concern now. No commit text is interpolated into a `run:` line;
       `gh` reads the file (Principle IV).
-- [ ] T017 [US1] In `.github/workflows/release.yml`, add the `workflow_dispatch` input
+- [x] T017 [US1] In `.github/workflows/release.yml`, add the `workflow_dispatch` input
       `dry-run` (`type: boolean`, `default: false`) which runs every refusal and renders the real
       notes to `GITHUB_STEP_SUMMARY`, then exits 0 before the first ref is created. This is the
       Principle VI mitigation for everything above.
-- [ ] T018 [US1] In `.github/workflows/release.yml`, relax the `refs/heads/main` refusal so a
+- [x] T018 [US1] In `.github/workflows/release.yml`, relax the `refs/heads/main` refusal so a
       `dry-run` dispatch from a feature branch is permitted while a real release from anywhere but
       `main` still refuses. Without this the dry run cannot execute at the ref under review, which is
-      the whole point of T017.
-- [ ] T019 [US1] Delete `.github/release.yml`, the label-driven notes configuration (FR-017). Nothing
+      the whole point of T017. **The "not ahead of the highest release" refusal also had to become a
+      notice under `dry-run`**, which the plan did not foresee: on a feature branch the declared
+      version *is* the released one by definition, so erroring there stopped every dry run before it
+      rendered anything. That refusal is unchanged code which has already run in earnest, so reporting
+      it leaves nothing new unverified.
+- [x] T019 [US1] Delete `.github/release.yml`, the label-driven notes configuration (FR-017). Nothing
       reads labels afterwards and nobody maintains a file with no effect.
-- [ ] T020 [US1] Remove the `check-release-config` hook from `.pre-commit-config.yaml` — its only
+- [x] T020 [US1] Remove the `check-release-config` hook from `.pre-commit-config.yaml` — its only
       target was the file T019 deletes.
-- [ ] T021 [US1] Remove the
+- [x] T021 [US1] Remove the
       `check-jsonschema --schemafile https://www.schemastore.org/github-release-config.json` line from
       `mise.toml`'s `lint` task. That retires one of the task's two network fetches. Leave the
       `actionlint.json` schemafile line alone — it is load-bearing (actionlint ignores an unknown key
       silently).
-- [ ] T022 [US1] Rewrite the header comment of `.github/workflows/release.yml`: it currently says the
+- [x] T022 [US1] Rewrite the header comment of `.github/workflows/release.yml`: it currently says the
       release publishes "the release notes `.github/release.yml` shapes", that "Nothing is cloned",
       and closes on a "Not `.github/release.yml`" disambiguation — all three now false. State instead
       that notes are rendered from commits by `.cliff.toml` before any tag exists, and that the
       checkout carries no credential.
-- [ ] T023 [US1] Correct `CONTRIBUTING.md`'s Releasing step 2, which states the release "publishes the
+- [x] T023 [US1] Correct `CONTRIBUTING.md`'s Releasing step 2, which states the release "publishes the
       release with notes generated from `.github/release.yml`" (research.md, Constraints). The rest of
       that section is rewritten in Phase 4; this task fixes only the claim US1 falsifies.
 
