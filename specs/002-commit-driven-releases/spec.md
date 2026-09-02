@@ -8,6 +8,25 @@
 
 **Input**: User description: "Release notes and the version proposal both derive from commit history instead of from PR labels and a hand-edited version file."
 
+## Clarifications
+
+### Session 2026-09-02
+
+- Q: If more commits land on `main` after a release proposal is raised but before it is approved, what
+  should the proposal do? → A: Refresh automatically on every new commit — version and notes
+  recomputed, and publishing re-derives from the same rules.
+- Q: When the release range contains nothing that would appear in the notes, what should happen? → A: No
+  proposal is raised at all; a release attempted anyway fails loudly and creates no tag.
+- Q: Which sections should `perf`, `revert` and `build` commits appear under? → A: `perf` and `revert`
+  under Fixes, `build` under CI and dependencies; `chore`, `style`, `test` and `refactor` under
+  Maintenance.
+- Q: If the reviewer changes the proposed version and a new change then lands on `main`, does the refresh
+  keep their version or recompute it? → A: Keeps theirs — the refresh updates only the notes — but
+  publishing is refused when the range holds a breaking change and the version is not a new major.
+- Q: When the proposal is approved, continuous integration has not yet finished on the commit that
+  approval produced — what should the release do? → A: It starts when CI reports on that commit and
+  proceeds only if it passed, so approval stays the only human step.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A consumer can tell what changed, and what broke (Priority: P1)
@@ -69,6 +88,11 @@ published release and an updated major tag all result, with no other manual step
    **When** a release is attempted, **Then** it does not proceed and says which verdict is missing.
 5. **Given** the notes cannot be produced for any reason, **When** a release is attempted, **Then** no
    tag exists afterwards.
+6. **Given** a proposal whose version the reviewer has already altered, **When** further changes land
+   before it is approved, **Then** the notes update to describe them and the altered version stands.
+7. **Given** a proposal has just been approved and the verdict for the resulting commit is still
+   pending, **When** that verdict arrives green, **Then** the release proceeds with no further human
+   action.
 
 ---
 
@@ -95,8 +119,9 @@ and confirm the output matches what a release for the same range publishes.
 ### Edge Cases
 
 - **A range whose every commit is excluded** (for example, only a version bump): the notes would be
-  empty, which means either nothing shippable happened or the shaping rules are wrong. A release must
-  not publish empty notes silently.
+  empty, which means either nothing shippable happened or the shaping rules are wrong. No proposal is
+  raised, so nothing invites a release that has nothing to say; a release attempted regardless fails
+  loudly rather than publishing an empty body.
 - **A change marked breaking with no explanatory text**: the breaking section still lists it, falling
   back to the change's summary rather than showing nothing.
 - **Two or more breaking changes in one release**: all appear, not just the first.
@@ -104,11 +129,15 @@ and confirm the output matches what a release for the same range publishes.
   the major tag does not yet exist and must be created rather than moved.
 - **A commit whose type is not one of the twelve allowed**: it must still surface somewhere rather
   than disappearing, even though both commit checks are required and should prevent it.
-- **More changes landing after a release is proposed but before it is approved**: the published notes
-  must describe what is actually being released, not what was true when the proposal was made.
+- **More changes landing after a release is proposed but before it is approved**: the proposal refreshes
+  so the reviewer never reads a stale version or stale notes, and the published notes describe what is
+  actually being released rather than what was true when the proposal was first raised.
 - **Two release proposals open at once**, or one approved twice.
 - **A version that is not ahead of every existing release**: releasing it would move the major tag
   onto something consumers read as older than what they already have.
+- **A breaking change landing into a range whose proposed version is not a new major**, whether the
+  version was proposed or set by hand: publishing it would move the existing major tag onto a broken
+  contract, so the release refuses rather than shipping it.
 
 ## Requirements *(mandatory)*
 
@@ -120,22 +149,37 @@ and confirm the output matches what a release for the same range publishes.
   features, fixes, documentation, CI and dependencies, maintenance, and a section of last resort — in
   a fixed order.
 - **FR-003**: Every one of the twelve allowed commit types MUST be accounted for by the shaping rules,
-  and a type that is not MUST fall into the section of last resort rather than vanish.
+  and a type that is not MUST fall into the section of last resort rather than vanish. Features carries
+  `feat`; fixes carries `fix`, `perf` and `revert`, since each is a change in behaviour a consumer feels;
+  documentation carries `docs`; CI and dependencies carries `ci` and `build`; maintenance carries `chore`,
+  `style`, `test` and `refactor`. `bump` is excluded per FR-004.
 - **FR-004**: Version-bump commits MUST NOT appear in the notes.
 - **FR-005**: A breaking change MUST appear in the breaking section carrying its explanatory text, and
   MUST also appear under the section for its own type.
 - **FR-006**: The notes MUST be produced before any tag for the release exists, so that a failure to
   produce them leaves no tag behind.
-- **FR-007**: A release MUST NOT publish empty notes.
+- **FR-007**: A release MUST NOT publish empty notes. No release proposal may be raised for a range whose
+  notes would be empty, and a release attempted over such a range MUST fail with an explicit error and
+  create no tag.
 - **FR-008**: The version being released MUST appear in a change that a human approves before it
   reaches a tag.
 - **FR-009**: Approving the release proposal MUST be what creates the tag and publishes the release;
   no separate manual trigger may be required afterwards.
+- **FR-009a**: An open release proposal MUST be refreshed whenever a new change lands on the default
+  branch, so its notes always describe the current release range. The notes published MUST be derived at
+  publication time from the same rules, not carried over from an earlier rendering. A version the reviewer
+  has altered MUST survive every refresh — the refresh recomputes the notes, never a version a human has
+  already decided.
 - **FR-010**: The reviewer MUST be able to alter the proposed version before approving, and the
   released version MUST be the approved one.
 - **FR-011**: A release MUST refuse to proceed unless the required continuous-integration verdict
-  passed on the exact commit being released, and MUST name the missing verdict when it refuses.
+  passed on the exact commit being released, and MUST name the missing verdict when it refuses. It MUST
+  begin only once that verdict has been reported for the commit approval produced, so approval is never
+  followed by a failure that only means the verdict had not arrived yet.
 - **FR-012**: A release MUST refuse a version that is not ahead of every existing released version.
+- **FR-012a**: A release MUST refuse a version that is not a new major when the range being released
+  contains a breaking change, since publishing it would move the existing major tag onto a broken
+  contract.
 - **FR-013**: The moving major tag MUST point at the released commit once a release is published, and
   MUST be created if it does not yet exist.
 - **FR-014**: The release path MUST NOT write a credential anywhere a later step could read it.
@@ -203,7 +247,8 @@ deliberately a separate feature for exactly this reason, and owes this section i
 - **Changing which commit types are allowed**, or their meanings. The twelve are declared elsewhere and
   this feature consumes that declaration rather than editing it.
 - **Changing the version numbering policy** — what makes a release a patch rather than a minor stays a
-  human judgement about the consumer-facing surface.
+  human judgement about the consumer-facing surface. FR-012a adds a refusal, not a policy: it stops a
+  breaking range shipping under a moved major tag without deciding any other increment.
 
 ## Assumptions
 
@@ -216,9 +261,9 @@ deliberately a separate feature for exactly this reason, and owes this section i
 - **Version-bump commits are identifiable by their commit type.** The most recent one uses the `bump`
   type; the two before it did not, so historical ranges may still show a version commit under
   maintenance, and only ranges from here forward are fully clean.
-- **How the release proposal is raised and kept current is a plan-phase decision**, not a requirement
-  here. This spec constrains only that a proposal exists, shows the version and the notes, and that
-  approving it releases.
+- **What mechanism raises and refreshes the release proposal is a plan-phase decision**, not a
+  requirement here. This spec constrains only that a proposal exists, shows the version and the notes,
+  refreshes as the range changes (FR-009a), and that approving it releases.
 - **Consumers keep pinning the moving major tag**, so repointing it remains part of publishing a
   release regardless of what produces the notes.
 - **The audience for the notes is a maintainer of a consuming repository**, not an end user. One human

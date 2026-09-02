@@ -59,16 +59,20 @@ zizmorcore
 
 # --- Library and API identifiers ---
 allfiles
+artipacked
 czrc
+endfor
 keepachangelog
 levelname
 postprocessors
 precommit
 pyupgrade
+revspec
 ruamel
 schemafile
 tera
 versionrc
+worktree
 
 # --- Config keys ---
 addopts
