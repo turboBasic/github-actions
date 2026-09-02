@@ -25,7 +25,11 @@ run = [
 description = "Format code with ruff, TOML with taplo"
 run = [
   "uv run ruff format .",
-  "taplo fmt .",
+  # No `.`: a positional is a glob taplo then filters against `include` (default `**/*.toml`),
+  # never a directory it walks. `.` matches one path — the directory — which is not a `.toml`,
+  # so taplo drops it and formats nothing, silently. Bare `taplo fmt` uses `include` directly,
+  # which is what the `taplo-fmt` hook relies on too.
+  "taplo fmt",
 ]
 
 [tasks.lint]
