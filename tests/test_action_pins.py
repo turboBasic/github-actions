@@ -241,6 +241,41 @@ def test_the_release_workflow_gives_gh_a_repository() -> None:
     )
 
 
+def test_the_release_decides_empty_notes_by_file_size() -> None:
+    # git-cliff exits 0 with zero bytes both for a range holding only a `bump` and for a range
+    # holding nothing at all, indistinguishably and with no warning. So a workflow that trusted
+    # the exit code would publish a release whose body is empty, which is what FR-007 forbids;
+    # a `-s` test on the rendered file is the only thing that tells the two apart. Every other
+    # gate passes either way, because the shell is valid and the call is well-formed.
+    workflow = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text()
+    assert re.search(r"\[\[\s*!\s*-s\s", workflow), (
+        "release.yml never tests the rendered notes file for size, so an empty range would be "
+        "indistinguishable from a good render and would publish an empty release body. Check "
+        "`[[ ! -s ${NOTES} ]]`, not git-cliff's exit code."
+    )
+
+
+def test_the_release_publishes_the_rendered_notes() -> None:
+    # `--generate-notes` asks GitHub to build the body from pull request labels, which is the
+    # failure this whole feature exists to remove: nine merged PRs carry no label at all, and the
+    # only breaking change ever shipped here was published under "Other changes". Reinstating it
+    # would quietly route the notes back through labels with `.cliff.toml` still sitting there.
+    # Comments stripped first: the line explaining why `--generate-notes` is gone contains it.
+    workflow = "\n".join(
+        line
+        for raw in (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text().splitlines()
+        if not (line := raw.strip()).startswith("#")
+    )
+    assert "--notes-file" in workflow, (
+        "release.yml does not publish the rendered notes with `--notes-file`, so whatever "
+        ".cliff.toml produced is not what reaches the release body."
+    )
+    assert "--generate-notes" not in workflow, (
+        "release.yml publishes with `--generate-notes`, which categorises by pull request label "
+        "and ignores .cliff.toml entirely (FR-001)."
+    )
+
+
 def _declared_version() -> str:
     manifest: dict[str, Any] = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
     project: dict[str, Any] = manifest["project"]
@@ -337,7 +372,7 @@ def _commitizen_types() -> set[str]:
     return set(group.group(1).split("|"))
 
 
-def _block_of_words(path: Path, key: str) -> set[str]:
+def block_of_words(path: Path, key: str) -> set[str]:
     # Found by dedent, not by matching what an entry ought to look like: the old
     # `[ ]+[\w-]+` pattern ended the block at the first malformed line and hid everything
     # after it, so an appended `foo|bar` widened the accepted types unseen by this test.
@@ -368,7 +403,7 @@ def test_allowed_types_match_the_commitizen_builtin_set() -> None:
     # which is why the list may not be left to a default. There is one declaration now:
     # the title and commit checks both read it from this input.
     workflow, key = "conventional-commits.yml", "default"
-    declared = _block_of_words(REPO_ROOT / ".github" / "workflows" / workflow, key)
+    declared = block_of_words(REPO_ROOT / ".github" / "workflows" / workflow, key)
     builtin = _commitizen_types()
     assert declared == builtin, (
         f"{workflow} `{key}` disagrees with commitizen's built-in set: "

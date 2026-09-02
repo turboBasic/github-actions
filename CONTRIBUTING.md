@@ -85,9 +85,13 @@ and it only moves when a release is cut, which is two steps:
    offer an increment computed from the commit range; the number is still yours. Judge it by the surface
    consumers resolve — `.github/workflows/` and `actions/` — not by this repo's commit history. A
    `feat:` that only touched our own linting is a patch.
-2. **Run the [Release workflow][release-workflow]** against `main`. It tags that commit `vX.Y.Z`,
-   publishes the release with notes generated from `.github/release.yml` covering everything since the
-   previous version tag, and force-moves `vX` last, once the rest has succeeded.
+2. **Run the [Release workflow][release-workflow]** against `main`. It renders the notes from the
+   commits since the previous version tag — shaped by `.cliff.toml`, which maps each Conventional
+   Commit type to one of seven sections, so no pull request label affects them — then tags that commit
+   `vX.Y.Z`, publishes the release with those notes, and force-moves `vX` last, once the rest has
+   succeeded. The notes are rendered before the tag exists, so a failure to produce them leaves
+   nothing behind. Dispatching it with `dry-run` runs every refusal and prints the notes it would
+   publish, without creating a tag.
 
 Nothing is built and nothing is uploaded. A consumer resolves this repository's tree at a ref, so
 the tag *is* the artifact — which is also why the version in `pyproject.toml` is the only place the
