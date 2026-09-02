@@ -373,7 +373,7 @@ body refreshes while the edited version stands.
       human has already decided it` — with the title and body rewritten around it and the number
       untouched. The recompute half needed the branch back in bot ownership, so the probe proposal was
       closed and the next push rebuilt it.
-- [ ] T051 [US2] Close the pull request, delete the `release-proposal` branch, and **remove T046a's
+- [x] T051 [US2] Close the pull request, delete the `release-proposal` branch, and **remove T046a's
       temporary `push` trigger**. Left in, it raises proposals on pushes to a branch that will not
       exist — dead config in the one workflow that writes to `main`. Its removal is visible in the pull
       request diff, which is the only thing holding it.
@@ -398,9 +398,12 @@ output matches what a release over the same range publishes.
 - [x] T053 [US3] Mention `mise run release-notes` in `CONTRIBUTING.md`'s Releasing section as the way
       to read the notes before a proposal exists, so the task is discoverable from the procedure that
       wants it.
-- [ ] T054 [US3] **SC-006** — run quickstart.md stage 2's offline check: capture
+- [x] T054 [US3] **SC-006** — run quickstart.md stage 2's offline check: capture
       `mise run release-notes` once, disable networking, run it again and `diff`. Identical output, or
-      `--remote.github` has been switched on somewhere (FR-015).
+      `--remote.github` has been switched on somewhere (FR-015). Done by pointing every proxy variable
+      at a closed port rather than by cutting the interface: identical output, exit 0. `.cliff.toml`
+      names no `[remote]` and no caller passes `--remote`, so there is nothing to reach the network
+      with.
 
 **Checkpoint**: all three stories independently functional.
 
@@ -408,14 +411,16 @@ output matches what a release over the same range publishes.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T055 Run `mise run ci` and confirm green — lint, typecheck, test, all offline. `actionlint`,
+- [x] T055 Run `mise run ci` and confirm green — lint, typecheck, test, all offline. `actionlint`,
       `zizmor --pedantic`, `yamllint --strict` and the timeout schema all cover
       `release-proposal.yml` as they cover every other workflow, and nothing is silenced to get there
       (Principle VII).
-- [ ] T056 [P] Confirm `docs/consumers.md` needs no edit — the spec's Cross-Repository Impact section
+- [x] T056 [P] Confirm `docs/consumers.md` needs no edit — the spec's Cross-Repository Impact section
       claims every file touched is repository-local, and that claim is worth checking against the diff
-      rather than assumed.
-- [ ] T057 [P] Re-read `specs/002-commit-driven-releases/checklists/requirements.md` against what
+      rather than assumed. **Checked**: the only files under `.github/workflows/` or `actions/` in
+      `main...HEAD` are `ci.yml`, `release.yml` and `release-proposal.yml`, all three in `OWN_CI`. The
+      claim holds, measured.
+- [x] T057 [P] Re-read `specs/002-commit-driven-releases/checklists/requirements.md` against what
       shipped and tick what now holds.
 - [ ] T058 **After merge** — quickstart.md stage 4, the first real release and the only exercise the
       two automatic triggers get. `release-proposal.yml` runs on the push and raises a proposal; read

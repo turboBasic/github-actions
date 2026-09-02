@@ -22,11 +22,7 @@ name: Release proposal
 
 on:
   push:
-    # TEMPORARY, remove before merge: the second entry is the only way to exercise this workflow at
-    # the ref under review. `workflow_dispatch` is offered only for a workflow file already on the
-    # default branch, so a brand-new workflow cannot be dispatched at all — the same constraint the
-    # token probe hit, and the same workaround it used.
-    branches: [main, 002-commit-driven-releases]
+    branches: [main]
   workflow_dispatch: # recovery, and re-running a refresh by hand
 
 permissions: {}
