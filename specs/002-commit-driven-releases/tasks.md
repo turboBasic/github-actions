@@ -365,9 +365,14 @@ body refreshes while the edited version stands.
       behaviour, the reason for choosing it, and the one thing the probe could not observe
       (research.md decision 11). If a click is required, SC-004's "one step" is not quite one and that
       belongs in `CONTRIBUTING.md`.
-- [ ] T050 [US2] Edit the version on the `release-proposal` branch, push again to this branch, and
+- [x] T050 [US2] Edit the version on the `release-proposal` branch, push again to this branch, and
       confirm the body updates while the edited version is **untouched** (FR-009a). Then push again
-      without editing and confirm the version is recomputed and the notes re-rendered.
+      without editing and confirm the version is recomputed and the notes re-rendered. **Both halves
+      observed.** The bot proposed 2.0.3; a human commit setting 2.1.0 was then kept —
+      `keeping 2.1.0, the version on the proposal branch: it carries a commit by turboBasic ⚡️💀, so a
+      human has already decided it` — with the title and body rewritten around it and the number
+      untouched. The recompute half needed the branch back in bot ownership, so the probe proposal was
+      closed and the next push rebuilt it.
 - [ ] T051 [US2] Close the pull request, delete the `release-proposal` branch, and **remove T046a's
       temporary `push` trigger**. Left in, it raises proposals on pushes to a branch that will not
       exist — dead config in the one workflow that writes to `main`. Its removal is visible in the pull
