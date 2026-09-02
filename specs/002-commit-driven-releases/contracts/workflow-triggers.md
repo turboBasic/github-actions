@@ -51,8 +51,16 @@ concurrency:
 **Nothing is pushed from the working tree.** The checkout has no credential, so the API is the only
 route — the same reason the existing `release.yml` works that way.
 
-**What the maintainer must do once**: turn on Settings → Actions → General → *Allow GitHub Actions to
-create and approve pull requests*. Without it, step 6 fails.
+**What the maintainer must do once, and has not yet**: turn on Settings → Actions → General → *Allow
+GitHub Actions to create and approve pull requests*. It is **currently off** in this repository and in
+`github-actions-test`, confirmed by probe (research.md decision 10), and step 6 fails against it with:
+
+```text
+{"message":"GitHub Actions is not permitted to create or approve pull requests.","status":"403"}
+```
+
+Nothing in this workflow works until that changes, or until the token changes to a GitHub App
+installation token — which needs no such setting.
 
 ## `release.yml` (changed)
 

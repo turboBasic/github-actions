@@ -162,8 +162,19 @@ Then the workflows:
 
 Then close the pull request and delete the branch.
 
-Also confirm once, before stage 4: **Settings → Actions → General → "Allow GitHub Actions to create and
-approve pull requests"** is on. Without it the proposal cannot be opened.
+**Do this before anything in this stage can pass**: turn on **Settings → Actions → General → "Allow
+GitHub Actions to create and approve pull requests"**. It is currently **off**, and the proposal cannot
+be opened until it is on — `POST /pulls` answers
+`GitHub Actions is not permitted to create or approve pull requests` (403). Verified by probe;
+research.md decision 10 has the detail and the alternative.
+
+Readable and settable through the API rather than the UI, if preferred:
+
+```sh
+gh api repos/turboBasic/github-actions/actions/permissions/workflow            # read
+# gh api -X PUT repos/turboBasic/github-actions/actions/permissions/workflow \
+#   -F can_approve_pull_request_reviews=true -f default_workflow_permissions=read
+```
 
 ## Stage 4 — after merge, the first real release
 

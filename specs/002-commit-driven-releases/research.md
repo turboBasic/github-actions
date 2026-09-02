@@ -294,3 +294,63 @@ copy.
 machine-readable copies cannot drift. The two prose copies stay prose — a test asserting a line number
 in `CONTRIBUTING.md` would be worse than the duplication. Noted here so the tasks phase updates all
 four rather than the one that fails a test.
+
+### 10. The `GITHUB_TOKEN` route has a prerequisite, and it is currently off
+
+**Probed, not reasoned.** The token choice above rests on GitHub's documented behaviour for a
+`GITHUB_TOKEN`-authored pull request, which was read from docs rather than observed. A disposable
+workflow was pushed to a branch in `turboBasic/github-actions-test` — `on: push`, because
+`workflow_dispatch` only fires for a workflow already on the default branch, which is the constraint
+being worked around — and it tried to do exactly what `release-proposal.yml` will do. Branches deleted
+afterwards; no pull request was created, because it could not be.
+
+**Result 1 — creation is blocked, and the API field name misleads.**
+
+```text
+POST /repos/turboBasic/github-actions-test/pulls
+{"message":"GitHub Actions is not permitted to create or approve pull requests.","status":"403"}
+```
+
+`GET /repos/{owner}/{repo}/actions/permissions/workflow` reads
+`{"default_workflow_permissions":"read","can_approve_pull_request_reviews":false}` for **both**
+`turboBasic/github-actions` and `turboBasic/github-actions-test`. The field is named for approval only,
+but the single Settings → Actions → General checkbox it backs — *Allow GitHub Actions to create and
+approve pull requests* — governs creation too, and the 403 above is what a maintainer sees while it is
+off.
+
+So this is not a "confirm the setting" step, as an earlier draft of the plan had it. **It is a
+prerequisite that is currently unmet in both repositories, and nothing in the design works until it is
+changed.** Deliberately left unchanged here: enabling it is a security-relevant repository setting and
+the owner's call, not a planning step.
+
+**Result 2 — an API-created commit is already attributed to the bot.** With no `author` field set at
+all, `POST /git/commits` under `GITHUB_TOKEN` produced:
+
+```text
+commit.author.name:  github-actions[bot]
+commit.author.email: 41898282+github-actions[bot]@users.noreply.github.com
+author.login:        github-actions[bot]
+```
+
+So decision 6's instruction to set the author explicitly is belt-and-braces rather than load-bearing.
+It stays — it costs one field and makes the intent legible — but the human-versus-bot detection it
+enables works on the default attribution regardless. The risk it was written against was a *PAT*, which
+attributes to its human owner; that risk left with the PAT.
+
+**Result 3 — the original question is still open.** Whether the required checks then appear in an
+approval-required state or do not appear at all cannot be observed until the setting is on, because the
+pull request never exists. The probe narrowed the unknown rather than closing it.
+
+**What this does to the token choice.** The trade-off has moved, and the tasks phase should not treat
+`GITHUB_TOKEN` as settled:
+
+| | `GITHUB_TOKEN` | GitHub App token |
+| --- | --- | --- |
+| Repository setting | **must be turned on** — currently off in both repos | not needed; an App is not "GitHub Actions" |
+| Per-release human action | one *Approve and run* click, unverified | none |
+| Secrets to hold | none | two, plus an app to register |
+| New pinned action | none | `actions/create-github-app-token` |
+
+The App token now avoids *two* costs rather than one, and needs no change to a security setting the
+account has left off. `GITHUB_TOKEN` remains the choice on record, and the decision is worth re-taking
+with this in hand.
