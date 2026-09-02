@@ -2,6 +2,9 @@
   "folders": [
     {
       "path": "turboBasic/github-actions"
+    },
+    {
+      "path": "turboBasic/github-actions-test"
     }
   ],
   "settings": {

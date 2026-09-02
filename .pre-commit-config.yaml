@@ -96,14 +96,8 @@ repos:
         language: system
         files: ^actions/[^/]+/action\.ya?ml$
 
-      # A URL because check-jsonschema vendors no copy of this one. Cached after first use.
-      - id: check-release-config
-        name: check-jsonschema (release notes config)
-        entry: uv run check-jsonschema --schemafile https://www.schemastore.org/github-release-config.json
-        language: system
-        files: ^\.github/release\.ya?ml$
-
-      # A URL for the same reason as the release config. Load-bearing: actionlint ignores an
+      # A URL because check-jsonschema vendors no copy of this one; cached after first use.
+      # Load-bearing: actionlint ignores an
       # unknown key in its own config silently, so a typo there would disable nothing, quietly.
       - id: check-actionlint-config
         name: check-jsonschema (actionlint config)
@@ -127,7 +121,7 @@ repos:
         pass_filenames: true
         files: ^(\.github/workflows/.*\.ya?ml|actions/.*/action\.ya?ml)$
 
-      # No filenames: taplo.toml's exclude/include decide which TOML is ours.
+      # No filenames: .taplo.toml's exclude/include decide which TOML is ours.
       - id: taplo-fmt
         name: taplo fmt
         entry: mise exec -- taplo fmt
@@ -142,7 +136,7 @@ repos:
         language: system
         types: [markdown]
 
-      # cspell.config.yaml owns dictionaries and ignored paths. Scoped to the
+      # .cspell.config.yaml owns dictionaries and ignored paths. Scoped to the
       # pre-commit stage: `types: [text]` also matches the commit-msg stage's
       # message file, which cspell then fails on ("0 files checked").
       # `--no-must-find-files` covers the same failure inside the pre-commit stage:

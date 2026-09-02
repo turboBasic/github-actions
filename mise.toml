@@ -1,5 +1,6 @@
 [tools]
 actionlint = "1.7.12"
+git-cliff = "2.13.1"
 "npm:cspell" = "10.2.0"
 "npm:markdownlint-cli2" = "0.23.2"
 "pipx:specify-cli" = "1.0.2"
@@ -25,7 +26,11 @@ run = [
 description = "Format code with ruff, TOML with taplo"
 run = [
   "uv run ruff format .",
-  "taplo fmt .",
+  # No `.`: a positional is a glob taplo then filters against `include` (default `**/*.toml`),
+  # never a directory it walks. `.` matches one path — the directory — which is not a `.toml`,
+  # so taplo drops it and formats nothing, silently. Bare `taplo fmt` uses `include` directly,
+  # which is what the `taplo-fmt` hook relies on too.
+  "taplo fmt",
 ]
 
 [tasks.lint]
@@ -42,7 +47,6 @@ run = [
   "uv run check-jsonschema --builtin-schema vendor.github-issue-forms .github/ISSUE_TEMPLATE/[0-9]-*.yml",
   "uv run check-jsonschema --builtin-schema vendor.github-issue-config .github/ISSUE_TEMPLATE/config.yml",
   "uv run check-jsonschema --builtin-schema vendor.github-actions actions/*/action.yml",
-  "uv run check-jsonschema --schemafile https://www.schemastore.org/github-release-config.json .github/release.yml",
   "uv run check-jsonschema --schemafile https://www.schemastore.org/actionlint.json .github/actionlint.yaml",
   "uv run check-jsonschema --builtin-schema custom.github-workflows-require-timeout .github/workflows/*.yml",
 ]

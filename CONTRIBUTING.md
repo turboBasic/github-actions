@@ -47,18 +47,24 @@ building against it.
 
 ## Verifying a workflow change
 
-Lint is necessary and not sufficient. **A reusable workflow that has never been called is
-unverified** — YAML that parses can still fail on a missing input, a permission it was not granted,
-or an expression that evaluates to the wrong branch.
+Lint is necessary and not sufficient. **Run every workflow you change.** YAML that parses still
+fails on a missing input, a permission nobody granted, an expression that picks the wrong branch, or
+a CLI that wants a context the runner lacks.
 
 Before a change to a reusable workflow is done:
 
 1. Push the branch and open a PR here, so this repo's own CI runs.
-2. Call the changed workflow at `@<your-branch>` from a throwaway repository, and exercise both
-   outcomes — the passing path and the failing one. A check that cannot fail is not a check.
-3. Delete the throwaway repo afterwards.
+2. Open a branch in [`github-actions-test`][test-consumer], point its call site at `@<your-branch>`,
+   and exercise both outcomes — the passing path and the failing one. A check that cannot fail is not
+   a check.
+3. Leave that branch. Nothing there needs deleting, and a scenario worth running once is worth
+   keeping: `tests/scenario-*/README.md` says what each existing branch covers and what it asserts in
+   the log, so start from the nearest one.
 
-The major tag is only moved once that has happened.
+Move the major tag only after that.
+
+A workflow only this repo runs — `ci.yml`, `commit-messages.yml`, `release.yml` — has no consumer to
+call it. Dispatch it, or open a PR that triggers it, and read the run.
 
 ## Pull requests
 
@@ -79,9 +85,13 @@ and it only moves when a release is cut, which is two steps:
    offer an increment computed from the commit range; the number is still yours. Judge it by the surface
    consumers resolve — `.github/workflows/` and `actions/` — not by this repo's commit history. A
    `feat:` that only touched our own linting is a patch.
-2. **Run the [Release workflow][release-workflow]** against `main`. It tags that commit `vX.Y.Z`,
-   publishes the release with notes generated from `.github/release.yml` covering everything since the
-   previous version tag, and force-moves `vX` last, once the rest has succeeded.
+2. **Run the [Release workflow][release-workflow]** against `main`. It renders the notes from the
+   commits since the previous version tag — shaped by `.cliff.toml`, which maps each Conventional
+   Commit type to one of seven sections, so no pull request label affects them — then tags that commit
+   `vX.Y.Z`, publishes the release with those notes, and force-moves `vX` last, once the rest has
+   succeeded. The notes are rendered before the tag exists, so a failure to produce them leaves
+   nothing behind. Dispatching it with `dry-run` runs every refusal and prints the notes it would
+   publish, without creating a tag.
 
 Nothing is built and nothing is uploaded. A consumer resolves this repository's tree at a ref, so
 the tag *is* the artifact — which is also why the version in `pyproject.toml` is the only place the
@@ -116,5 +126,6 @@ rather than someone noticing by accident.
 [ai-instructions-quality]: docs/ai-instructions.md#quality-gates
 [ai-instructions-versioning]: docs/ai-instructions.md#versioning
 [readme]: README.md
+[test-consumer]: https://github.com/turboBasic/github-actions-test
 [readme-versioning]: README.md#versioning
 [release-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release.yml

@@ -1,5 +1,12 @@
-# Cuts a release: tags this commit with the version `pyproject.toml` declares, publishes the
-# release notes `.github/release.yml` shapes, then force-moves the major tag consumers pin.
+# Cuts a release: renders the notes from the commits being released, tags this commit with the
+# version `pyproject.toml` declares, publishes the release with those notes, then force-moves the
+# major tag consumers pin.
+#
+# The notes are shaped from commit types by `.cliff.toml`, and rendered *before* any tag exists —
+# so a failure to produce them leaves no tag behind, and nothing reads a pull request label. An
+# empty range is not an empty release: git-cliff exits 0 for a range holding nothing, and renders a
+# lone newline rather than zero bytes, so the check is for content — never the exit code, never the
+# file's size.
 #
 # The version bump is not done here. `main`'s ruleset requires a pull request and bypasses only for
 # the Repository admin role, which `GITHUB_TOKEN` does not hold, so a bump commit pushed from here
@@ -7,15 +14,19 @@
 # also makes the patch-vs-minor call a one-line diff someone can argue with. This workflow only
 # tags what that PR already decided, and refuses if the tag is already there.
 #
-# Nothing is cloned. Every step goes through the API, so no credential is written to a workspace
-# for a later step to pick up, and there is no working tree to push from.
-#
-# Not `.github/release.yml`, which is the release-notes *configuration* this consumes.
+# The checkout carries no credential. git-cliff needs history to find the range's lower bound, but
+# nothing is pushed from the working tree: every write still goes through the API, so no credential
+# is left in a workspace for a later step to pick up.
 
 name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Run every refusal and render the real notes, then stop before creating any tag.
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -32,11 +43,27 @@ jobs:
       contents: write # creates the version tag, publishes the release, moves the major tag
     env:
       GH_TOKEN: ${{ github.token }}
-      # Every `gh` subcommand that is not `gh api` infers the repository from a git remote, and
-      # nothing is cloned here, so `gh release create` failed with `not a git repository` the first
-      # time this ran. One variable covers every such command rather than a `--repo` per call.
+      # Every `gh` subcommand that is not `gh api` infers the repository from a git remote, and the
+      # checkout below is deliberately credential-less, so `gh release create` takes its repository
+      # from here rather than from the remote. One variable covers every such command rather than a
+      # `--repo` per call.
       GH_REPO: ${{ github.repository }}
+      DRY_RUN: ${{ inputs.dry-run }}
+      # `runner.temp` is not available in a job-level env, so the workspace's parent — which
+      # exists and is writable — keeps the notes file out of the checked-out tree.
+      NOTES: ${{ github.workspace }}/../release-notes.md
     steps:
+      # Full history and every tag: `--unreleased` measures from the newest tag matching
+      # `.cliff.toml`'s `tag_pattern`, and a shallow checkout renders an empty range without
+      # complaining.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+
       # `ci / CI` is the context the `main` ruleset requires, so on a merged commit it is the
       # verdict that covers this tree. Releasing past it would move the major tag — the ref every
       # consumer resolves — onto code nothing has run. `filter=latest` is the endpoint's default,
@@ -50,8 +77,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ ${GITHUB_REF} != refs/heads/main ]]; then
-            echo "::error::releases are cut from main; this run is on ${GITHUB_REF}"
+          if [[ ${GITHUB_REF} != refs/heads/main && ${DRY_RUN} != true ]]; then
+            echo "::error::releases are cut from main; this run is on ${GITHUB_REF}. Dispatch with dry-run to exercise this workflow from a branch."
             exit 1
           fi
 
@@ -75,8 +102,16 @@ jobs:
           if [[ -n ${highest} ]]; then
             newest=$(printf '%s\n%s\n' "${version}" "${highest}" | sort -V | tail -1)
             if [[ ${version} == "${highest}" || ${newest} != "${version}" ]]; then
-              echo "::error::pyproject.toml declares ${version}, which is not ahead of the highest release v${highest}. Bump [project].version in a pull request — that is what decides the next version."
-              exit 1
+              # Reported rather than fatal under a dry run, and that is the point: on a feature
+              # branch the declared version is the released one by definition, so erroring here
+              # would stop every dry run before it rendered anything. This refusal is unchanged
+              # code that has already run in earnest, so nothing new goes unverified.
+              if [[ ${DRY_RUN} == true ]]; then
+                echo "::notice::would refuse: pyproject.toml declares ${version}, which is not ahead of the highest release v${highest}"
+              else
+                echo "::error::pyproject.toml declares ${version}, which is not ahead of the highest release v${highest}. Bump [project].version in a pull request — that is what decides the next version."
+                exit 1
+              fi
             fi
           fi
 
@@ -88,7 +123,54 @@ jobs:
           fi
 
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "previous=${highest:+v${highest}}" >> "${GITHUB_OUTPUT}"
+          echo "highest-major=${highest%%.*}" >> "${GITHUB_OUTPUT}"
+
+      # Before any tag exists, so a failure here leaves nothing to clean up. That ordering is why
+      # this is its own step: today's workflow tagged first and generated notes second, so a notes
+      # failure left a tag with no release attached.
+      #
+      # No commit text passes through `${{ }}` into a shell line: git-cliff reads git and writes a
+      # file, and `gh release create --notes-file` reads that file. A commit subject is a merged
+      # pull request title, which is attacker-influenceable text.
+      - name: Render the notes
+        env:
+          VERSION: ${{ steps.verify.outputs.version }}
+          HIGHEST_MAJOR: ${{ steps.verify.outputs.highest-major }}
+        run: |
+          set -euo pipefail
+
+          # A non-zero exit is a bad range or a bad config, and is fatal. It is a different failure
+          # from the empty render below, which exits 0 — conflating the two would either publish an
+          # empty body or refuse a legitimate release because a tag lookup misfired.
+          git-cliff --unreleased > "${NOTES}"
+
+          # git-cliff exits 0 for a range holding only a `bump` and for a range holding nothing at
+          # all, indistinguishably and with no warning, so the exit code cannot be trusted here.
+          # Nor can the file's size: an empty render is one byte, not zero, because git-cliff still
+          # emits a trailing newline — measured on a probe branch whose whole range was one `bump`,
+          # after this was written as `[[ ! -s ]]` on the assumption of zero bytes. That version
+          # would have published a release body containing a blank line.
+          if ! grep -q '[^[:space:]]' "${NOTES}"; then
+            echo "::error::the range since the previous version tag renders no notes, so there is nothing to release. No tag was created."
+            exit 1
+          fi
+
+          # `== true` rather than truthiness: `--context` omits `breaking` entirely on a commit
+          # matching no Conventional Commit, so the naive form tests a null and answers wrongly.
+          breaking=$(git-cliff --unreleased --context | jq 'any(.[].commits[]; .breaking == true)')
+          if [[ ${breaking} == true && -n ${HIGHEST_MAJOR} && ${VERSION%%.*} == "${HIGHEST_MAJOR}" ]]; then
+            echo "::error::the range contains a breaking change but ${VERSION} is not a new major, so publishing it would move v${HIGHEST_MAJOR} onto a broken contract. No tag was created."
+            exit 1
+          fi
+
+          {
+            printf '## Notes for v%s\n\n' "${VERSION}"
+            cat "${NOTES}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          if [[ ${DRY_RUN} == true ]]; then
+            echo "::notice::dry run: the notes above are what a release would publish. No tag is created and no release exists."
+          fi
 
       # Annotated, like every tag already here: the tag is the artifact consumers resolve, so it
       # carries a tagger and a date rather than being a bare pointer.
@@ -98,9 +180,9 @@ jobs:
       # one — recover by re-running once the cause is fixed, deleting the version tag first if it
       # was already created.
       - name: Tag and publish
+        if: ${{ !inputs.dry-run }}
         env:
           VERSION: ${{ steps.verify.outputs.version }}
-          PREVIOUS: ${{ steps.verify.outputs.previous }}
         run: |
           set -euo pipefail
 
@@ -116,15 +198,10 @@ jobs:
           gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" --silent \
             -f "ref=refs/tags/${tag}" -f "sha=${cut}"
 
-          # Notes run from the previous version *tag*, not from the previous release, which is what
-          # `--generate-notes` alone would use. The two differ whenever a tag has no release — as
-          # every tag here did until the first one was cut, which would have made that release's
-          # notes the entire history of the repository.
-          notes_from=()
-          if [[ -n ${PREVIOUS} ]]; then
-            notes_from=(--notes-start-tag "${PREVIOUS}")
-          fi
-          gh release create "${tag}" --title "${tag}" --generate-notes "${notes_from[@]}" --latest --verify-tag
+          # `--notes-file` replaces `--generate-notes`, and `--notes-start-tag` is gone with it:
+          # the range is git-cliff's concern now, measured from the previous version *tag* rather
+          # than from the previous release, which is what `--generate-notes` alone would have used.
+          gh release create "${tag}" --title "${tag}" --notes-file "${NOTES}" --latest --verify-tag
 
           # PATCH moves it; the POST is for the first release of a new major, where there is no
           # ref to move yet.
