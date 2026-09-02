@@ -83,47 +83,60 @@ request and says a release is owed.
 
 ```yaml
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
+  workflow_call: # ci.yml, behind `needs: [ci]`
+    inputs:
+      dry-run:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
-      dry-run:              # renders and checks everything, stops before the tag
+      dry-run: # renders and checks everything, stops before the tag
         type: boolean
         default: false
 ```
 
-`concurrency: { group: release, cancel-in-progress: false }` is unchanged — two of these racing would
-leave the major tag pointing anywhere.
+**It is called, not triggered.** `ci.yml` gains a job:
 
-**The target commit is `github.event.workflow_run.head_sha`, not `github.sha`.** Under `workflow_run`,
-`GITHUB_SHA` is the default branch's tip, which is not necessarily the commit CI reported on. Getting
-this wrong would release a different tree than the one that passed.
+```yaml
+  release:
+    needs: [ci]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: $/.github/workflows/release.yml
+    permissions:
+      contents: write
+```
 
-**Two trigger guards, not one**: `branches: [main]` filters the *triggering* run's branch, and the job
-additionally requires `github.event.workflow_run.event == 'push'` so a CI run from a pull request cannot
-start a release.
+`concurrency: { group: release, cancel-in-progress: false }` stays declared in `release.yml`.
 
-**The verdict is the `ci / CI` check run on the target commit, never `workflow_run.conclusion`.**
-`workflow_run` is the wake-up signal and nothing more. `conclusion` is the **workflow-level** verdict,
-and `ci.yml` holds two jobs: `ci`, which reports the required `ci / CI`, and `live`, which runs
-`test_no_consumer_facing_change_is_waiting_for_a_release` — red *precisely when a release is owed*.
-So a merged proposal's CI run concludes `failure` while `ci / CI` is green, and gating on `conclusion`
-would refuse every release the moment one was actually due. That is the same trap as consulting
-`ci / Live` directly, reached by a different route. Both paths therefore read the same
-`commits/{sha}/check-runs` query the workflow already uses; `filter=latest` is the endpoint's default,
-so a re-run supersedes the run it replaced. No `conclusion` guard is needed at all — a cancelled or
-skipped CI run leaves the check run non-`success` too.
+**This replaces the `workflow_run` trigger an earlier draft specified, and the change is a
+simplification rather than a workaround.** zizmor rates `workflow_run` a **high-severity**
+`dangerous-triggers` finding, and this repository's rule is that a zizmor finding is addressed rather
+than silenced. Three separate hazards disappear with it:
+
+- **`needs: [ci]` *is* the verdict.** FR-011 becomes structurally true — the job cannot start unless
+  `ci / CI` succeeded on this commit — instead of a `check-runs` query that could lose a race with the
+  check run's own bookkeeping and read a not-yet-visible conclusion as `missing`, silently cancelling a
+  legitimate release. The query survives only on the dispatched path, where there is no `needs` to lean
+  on.
+- **There is no head SHA to recover.** Under `workflow_run`, `GITHUB_SHA` is the default branch's tip
+  rather than the commit CI reported on, so the release could tag a tree no verdict covered. Called
+  from `ci.yml`, `github.sha` *is* that commit.
+- **`workflow_run.conclusion` could never have been the gate.** It is the *workflow-level* result, and
+  `ci.yml` holds `live` as well as `ci` — red precisely when a release is owed. Gating on it would have
+  refused every release the moment one was actually due, which is the same trap as consulting
+  `ci / Live` directly, reached by a different route. Hence also **not** `needs: [ci, live]`.
+
+`tests/test_action_pins.py` holds all of it: that the release job keeps `needs: [ci]` without `live`
+and calls at `$/`, and that `release.yml` is never triggered by `workflow_run` again.
 
 ### Refusals, in order
 
 | Condition | Verdict | Requirement |
 | --- | --- | --- |
-| Triggered by `workflow_run`, and `ci / CI` on the target commit is not `success` | `::notice::` naming the conclusion found or `missing`, exit 0 | FR-011 |
+| Called from `ci.yml` | nothing to check — `needs: [ci]` already means `ci / CI` passed on this commit | FR-011 |
 | Dispatched, and `ci / CI` on the target commit is not `success` | **error**, naming the conclusion found or `missing` | FR-011 |
 | `[project].version` is not a plain `X.Y.Z` | **error** | existing |
-| The version is not ahead of the highest existing release | `workflow_run` or `dry-run`: notice, continue. Dispatched for real: **error** | FR-012, research.md decision 7 |
+| The version is not ahead of the highest existing release | `push` (the ordinary merge) : notice, stop. `dry-run`: notice, continue. Dispatched for real: **error** | FR-012, research.md decisions 7 and 12 |
 | The rendered notes are empty | **error**, before any tag exists | FR-007 |
 | The range contains a breaking change and the version is not a new major | **error**, before any tag exists | FR-012a |
 | `dry-run` was requested | print the notes to the step summary, exit 0 | Principle VI |
@@ -152,7 +165,7 @@ because the range is git-cliff's concern now.
 | `release-proposal.yml`, end to end | a **temporary `push: branches: [002-commit-driven-releases]`** trigger, added for the pre-flight and removed before merge. It opens a real proposal, which is then closed |
 | `release.yml`'s refusals and rendering | dispatched from the feature branch with `dry-run: true` |
 | `on: push: [main]` | **not verifiable before merge** — the first merge is the first run |
-| `on: workflow_run` | **not verifiable before merge** — GitHub resolves it from the default branch only |
+| `ci.yml`'s `release` job | **not verifiable before merge** — it runs only on a push to `main` |
 
 **`workflow_dispatch` cannot exercise a new workflow**, which is why the second row is a temporary
 `push` trigger rather than a dispatch. GitHub offers `workflow_dispatch` only for a workflow file

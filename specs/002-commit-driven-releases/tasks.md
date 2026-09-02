@@ -227,11 +227,11 @@ body refreshes while the edited version stands.
 
 ### Tests for User Story 2
 
-- [ ] T028 [US2] Add `"release-proposal.yml"` to `OWN_CI` in `tests/test_action_pins.py`. Without it
+- [x] T028 [US2] Add `"release-proposal.yml"` to `OWN_CI` in `tests/test_action_pins.py`. Without it
       `test_every_reusable_workflow_declares_workflow_call` fails the new workflow and
       `test_no_consumer_facing_change_is_waiting_for_a_release` demands a release for it
       (research.md, Constraints). T035a then holds the path filter to this same list.
-- [ ] T029 [US2] Add a gate to `tests/test_action_pins.py` asserting `release.yml` takes the target
+- [x] T029 [US2] Add a gate to `tests/test_action_pins.py` asserting `release.yml` takes the target
       commit from `github.event.workflow_run.head_sha` and not from `github.sha`. Under
       `workflow_run`, `GITHUB_SHA` is the default branch's tip, not the commit CI reported on
       (research.md decision 7), so getting this wrong releases a different tree than the one that
@@ -239,25 +239,33 @@ body refreshes while the edited version stands.
 
 ### Implementation for User Story 2
 
-- [ ] T030 [US2] Create `.github/workflows/release-proposal.yml` with the trigger block from
+> **The trigger changed while these were being built.** T029, T040, T041 and T042 were written around a
+> `workflow_run` trigger. zizmor rates that a high-severity `dangerous-triggers` finding, and the rule
+> here is that a zizmor finding is addressed rather than silenced — so `ci.yml` calls `release.yml` from
+> a job with `needs: [ci]` instead, and research.md decision 12 records why that is better rather than
+> merely permitted. T029's head-SHA gate became two gates that hold the new shape; T040's trigger and
+> T041's head-SHA handling are gone, since neither hazard can arise; T042's split survives with `push`
+> in place of `workflow_run`. Ticked as done because the requirement each served is met.
+
+- [x] T030 [US2] Create `.github/workflows/release-proposal.yml` with the trigger block from
       [contracts/workflow-triggers.md](contracts/workflow-triggers.md): `push: branches: [main]` plus
       `workflow_dispatch` — for recovery and re-running a refresh by hand, **not** for pre-merge
       verification, which it cannot do (T046a) — top-level `permissions: {}`, and
       `concurrency: { group: release-proposal, cancel-in-progress: true }` — only the newest range
       matters. `timeout-minutes` on the job, which the `check-workflow-timeouts` hook requires.
-- [ ] T031 [US2] In `release-proposal.yml`, give the job `contents: read` for `GITHUB_TOKEN` — it only
+- [x] T031 [US2] In `release-proposal.yml`, give the job `contents: read` for `GITHUB_TOKEN` — it only
       checks out. No `pull-requests: write`, no `issues: write`; every write uses the App token
       (Principle III, research.md decision 11).
-- [ ] T032 [US2] In `release-proposal.yml`, add
+- [x] T032 [US2] In `release-proposal.yml`, add
       `actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0` as the first
       step, fed `secrets.RELEASE_APP_ID` and `secrets.RELEASE_APP_PRIVATE_KEY` (T004), and pass its
       output token as `GH_TOKEN` through `env` to every later step. Never to a file, a log or an
       artifact (FR-014, Principle V).
-- [ ] T033 [US2] In `release-proposal.yml`, add `actions/checkout` at `fetch-depth: 0` with
+- [x] T033 [US2] In `release-proposal.yml`, add `actions/checkout` at `fetch-depth: 0` with
       `persist-credentials: false`, and deliberately **not** the app token — nothing is pushed from
       the working tree. Then `jdx/mise-action`, which supplies both `git-cliff` and `uv` from
       `mise.toml`.
-- [ ] T034 [US2] In `release-proposal.yml`, implement the two skip conditions in order: exit 0 when the
+- [x] T034 [US2] In `release-proposal.yml`, implement the two skip conditions in order: exit 0 when the
       `[project].version` declared **on `main`'s tip** is not yet tagged (a release is already in flight
       or owed, and proposing on top would propose the version being cut); and when the rendered notes
       are empty, close any open proposal, delete the branch and exit 0 (FR-007). Read the version as
@@ -265,46 +273,46 @@ body refreshes while the edited version stands.
       load-bearing: read it from the `release-proposal` branch instead and this finds its own bump,
       concludes a release is in flight, and stops refreshing the proposal it just wrote — FR-009a
       stalling silently.
-- [ ] T035 [US2] In `release-proposal.yml`, compute the proposed version: highest existing release
+- [x] T035 [US2] In `release-proposal.yml`, compute the proposed version: highest existing release
       incremented by what the **consumer-facing** commits imply — breaking gives major, a `feat`
       touching `.github/workflows/**` or `actions/**` minus this repo's own CI gives minor, else
       patch. A second `git-cliff --unreleased --context` pass with the `--include-path` /
       `--exclude-path` flags exactly as quickstart.md stage 3 records them (research.md decision 5).
       The exclude list is the fourth copy of `OWN_CI` and T035a holds it to the first.
-- [ ] T035a [US2] Add the sixth assertion to `tests/test_release_notes.py`: the `--include-path` /
+- [x] T035a [US2] Add the sixth assertion to `tests/test_release_notes.py`: the `--include-path` /
       `--exclude-path` filter in `release-proposal.yml` agrees with `OWN_CI` and `CONSUMER_FACING` in
       `tests/test_action_pins.py`, so the two machine-readable copies of that list cannot drift
       (research.md decision 9). Reads the workflow as YAML, unlike the five in T009 — which is why it
       lands here and not with them.
-- [ ] T036 [US2] In `release-proposal.yml`, keep a human's version: if the `release-proposal` branch
+- [x] T036 [US2] In `release-proposal.yml`, keep a human's version: if the `release-proposal` branch
       exists and holds a commit whose author is **not** the fixed bot identity, use the version
       already on the branch and re-render only the body (FR-009a). Otherwise take T035's computed
       version.
-- [ ] T037 [US2] In `release-proposal.yml`, write the branch through the Git Data API — blob, blob,
+- [x] T037 [US2] In `release-proposal.yml`, write the branch through the Git Data API — blob, blob,
       tree on `main`'s tree, commit, force-update `refs/heads/release-proposal` — setting the commit
       `author` **explicitly** to one fixed identity. Load-bearing, not cosmetic: an App-token commit
       is otherwise attributed to `<app-name>[bot]`, so T036's comparison needs a value this workflow
       chooses rather than one the token implies (research.md decision 11). Nothing is pushed from the
       working tree.
-- [ ] T038 [US2] In `release-proposal.yml`, produce the second blob by running `uv lock` after the
+- [x] T038 [US2] In `release-proposal.yml`, produce the second blob by running `uv lock` after the
       `pyproject.toml` version edit. Plain `uv lock`, not `--offline`: the runner has a network and
       FR-015's offline constraint is on rendering the notes, not on this step. `uv.lock` carries the
       root package's version, so a bump without it fails `uv sync --locked` (research.md decision 4).
       The diff is those two files and nothing else.
-- [ ] T039 [US2] In `release-proposal.yml`, create or update the pull request into `main` with title
+- [x] T039 [US2] In `release-proposal.yml`, create or update the pull request into `main` with title
       and commit subject both `bump: release vX.Y.Z` — a `bump` type, so the squash subject it becomes
       is excluded from the next range's notes (FR-004) — and the rendered notes verbatim as the body
       under a one-line preamble stating that merging publishes them.
-- [ ] T040 [US2] In `.github/workflows/release.yml`, add the `workflow_run` trigger:
+- [x] T040 [US2] In `.github/workflows/release.yml`, add the `workflow_run` trigger:
       `workflows: [CI]`, `types: [completed]`, `branches: [main]`, and require
       `github.event.workflow_run.event == 'push'` in the job so a CI run from a pull request cannot
       start a release. Two guards, not one — `branches:` filters the triggering run's branch only
       (research.md decision 7). Leave `concurrency: { group: release, cancel-in-progress: false }`
       untouched. **Add no guard on `github.event.workflow_run.conclusion`** — see T042.
-- [ ] T041 [US2] In `.github/workflows/release.yml`, target `github.event.workflow_run.head_sha`
+- [x] T041 [US2] In `.github/workflows/release.yml`, target `github.event.workflow_run.head_sha`
       throughout — the checkout, the version read, the check-runs query and every `gh api` call —
       falling back to the dispatch ref when dispatched. This is what T029 gates.
-- [ ] T042 [US2] In `.github/workflows/release.yml`, keep the **existing `commits/{sha}/check-runs`
+- [x] T042 [US2] In `.github/workflows/release.yml`, keep the **existing `commits/{sha}/check-runs`
       query on `ci / CI` as the verdict on both paths**, and split only the severity: not `success`
       under `workflow_run` is a `::notice::` naming the conclusion found or `missing` and exit 0, while
       under dispatch it stays an **error** (FR-011). Likewise "the version is not ahead of the highest
@@ -319,21 +327,21 @@ body refreshes while the edited version stands.
       consulting `ci / Live` directly, reached by a different route; `ci / Live` stays unconsulted, and
       must. No `conclusion` guard is needed at all — a cancelled or skipped run leaves the check run
       non-`success` too. `test_the_release_gates_on_a_required_context` keeps the check name honest.
-- [ ] T043 [US2] Rewrite `CONTRIBUTING.md`'s Releasing section: the procedure is now approving a
+- [x] T043 [US2] Rewrite `CONTRIBUTING.md`'s Releasing section: the procedure is now approving a
       proposal, not bumping-then-dispatching. Record SC-004's one step, the GitHub App and its two
       secrets, and the symptom of a rotated key or removed installation — no proposal is raised,
       silently, and `test_no_consumer_facing_change_is_waiting_for_a_release` is the backstop that
       reddens the next pull request (research.md decision 11). Keep the recovery path: if a release
       fails after the version tag exists, delete that tag and re-dispatch.
-- [ ] T044 [US2] Add `release-proposal.yml` to the two prose copies of the repository-local workflow
+- [x] T044 [US2] Add `release-proposal.yml` to the two prose copies of the repository-local workflow
       list in `CONTRIBUTING.md` — the "A workflow only this repo runs" paragraph and the
       `mise run test-live` paragraph. Nothing keeps these in step with `OWN_CI`; that is accepted
       rather than tested, since a test asserting a line number in prose would be worse than the
       duplication (research.md decision 9).
-- [ ] T045 [US2] Update `README.md`'s Versioning section, which says `v2` moves on "a dispatch of the
+- [x] T045 [US2] Update `README.md`'s Versioning section, which says `v2` moves on "a dispatch of the
       `Release` workflow against `main`". It now moves when an approved proposal's CI goes green.
       Keep this the only place a concrete major is written literally.
-- [ ] T046 [US2] Update the Versioning paragraph in `docs/ai-instructions.md`, which describes the
+- [x] T046 [US2] Update the Versioning paragraph in `docs/ai-instructions.md`, which describes the
       release path as `release.yml` tagging what `[project].version` declares after a reviewed
       one-line diff. The version is still a human decision recorded in `pyproject.toml` — that does
       not change — but the diff is now proposed by a bot and approving it is the release. Write no
@@ -341,19 +349,19 @@ body refreshes while the edited version stands.
 
 ### Verification for User Story 2
 
-- [ ] T046a [US2] Add a **temporary** `push: branches: [002-commit-driven-releases]` trigger to
+- [x] T046a [US2] Add a **temporary** `push: branches: [002-commit-driven-releases]` trigger to
       `.github/workflows/release-proposal.yml`, solely to reach the steps below.
       `workflow_dispatch` cannot exercise this workflow: GitHub offers it only for a workflow file
       already on the **default branch**, so a brand-new one is unreachable at the ref under review —
       the constraint research.md decision 10 hit while probing, and the same workaround it used.
       `release.yml` needs none of this; it is already on `main`, which is why T026 can dispatch it.
-- [ ] T047 [US2] Push to this branch and confirm `release-proposal.yml` runs: a `release-proposal`
+- [x] T047 [US2] Push to this branch and confirm `release-proposal.yml` runs: a `release-proposal`
       branch and a pull request appear, body equal to the rendered notes, diff limited to
       `pyproject.toml` and `uv.lock`.
-- [ ] T048 [US2] Confirm the proposal commit's author is the fixed identity, not `<app-name>[bot]`:
+- [x] T048 [US2] Confirm the proposal commit's author is the fixed identity, not `<app-name>[bot]`:
       `gh api repos/turboBasic/github-actions/commits/<sha> --jq .commit.author.name`. If it is the
       app's own bot, T037 is not setting `author` and FR-009a's detection will misfire.
-- [ ] T049 [US2] Watch the proposal's checks report **with no click** — the documented App-token
+- [x] T049 [US2] Watch the proposal's checks report **with no click** — the documented App-token
       behaviour, the reason for choosing it, and the one thing the probe could not observe
       (research.md decision 11). If a click is required, SC-004's "one step" is not quite one and that
       belongs in `CONTRIBUTING.md`.
@@ -378,11 +386,11 @@ Principle VI residual.
 **Independent Test**: `mise run release-notes` on a full clone with networking disabled, and its
 output matches what a release over the same range publishes.
 
-- [ ] T052 [US3] Add `[tasks.release-notes]` to `mise.toml` running `git-cliff --unreleased`, with a
+- [x] T052 [US3] Add `[tasks.release-notes]` to `mise.toml` running `git-cliff --unreleased`, with a
       description saying it renders the unreleased range and creates nothing. **Not** a dependency of
       `[tasks.ci]`: it needs a full clone with tags, and `mise run ci` must stay green on a shallow
       one (research.md decision 8).
-- [ ] T053 [US3] Mention `mise run release-notes` in `CONTRIBUTING.md`'s Releasing section as the way
+- [x] T053 [US3] Mention `mise run release-notes` in `CONTRIBUTING.md`'s Releasing section as the way
       to read the notes before a proposal exists, so the task is discoverable from the procedure that
       wants it.
 - [ ] T054 [US3] **SC-006** — run quickstart.md stage 2's offline check: capture

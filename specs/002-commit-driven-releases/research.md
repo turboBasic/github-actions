@@ -405,3 +405,34 @@ imply.
 - Whether the App-authored pull request's checks report with no click at all is now the thing to watch
   on first run. It is the documented behaviour and the reason for choosing this, but it is documented
   behaviour rather than something observed here — the probe could not reach it.
+
+### 12. The release is a called job, not a `workflow_run` trigger
+
+**Decision**: `ci.yml` calls `release.yml` from a job with `needs: [ci]`, guarded on a push to `main`.
+`release.yml` declares `workflow_call` and keeps `workflow_dispatch`. **Supersedes decision 7's
+trigger**, though not its reasoning about *when* a release should begin, which this satisfies better.
+
+**Forced by a gate, then found to be the better design.** zizmor rates `workflow_run` a high-severity
+`dangerous-triggers` finding, and `docs/ai-instructions.md` says a zizmor finding is addressed rather
+than silenced. Our use was defensible — `branches: [main]` plus `workflow_run.event == 'push'`, no fork
+code checked out, no artifacts consumed — but that is an argument zizmor cannot see, and unlike the
+actionlint `$/` ignore it has no upstream fix to expire against. So the trigger had to go, and what
+replaced it removes three hazards decision 7 had to manage:
+
+- `needs: [ci]` **is** FR-011, structurally, rather than a `check-runs` query that can race the check
+  run's own bookkeeping and read a not-yet-visible conclusion as `missing`.
+- No head SHA to recover from an event payload, so decision 7's first trap cannot arise.
+- **The trap the analysis pass caught disappears entirely.** `workflow_run.conclusion` is the
+  *workflow-level* verdict and `ci.yml` holds `live`, which is red precisely when a release is owed —
+  so gating on it would have refused every release the moment one was due. Decision 7 named the
+  `GITHUB_SHA` and `event == 'push'` traps and missed this one.
+
+**Cost**: `release.yml` becomes callable, `ci.yml` grows a job holding `contents: write`, and a failed
+release reddens the CI run on `main` rather than a separate Release run. Job-level permissions above the
+workflow-level default are already how `release.yml` works today, so nothing new is granted to anything
+else.
+
+**Residual**: a called workflow cannot set its caller's concurrency, so `release.yml`'s
+`cancel-in-progress: false` may not apply. Two releases racing would need two version-bump merges
+within one release's runtime, which the proposal mechanism prevents by construction — a second proposal
+cannot exist while the first is unmerged, because the declared version is not yet tagged.

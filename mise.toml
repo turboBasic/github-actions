@@ -59,6 +59,13 @@ run = "uv run pyright"
 description = "Run the test suite"
 run = "uv run pytest"
 
+# Not in `ci`, and not because of the network: it needs a full clone with tags, since git-cliff
+# measures the range from the newest version tag and renders an empty one without complaining on a
+# shallow checkout. `mise run ci` has to pass there.
+[tasks.release-notes]
+description = "Render the release notes for the unreleased range, offline, creating nothing"
+run = "git-cliff --unreleased"
+
 # Not in `ci`: it reaches api.github.com, and `mise run ci` stays offline. ci.yml runs it as its
 # own job, which is also where a token is available.
 [tasks.test-live]
