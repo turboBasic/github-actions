@@ -196,11 +196,17 @@ confirm each commit appears once, `bump` commits zero times. Then dispatch `rele
       version-tag pair and confirm the bullet and commit counts match, `v1.0.1..v2.0.0` being over by
       exactly one (FR-005 counting the breaking change twice). Skim the headings: every one must be
       one of the seven titles, none a raw commit type.
-- [ ] T026 [US1] Dispatch `release.yml` from this branch with `dry-run: true` and confirm the rendered
+- [x] T026 [US1] Dispatch `release.yml` from this branch with `dry-run: true` and confirm the rendered
       notes appear in the step summary and `git tag --list` is **unchanged**. Pre-flight the exact
       lines out of the file, never a retyping of them.
-- [ ] T027 [US1] Dispatch `release.yml` with `dry-run: true` over a range holding only a `bump` and
-      confirm an explicit error with no tag created (FR-007, SC-005).
+- [x] T027 [US1] Dispatch `release.yml` with `dry-run: true` over a range holding only a `bump` and
+      confirm an explicit error with no tag created (FR-007, SC-005). **No commit on this branch can
+      present such a range**, so the probe was this branch's exact tree reparented onto `v2.0.2` as a
+      single `bump` commit, opened as a throwaway pull request purely so `ci / CI` would report on it —
+      that refusal is satisfiable on a branch and so was not relaxed under `dry-run`, unlike the
+      version-ahead one. Run 33692176374 failed at "Render the notes" with the FR-007 message, "Tag and
+      publish" skipped, tags unchanged. It also found the defect the `-s` check had: an empty render is
+      one byte, not zero.
 
 **Checkpoint**: a manual dispatch now publishes commit-derived notes, and a failure while producing
 them leaves no tag. The categorisation fix is complete and shippable on its own.
