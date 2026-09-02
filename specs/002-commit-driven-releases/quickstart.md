@@ -125,11 +125,20 @@ forward are fully clean.
 **SC-007 — no raw commit type as a heading.** Skim the output of the loop above; every heading must be
 one of the seven titles.
 
-## Stage 3 — the workflows, dispatched from this branch
+## Stage 3 — the workflows, run from this branch
 
-Both new trigger paths are unreachable from a branch, so dispatch is the pre-flight. **Pre-flight the
+Both new trigger paths are unreachable from a branch, so this stage is the pre-flight. **Pre-flight the
 exact line out of the file, never a retyping of it** — that rule exists because a retyped
 `gh release create` once passed a pre-flight with the `--repo` the file was missing.
+
+Two different mechanisms, because dispatch only reaches one of them:
+
+- **`release.yml` is dispatched.** It already exists on `main`, so the Actions UI offers it for any
+  branch and runs that branch's copy of the file.
+- **`release-proposal.yml` needs a temporary `push: branches: [002-commit-driven-releases]` trigger**,
+  added for this stage and removed before merge. `workflow_dispatch` is offered only for a workflow
+  already on the default branch, so a brand-new workflow cannot be dispatched at all — the constraint
+  research.md decision 10 hit while probing, and the same workaround it used.
 
 The three git-cliff flags are **already pre-flighted**, and
 [contracts/release-notes.md](contracts/release-notes.md) records what came back. Re-run these when the
@@ -155,13 +164,14 @@ Then the workflows:
 | --- | --- | --- |
 | `release.yml` refuses and renders without tagging | dispatch on this branch with `dry-run: true` | the notes in the step summary; **`git tag --list` unchanged** |
 | `release.yml` refuses an empty range | dispatch `dry-run: true` from a commit whose range holds only a `bump` | an explicit error, no tag (FR-007) |
-| `release-proposal.yml` end to end | dispatch on this branch | a `release-proposal` branch and a pull request appear, body = the rendered notes, diff = `pyproject.toml` + `uv.lock` only |
+| `release-proposal.yml` end to end | push to this branch, with the temporary trigger in place | a `release-proposal` branch and a pull request appear, body = the rendered notes, diff = `pyproject.toml` + `uv.lock` only |
 | The proposal's checks start | nothing — watch the pull request | all three required contexts report **with no click**. This is the documented App-token behaviour and the reason for choosing it, but it is documented rather than observed here (the probe could not reach it), so it is the thing to watch on first run |
 | The commit's author is the fixed identity | `gh api repos/.../commits/<sha> --jq .commit.author.name` | the value the workflow set, **not** `<app-name>[bot]` — if it is the app's own bot, step 6 is not setting `author` and FR-009a's detection will misfire |
-| A reviewer's version survives a refresh | edit the version on that branch, then push any commit to the branch and re-dispatch | the body updates; **the edited version is untouched** (FR-009a) |
-| A refresh recomputes a bot-owned version | re-dispatch without editing | version recomputed, notes re-rendered |
+| A reviewer's version survives a refresh | edit the version on the `release-proposal` branch, then push again to the feature branch | the body updates; **the edited version is untouched** (FR-009a) |
+| A refresh recomputes a bot-owned version | push again without editing | version recomputed, notes re-rendered |
 
-Then close the pull request and delete the branch.
+Then close the pull request, delete the `release-proposal` branch, and **remove the temporary `push`
+trigger** — left in, it raises proposals on pushes to a branch that will not exist.
 
 **Do this before anything in this stage can pass** — one-off, out of band, and not expressible in this
 repository:
@@ -169,7 +179,9 @@ repository:
 1. Register a GitHub App under the `turboBasic` account. `Contents: Read and write` and
    `Pull requests: Read and write`; nothing else.
 2. Install it on `turboBasic/github-actions`.
-3. Store its id and private key as Actions secrets.
+3. Store its id and private key as Actions secrets named `RELEASE_APP_ID` and
+   `RELEASE_APP_PRIVATE_KEY` — the names `release-proposal.yml` reads. A typo in either yields an empty
+   token and no proposal, silently.
 
 Leave **Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"**
 **off**. It is off today and stays off — an App is not "GitHub Actions", so it is not subject to that

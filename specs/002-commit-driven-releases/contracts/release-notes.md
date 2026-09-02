@@ -98,12 +98,18 @@ TOML — offline, no git-cliff invocation, so `mise run ci` still passes on a sh
 2. the seven titles are exactly data-model.md's, in that order;
 3. `bump` is the only skipped type;
 4. the catch-all parser is last, since `commit_parsers` is first-match-wins;
-5. `tag_pattern` still excludes two-component tags, so the moving majors cannot re-enter;
-6. the surface path filter agrees with `OWN_CI` in `tests/test_action_pins.py`.
+5. `tag_pattern` still excludes two-component tags, so the moving majors cannot re-enter.
 
 Assertion 1 is the one that matters most over time: a type added to `conventional-commits.yml`'s
 `types` default and not to `.cliff.toml` would silently land in Other changes, which is FR-003's
 intended behaviour for an *unknown* type and a defect for an allowed one.
+
+**A sixth assertion belongs to the same file but not to the same object**: that the consumer-surface
+path filter agrees with `OWN_CI` in `tests/test_action_pins.py` (research.md decision 9). That filter
+is a set of `--include-path` / `--exclude-path` **flags in `release-proposal.yml`**, not a key in
+`.cliff.toml` — git-cliff takes them only on the command line — so the assertion reads a workflow as
+YAML and cannot be written until that workflow exists. It therefore lands with the workflow rather than
+with the five above, which are complete as soon as `.cliff.toml` is.
 
 ## Appendix: the verified candidate configuration
 

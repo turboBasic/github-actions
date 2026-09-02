@@ -10,7 +10,7 @@ get subtly wrong — this is that written down.
 on:
   push:
     branches: [main]
-  workflow_dispatch:        # so it can be exercised from a feature branch (Principle VI)
+  workflow_dispatch:        # recovery, and re-running a refresh by hand
 
 permissions: {}             # job-scoped below
 
@@ -26,16 +26,21 @@ the app, nothing else, no `issues` because it applies no labels. See research.md
 
 ### Steps
 
-1. `actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0`, given the app id
-   and private key from Actions secrets. Its output token is the `GH_TOKEN` for every later step; it is
-   scoped to this repository and expires in an hour.
+1. `actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0`, given
+   `secrets.RELEASE_APP_ID` and `secrets.RELEASE_APP_PRIVATE_KEY`. Those two names are the contract
+   between this file and the out-of-band setup below — a typo in either yields an empty token and no
+   proposal, silently. Its output token is the `GH_TOKEN` for every later step; it is scoped to this
+   repository and expires in an hour.
 2. `actions/checkout` at `fetch-depth: 0`, `persist-credentials: false`. Full history and tags, because
    git-cliff needs the range's lower bound. Deliberately *not* given the app token — nothing is pushed
    from the working tree.
 3. `jdx/mise-action` — supplies both `git-cliff` and `uv` from the pins already in `mise.toml`.
 4. Skip unless a proposal is wanted. In order:
-   - the declared `[project].version` is **not** yet tagged → exit 0. A release is already in flight or
-     owed, and proposing on top of it would propose the version being cut.
+   - the `[project].version` declared **on `main`'s tip** is not yet tagged → exit 0. A release is
+     already in flight or owed, and proposing on top of it would propose the version being cut. The ref
+     is load-bearing: read from the `release-proposal` branch instead and this finds its own bump,
+     concludes a release is in flight, and stops refreshing the proposal it just wrote — FR-009a
+     stalling with nothing to show for it.
    - the rendered notes are empty → close any open proposal, delete the branch, exit 0 (FR-007).
 5. Decide the version. If the branch exists and holds a commit whose author is **not** the fixed bot
    identity of step 6, keep the version already on it (FR-009a). Otherwise: highest release + the
@@ -62,7 +67,8 @@ route — the same reason the existing `release.yml` works that way.
 
 **What the maintainer must do once, out of band**: register a GitHub App, install it on this
 repository with `Contents` and `Pull requests` write, and store its id and private key as Actions
-secrets. None of that is expressible in this repository, and nothing here works until it exists.
+secrets named `RELEASE_APP_ID` and `RELEASE_APP_PRIVATE_KEY`. None of that is expressible in this
+repository, and nothing here works until it exists.
 
 **No repository setting is involved**, which is the point. *Allow GitHub Actions to create and approve
 pull requests* stays off — it is off today, and turning it on would let every workflow here approve a
@@ -99,11 +105,22 @@ this wrong would release a different tree than the one that passed.
 additionally requires `github.event.workflow_run.event == 'push'` so a CI run from a pull request cannot
 start a release.
 
+**The verdict is the `ci / CI` check run on the target commit, never `workflow_run.conclusion`.**
+`workflow_run` is the wake-up signal and nothing more. `conclusion` is the **workflow-level** verdict,
+and `ci.yml` holds two jobs: `ci`, which reports the required `ci / CI`, and `live`, which runs
+`test_no_consumer_facing_change_is_waiting_for_a_release` — red *precisely when a release is owed*.
+So a merged proposal's CI run concludes `failure` while `ci / CI` is green, and gating on `conclusion`
+would refuse every release the moment one was actually due. That is the same trap as consulting
+`ci / Live` directly, reached by a different route. Both paths therefore read the same
+`commits/{sha}/check-runs` query the workflow already uses; `filter=latest` is the endpoint's default,
+so a re-run supersedes the run it replaced. No `conclusion` guard is needed at all — a cancelled or
+skipped CI run leaves the check run non-`success` too.
+
 ### Refusals, in order
 
 | Condition | Verdict | Requirement |
 | --- | --- | --- |
-| Triggered by `workflow_run` and `conclusion != 'success'` | skip, exit 0 | FR-011 |
+| Triggered by `workflow_run`, and `ci / CI` on the target commit is not `success` | `::notice::` naming the conclusion found or `missing`, exit 0 | FR-011 |
 | Dispatched, and `ci / CI` on the target commit is not `success` | **error**, naming the conclusion found or `missing` | FR-011 |
 | `[project].version` is not a plain `X.Y.Z` | **error** | existing |
 | The version is not ahead of the highest existing release | `workflow_run`: notice, exit 0. Dispatched: **error** | FR-012, research.md decision 7 |
@@ -132,11 +149,24 @@ because the range is git-cliff's concern now.
 | Path | How it is exercised before merge |
 | --- | --- |
 | The rendering | already spiked against this repository (`evidence/changelog.md`); re-run per quickstart.md |
-| `release-proposal.yml`, end to end | dispatched from the feature branch — it opens a real proposal against that branch, which is then closed |
+| `release-proposal.yml`, end to end | a **temporary `push: branches: [002-commit-driven-releases]`** trigger, added for the pre-flight and removed before merge. It opens a real proposal, which is then closed |
 | `release.yml`'s refusals and rendering | dispatched from the feature branch with `dry-run: true` |
 | `on: push: [main]` | **not verifiable before merge** — the first merge is the first run |
 | `on: workflow_run` | **not verifiable before merge** — GitHub resolves it from the default branch only |
 
-The last two are the residual Principle VI gap, recorded in plan.md's Complexity Tracking. It is the
-same residual the current `release.yml` carries, and the recovery path is the same: if the first real
-release fails after the version tag exists, delete that tag and re-dispatch once the cause is fixed.
+**`workflow_dispatch` cannot exercise a new workflow**, which is why the second row is a temporary
+`push` trigger rather than a dispatch. GitHub offers `workflow_dispatch` only for a workflow file
+present on the **default branch**, so `release-proposal.yml` — which does not exist there until this
+merges — cannot be dispatched at the ref under review at all. research.md decision 10 hit exactly this constraint
+while probing (`on: push`, "because `workflow_dispatch` only fires for a workflow already on the default
+branch"), and the same workaround applies. `release.yml` is unaffected: it is already on `main`, so a
+feature branch's copy of it dispatches and runs.
+
+The temporary trigger is added last and removed first, and its removal is visible in the pull request
+diff. Left in, it would raise proposals on pushes to a branch that no longer exists — dead config
+rather than a hazard, but dead config in the one workflow that writes to `main`.
+
+The last two rows are the residual Principle VI gap, recorded in plan.md's Complexity Tracking. It is
+the same residual the current `release.yml` carries, and the recovery path is the same: if the first
+real release fails after the version tag exists, delete that tag and re-dispatch once the cause is
+fixed.
