@@ -22,7 +22,11 @@ name: Release proposal
 
 on:
   push:
-    branches: [main]
+    # TEMPORARY, remove before merge: the second entry is the only way to exercise this workflow at
+    # the ref under review. `workflow_dispatch` is offered only for a workflow file already on the
+    # default branch, so a brand-new workflow cannot be dispatched at all — the same constraint the
+    # token probe hit, and the same workaround it used.
+    branches: [main, 002-commit-driven-releases]
   workflow_dispatch: # recovery, and re-running a refresh by hand
 
 permissions: {}
@@ -74,6 +78,11 @@ jobs:
           persist-credentials: false
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          # A push-triggered workflow holding a write token is exactly the shape zizmor's
+          # `cache-poisoning` audit is about: a poisoned tool cache would run under that token. This
+          # runs a few times a month, so the cache buys a few seconds and costs a real surface.
+          cache: false
 
       # Two reasons not to propose, in order. Both exit 0: this runs on every push to main, and a
       # workflow that reddened main whenever a release was not due is one nobody would read.
