@@ -217,26 +217,34 @@ jobs:
           # already-locked packages without `--upgrade`.
           uv lock
 
+          # Every body goes in through stdin rather than `-f`, for two separate reasons. A blob's
+          # base64 is far past Linux's 128 KiB cap on a *single* argument — `uv.lock` failed with
+          # `/usr/bin/gh: Argument list too long` — and `gh`'s `-f` has no syntax for an array of
+          # objects, which is what a tree is. jq builds the JSON; `--rawfile` keeps the large string
+          # off the command line entirely.
           blob() {
-            gh api -X POST "repos/${GITHUB_REPOSITORY}/git/blobs" \
-              -f "content=$(base64 -w0 < "$1")" -f encoding=base64 --jq .sha
+            base64 -w0 < "$1" > "${RUNNER_TEMP}/blob.b64"
+            jq -n --rawfile content "${RUNNER_TEMP}/blob.b64" \
+              '{content: ($content | rtrimstr("\n")), encoding: "base64"}' |
+              gh api -X POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input - --jq .sha
           }
           pyproject_blob=$(blob pyproject.toml)
           lock_blob=$(blob uv.lock)
 
           base_tree=$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${GITHUB_SHA}" --jq .tree.sha)
-          tree=$(gh api -X POST "repos/${GITHUB_REPOSITORY}/git/trees" \
-            -f "base_tree=${base_tree}" \
-            -f 'tree[][path]=pyproject.toml' -f 'tree[][mode]=100644' \
-            -f 'tree[][type]=blob' -f "tree[][sha]=${pyproject_blob}" \
-            -f 'tree[][path]=uv.lock' -f 'tree[][mode]=100644' \
-            -f 'tree[][type]=blob' -f "tree[][sha]=${lock_blob}" --jq .sha)
+          tree=$(jq -n --arg base "${base_tree}" --arg py "${pyproject_blob}" --arg lock "${lock_blob}" \
+            '{base_tree: $base, tree: [
+               {path: "pyproject.toml", mode: "100644", type: "blob", sha: $py},
+               {path: "uv.lock", mode: "100644", type: "blob", sha: $lock}
+             ]}' |
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/git/trees" --input - --jq .sha)
 
           # `bump:` so the squash subject this becomes is excluded from the next range's notes.
-          commit=$(gh api -X POST "repos/${GITHUB_REPOSITORY}/git/commits" \
-            -f "message=bump: release v${VERSION}" \
-            -f "tree=${tree}" -f "parents[]=${GITHUB_SHA}" \
-            -f "author[name]=${BOT_NAME}" -f "author[email]=${BOT_EMAIL}" --jq .sha)
+          commit=$(jq -n --arg message "bump: release v${VERSION}" --arg tree "${tree}" \
+            --arg parent "${GITHUB_SHA}" --arg name "${BOT_NAME}" --arg email "${BOT_EMAIL}" \
+            '{message: $message, tree: $tree, parents: [$parent],
+              author: {name: $name, email: $email}}' |
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/git/commits" --input - --jq .sha)
 
           # Force, because a refresh rebuilds the branch from the new tip rather than adding to it.
           gh api -X PATCH "repos/${GITHUB_REPOSITORY}/git/refs/heads/${BRANCH}" --silent \

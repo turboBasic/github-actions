@@ -69,6 +69,8 @@ levelname
 postprocessors
 precommit
 pyupgrade
+rawfile
+rtrimstr
 revspec
 ruamel
 schemafile
