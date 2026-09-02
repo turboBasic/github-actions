@@ -30,17 +30,17 @@ Repository root. No `src/`, no new Python package — `.cliff.toml` at the root,
 
 **Purpose**: the tool pin and the out-of-band credential, both of which have lead time.
 
-- [ ] T001 Add `git-cliff = "2.13.1"` to `mise.toml`'s `[tools]` table, alphabetically after
+- [x] T001 Add `git-cliff = "2.13.1"` to `mise.toml`'s `[tools]` table, alphabetically after
       `actionlint`. The bare registry short name, which resolves to `aqua:orhun/git-cliff`, so
       Renovate's `mise` manager tracks it. Not `latest` —
       `tests/test_action_pins.py::test_no_mise_tool_version_floats` rejects it.
-- [ ] T002 Run `mise install` and confirm `git-cliff --version` prints 2.13.1 — every behaviour the
+- [x] T002 Run `mise install` and confirm `git-cliff --version` prints 2.13.1 — every behaviour the
       contracts record was observed against that binary, and `mise` resolves 2.13.1 even though
       2.14.1 is published (research.md, "Corrected while checking").
-- [ ] T003 [P] Add the words this feature introduces to `.cspell/project.txt` — `cliff`, `Tera`,
+- [x] T003 [P] Add the words this feature introduces to `.cspell/project.txt` — `cliff`, `Tera`,
       `postprocessors`, `revspec`, `unreleased` and any others `cspell lint --no-progress .` reports
       once the files below exist. Re-run it rather than guessing the list.
-- [ ] T004 [P] **Out of band, one-off, not expressible in this repository**: register a **new** private
+- [x] T004 [P] **Out of band, one-off, not expressible in this repository**: register a **new** private
       GitHub App under the `turboBasic` account — `turbobasic-release-proposal` — with
       `Contents: Read and write` and `Pull requests: Read and write` and nothing else, no webhook,
       installed on `turboBasic/github-actions` alone. Store its id and private key as Actions secrets
@@ -74,19 +74,24 @@ without it.
 
 **⚠️ CRITICAL**: no user story work can begin until this phase is complete.
 
-- [ ] T005 Create `.cliff.toml` at the repository root by **copying** the verified configuration from
+- [x] T005 Create `.cliff.toml` at the repository root by **copying** the verified configuration from
       [contracts/release-notes.md](contracts/release-notes.md)'s appendix verbatim. Do not retype it —
       every behaviour the contract asserts was observed from exactly those bytes, and this repo's own
       rule is that a retyping tests the typing.
-- [ ] T006 Add a header comment to `.cliff.toml` naming the file and warning that `git-cliff --init`
+- [x] T006 Add a header comment to `.cliff.toml` naming the file and warning that `git-cliff --init`
       writes the non-dotted `cliff.toml`, which would win on name and become a rival config
       (research.md decision 1). No `--config` flag is used anywhere, so discovery is what finds this
       file.
-- [ ] T007 In `.cliff.toml`'s `body` template, squeeze the double space that collapsing a paragraph
+- [x] T007 In `.cliff.toml`'s `body` template, squeeze the double space that collapsing a paragraph
       break leaves in a long breaking-change footer (quickstart.md stage 2, and
       contracts/release-notes.md's "still owed" list). Keep the `'''` literal string — a basic string
       would make `pat="\n"` a TOML escape before Tera ever sees it (research.md decision 3).
-- [ ] T008 Run `taplo fmt` and `mise exec -- prek run --all-files`, and commit taplo's reformatting of
+      **Done as `split(pat="\n\n") | first`**, which also fixes what running it exposed: a
+      `BREAKING CHANGE:` footer's value runs to the next footer-looking line, so every rationale
+      paragraph after it lands in the bullet. v2.0.0's stopped early only because a body line began
+      `advisory-all-files:` and the parser read that as a new footer. Taking the first paragraph yields
+      the "what broke" sentence and leaves the reasoning in the commit, where it belongs.
+- [x] T008 Run `taplo fmt` and `mise exec -- prek run --all-files`, and commit taplo's reformatting of
       `.cliff.toml` rather than fighting it. `check-toml` and `taplo-fmt` both collect the dotfile —
       verified in research.md decision 1.
 
@@ -179,11 +184,11 @@ confirm each commit appears once, `bump` commits zero times. Then dispatch `rele
 
 ### Verification for User Story 1
 
-- [ ] T024 [US1] **SC-002** — run `git-cliff v1.0.1..v2.0.0` on a full clone and confirm the breaking
+- [x] T024 [US1] **SC-002** — run `git-cliff v1.0.1..v2.0.0` on a full clone and confirm the breaking
       change appears under 💥 Breaking changes *with its footer text* and again under 🚀 Features.
       Note the previous tag is `v1.0.1`; there is no `v1.1.0`, and a nonexistent revspec exits 1.
       Expected output is recorded in quickstart.md stage 2.
-- [ ] T025 [US1] **SC-001 and SC-007** — run quickstart.md stage 2's loop over every historical
+- [x] T025 [US1] **SC-001 and SC-007** — run quickstart.md stage 2's loop over every historical
       version-tag pair and confirm the bullet and commit counts match, `v1.0.1..v2.0.0` being over by
       exactly one (FR-005 counting the breaking change twice). Skim the headings: every one must be
       one of the seven titles, none a raw commit type.

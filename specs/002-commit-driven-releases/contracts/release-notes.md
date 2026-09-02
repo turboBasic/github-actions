@@ -48,6 +48,14 @@ Markdown, no leading H1, sections in the fixed order of data-model.md's table, e
 The breaking commit appears twice, and only the first occurrence carries its explanation. Verified in
 `evidence/changelog.md`'s spike against a real binary.
 
+**The explanation is the footer's first paragraph, not all of it.** Conventional Commits ends a
+`BREAKING CHANGE:` footer's value at the next footer-looking line, so a commit whose body continues with
+several paragraphs of rationale puts all of them in that one bullet. v2.0.0's happens to stop after one
+sentence, but only because a body line begins `advisory-all-files:` and the parser reads it as a new
+footer — a long-bodied `feat!:` would render a bullet of paragraphs. `split(pat="\n\n") | first` takes
+the "what broke" statement and leaves the reasoning in the commit message, which is where a reader who
+wants it will look.
+
 `(#99)` survives verbatim from the squash-merge subject, and GitHub renders it as a link in a release body —
 which is why no pull-request-link configuration is needed and git-cliff's `--remote.github` integration
 stays off (FR-015).
