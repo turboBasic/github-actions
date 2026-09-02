@@ -1,0 +1,274 @@
+# Raises and refreshes the release proposal: one pull request from a fixed branch, bumping
+# `[project].version` and carrying the notes that version would publish as its body. Merging it is
+# the approval, and `release.yml` takes over from there.
+#
+# Nothing here decides a release. It proposes a number and shows the notes; a human merges. The
+# version still lands as a reviewed one-line diff, which is the whole point of the shape.
+#
+# The increment is judged by what the *consumer-facing* commits imply, not by the whole range: a
+# `feat` touching only this repository's own CI is a patch, because the version describes the
+# surface consumers resolve. That is why the second git-cliff pass is path-filtered.
+#
+# Every write uses a GitHub App installation token, never `GITHUB_TOKEN`. `GITHUB_TOKEN` cannot open
+# a pull request here at all — `POST /pulls` answers "GitHub Actions is not permitted to create or
+# approve pull requests" while *Allow GitHub Actions to create and approve pull requests* is off,
+# and that setting stays off, because turning it on would let every workflow here approve a pull
+# request rather than merely open one. The token is scoped to this repository and expires in an hour.
+#
+# Nothing is pushed from the working tree: the checkout carries no credential, so the Git Data API
+# is the only route to the branch.
+
+name: Release proposal
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # recovery, and re-running a refresh by hand
+
+permissions: {}
+
+concurrency:
+  group: release-proposal
+  cancel-in-progress: true # only the newest range matters
+
+jobs:
+  propose:
+    name: Propose
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # the checkout, and nothing else — every write uses the App token
+    env:
+      GH_REPO: ${{ github.repository }}
+      NOTES: ${{ github.workspace }}/../release-notes.md
+      BRANCH: release-proposal
+      # The refresh distinguishes its own commits from a reviewer's by author, so it needs an
+      # identity this workflow chooses rather than one the token implies: a commit made with an App
+      # installation token is otherwise attributed to `<app-name>[bot]`, which would change if the
+      # app were ever renamed or replaced.
+      BOT_NAME: github-actions[bot]
+      BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+    steps:
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          # `app-id` carries a deprecationMessage in v3.2.0 — "Use 'client-id' instead" — but is
+          # still accepted, and the two inputs take *different values*: the numeric App ID versus the
+          # `Iv23li…` Client ID. Switching means replacing what RELEASE_APP_ID holds, so it waits for
+          # the Renovate bump that removes the input rather than being done blind here.
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          # Narrowed rather than inherited. Without these the token carries every permission the
+          # installation was granted, so the app's own scope becomes this workflow's scope — and
+          # zizmor's `github-app` audit rates that High. Named here, the two writes are also the
+          # documentation of what this workflow can do.
+          permission-contents: write
+          permission-pull-requests: write
+
+      # Full history and tags, because git-cliff measures the range from the newest version tag.
+      # Deliberately *not* given the App token: nothing is pushed from here.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+
+      # Two reasons not to propose, in order. Both exit 0: this runs on every push to main, and a
+      # workflow that reddened main whenever a release was not due is one nobody would read.
+      - name: Decide whether a proposal is wanted
+        id: gate
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+
+          # The triggering commit's own tree — under `push: main` that is main's tip. Never the
+          # proposal branch: reading the version from there would find this workflow's own bump,
+          # conclude a release was already in flight, and stop refreshing the proposal it wrote.
+          declared=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+
+          if ! gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/v${declared}" >/dev/null 2>&1; then
+            echo "::notice::[project].version is ${declared}, which is not tagged yet — a release is already in flight or owed, so there is nothing to propose on top of it."
+            echo "wanted=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          git-cliff --unreleased > "${NOTES}"
+
+          # Content, not size: an empty render is a lone newline rather than zero bytes, so a `-s`
+          # test would call it non-empty and propose a release with an empty body.
+          if ! grep -q '[^[:space:]]' "${NOTES}"; then
+            echo "::notice::nothing has landed since v${declared} that the notes would describe, so no release is due."
+            open=$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number // empty')
+            if [[ -n ${open} ]]; then
+              gh pr close "${open}" --comment "The release range is empty again, so this proposal has nothing to publish." --delete-branch
+              echo "::notice::closed the open proposal #${open}; its range no longer describes anything."
+            fi
+            echo "wanted=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "wanted=true" >> "${GITHUB_OUTPUT}"
+          echo "declared=${declared}" >> "${GITHUB_OUTPUT}"
+
+      # A reviewer's number outranks a computed one, and survives every later refresh. Authorship is
+      # the signal because it needs no stored state: this workflow always writes as BOT_NAME, so any
+      # other author on the branch is a human who has already decided.
+      - name: Decide the version
+        id: version
+        if: steps.gate.outputs.wanted == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          DECLARED: ${{ steps.gate.outputs.declared }}
+        run: |
+          set -euo pipefail
+
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${BRANCH}" >/dev/null 2>&1; then
+            authors=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${GITHUB_SHA}...${BRANCH}" \
+              --jq '[.commits[].commit.author.name] | join("\n")')
+            human=$(printf '%s\n' "${authors}" | { grep -vxF "${BOT_NAME}" || true; } | { grep -v '^$' || true; } | head -1)
+            if [[ -n ${human} ]]; then
+              gh api "repos/${GITHUB_REPOSITORY}/contents/pyproject.toml?ref=${BRANCH}" \
+                -H 'Accept: application/vnd.github.raw' > "${RUNNER_TEMP}/proposed.toml"
+              kept=$(python3 -c 'import sys, tomllib; print(tomllib.load(open(sys.argv[1], "rb"))["project"]["version"])' "${RUNNER_TEMP}/proposed.toml")
+              echo "::notice::keeping ${kept}, the version on the proposal branch: it carries a commit by ${human}, so a human has already decided it."
+              echo "version=${kept}" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
+          fi
+
+          # What a consumer resolves: every reusable workflow and composite action, minus this
+          # repository's own plumbing. tests/test_release_notes.py holds this list to OWN_CI.
+          surface=(
+            --include-path '.github/workflows/**'
+            --include-path 'actions/**'
+            --exclude-path '.github/workflows/ci.yml'
+            --exclude-path '.github/workflows/commit-messages.yml'
+            --exclude-path '.github/workflows/release.yml'
+            --exclude-path '.github/workflows/release-proposal.yml'
+          )
+          context=$(git-cliff --unreleased --context "${surface[@]}")
+
+          # `== true` rather than truthiness: the key is absent, not false, on a commit matching no
+          # Conventional Commit, and a null in a boolean test answers wrongly.
+          breaking=$(jq 'any(.[].commits[]; .breaking == true)' <<<"${context}")
+          feature=$(jq 'any(.[].commits[]; .raw_message | test("^feat"))' <<<"${context}")
+
+          IFS=. read -r major minor patch <<<"${DECLARED}"
+          if [[ ${breaking} == true ]]; then
+            proposed="$((major + 1)).0.0"
+            why="a breaking change to the consumer surface"
+          elif [[ ${feature} == true ]]; then
+            proposed="${major}.$((minor + 1)).0"
+            why="a feat touching the consumer surface"
+          else
+            proposed="${major}.${minor}.$((patch + 1))"
+            why="nothing consumers resolve changed"
+          fi
+
+          echo "::notice::proposing ${proposed}: ${why}."
+          echo "version=${proposed}" >> "${GITHUB_OUTPUT}"
+
+      # Through the Git Data API, because the checkout holds no credential and there is nothing to
+      # push from. Two blobs: pyproject.toml, and uv.lock, which carries the root package's version
+      # and makes `uv sync --locked` fail if it disagrees.
+      - name: Write the proposal branch
+        if: steps.gate.outputs.wanted == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          # Anchored to the [project] table rather than the first `version =` in the file: another
+          # table could grow one, and this is a write path.
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path("pyproject.toml")
+          text = path.read_text()
+          project = re.search(r"(?ms)^\[project\]\n.*?(?=^\[|\Z)", text)
+          assert project, "pyproject.toml has no [project] table"
+          bumped, count = re.subn(
+              r'(?m)^(version\s*=\s*)"[^"]+"',
+              lambda m: f'{m.group(1)}"{os.environ["VERSION"]}"',
+              project.group(0),
+              count=1,
+          )
+          assert count == 1, "no version key in [project]"
+          path.write_text(text[: project.start()] + bumped + text[project.end() :])
+          PY
+
+          # Plain `uv lock`, not `--offline`: the runner has a network, and the offline constraint is
+          # on rendering the notes, not on this. It changes one line, because it does not upgrade
+          # already-locked packages without `--upgrade`.
+          uv lock
+
+          blob() {
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/git/blobs" \
+              -f "content=$(base64 -w0 < "$1")" -f encoding=base64 --jq .sha
+          }
+          pyproject_blob=$(blob pyproject.toml)
+          lock_blob=$(blob uv.lock)
+
+          base_tree=$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${GITHUB_SHA}" --jq .tree.sha)
+          tree=$(gh api -X POST "repos/${GITHUB_REPOSITORY}/git/trees" \
+            -f "base_tree=${base_tree}" \
+            -f 'tree[][path]=pyproject.toml' -f 'tree[][mode]=100644' \
+            -f 'tree[][type]=blob' -f "tree[][sha]=${pyproject_blob}" \
+            -f 'tree[][path]=uv.lock' -f 'tree[][mode]=100644' \
+            -f 'tree[][type]=blob' -f "tree[][sha]=${lock_blob}" --jq .sha)
+
+          # `bump:` so the squash subject this becomes is excluded from the next range's notes.
+          commit=$(gh api -X POST "repos/${GITHUB_REPOSITORY}/git/commits" \
+            -f "message=bump: release v${VERSION}" \
+            -f "tree=${tree}" -f "parents[]=${GITHUB_SHA}" \
+            -f "author[name]=${BOT_NAME}" -f "author[email]=${BOT_EMAIL}" --jq .sha)
+
+          # Force, because a refresh rebuilds the branch from the new tip rather than adding to it.
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/git/refs/heads/${BRANCH}" --silent \
+            -f "sha=${commit}" -F force=true ||
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" --silent \
+              -f "ref=refs/heads/${BRANCH}" -f "sha=${commit}"
+
+          author=$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${commit}" --jq .author.name)
+          if [[ ${author} != "${BOT_NAME}" ]]; then
+            echo "::error::the proposal commit is authored by '${author}', not '${BOT_NAME}', so a refresh would read it as a human's edit and stop recomputing the version."
+            exit 1
+          fi
+
+      # The body is the notes verbatim under one line of preamble. No commit text reaches a shell:
+      # `--body-file` reads the rendered file, and a commit subject is a merged pull request title.
+      - name: Open or update the pull request
+        if: steps.gate.outputs.wanted == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          body="${RUNNER_TEMP}/body.md"
+          {
+            printf 'Merging this publishes **v%s** with exactly these notes. ' "${VERSION}"
+            printf 'Change the version here if you disagree with it — the release uses the one you approve.\n\n'
+            cat "${NOTES}"
+          } > "${body}"
+
+          title="bump: release v${VERSION}"
+          open=$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number // empty')
+          if [[ -n ${open} ]]; then
+            gh pr edit "${open}" --title "${title}" --body-file "${body}"
+            echo "::notice::refreshed proposal #${open} for v${VERSION}."
+          else
+            url=$(gh pr create --base main --head "${BRANCH}" --title "${title}" --body-file "${body}")
+            echo "::notice::opened ${url} for v${VERSION}."
+          fi
+
+          {
+            printf '## Proposed v%s\n\n' "${VERSION}"
+            cat "${NOTES}"
+          } >> "${GITHUB_STEP_SUMMARY}"

@@ -20,7 +20,19 @@
 
 name: Release
 
+# Called by ci.yml behind `needs: [ci]` on a push to main, which is what makes the CI verdict a
+# structural fact rather than something to query: the job cannot start unless `ci / CI` succeeded on
+# this exact commit. `workflow_run` was the obvious trigger and is not used — zizmor rates it a
+# high-severity dangerous trigger, and it would also have meant reading the head SHA out of the event
+# payload, because `GITHUB_SHA` under `workflow_run` is the default branch's tip rather than the
+# commit CI reported on.
 on:
+  workflow_call:
+    inputs:
+      dry-run:
+        description: Run every refusal and render the real notes, then stop before creating any tag.
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       dry-run:
@@ -102,11 +114,22 @@ jobs:
           if [[ -n ${highest} ]]; then
             newest=$(printf '%s\n%s\n' "${version}" "${highest}" | sort -V | tail -1)
             if [[ ${version} == "${highest}" || ${newest} != "${version}" ]]; then
-              # Reported rather than fatal under a dry run, and that is the point: on a feature
-              # branch the declared version is the released one by definition, so erroring here
-              # would stop every dry run before it rendered anything. This refusal is unchanged
-              # code that has already run in earnest, so nothing new goes unverified.
-              if [[ ${DRY_RUN} == true ]]; then
+              # Three verdicts for one condition, because what it means depends on who asked.
+              #
+              # On a push to main it is the ordinary case: ci.yml calls this after *every* merge,
+              # and most merges are not releases. Erroring would redden main for doing nothing wrong.
+              #
+              # Under a dry run it is unavoidable: on a feature branch the declared version is the
+              # released one by definition, so erroring would stop every dry run before it rendered
+              # anything. Reported, so the rest of the path still runs.
+              #
+              # Under a real dispatch a human asked for a release, and doing nothing is not what
+              # they asked for.
+              if [[ ${GITHUB_EVENT_NAME} == push ]]; then
+                echo "::notice::v${version} is already released, so this merge cuts nothing. Bump [project].version to release again."
+                echo "proceed=false" >> "${GITHUB_OUTPUT}"
+                exit 0
+              elif [[ ${DRY_RUN} == true ]]; then
                 echo "::notice::would refuse: pyproject.toml declares ${version}, which is not ahead of the highest release v${highest}"
               else
                 echo "::error::pyproject.toml declares ${version}, which is not ahead of the highest release v${highest}. Bump [project].version in a pull request — that is what decides the next version."
@@ -115,15 +138,28 @@ jobs:
             fi
           fi
 
-          conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs" \
-            --jq '[.check_runs[] | select(.name == "ci / CI") | .conclusion] | first // "missing"')
-          if [[ ${conclusion} != success ]]; then
-            echo "::error::ci / CI on ${GITHUB_SHA} is '${conclusion}', not success — the major tag would move onto unverified code"
-            exit 1
+          # Only on the dispatched path. When ci.yml calls this, `needs: [ci]` already *is* the
+          # verdict — the job could not have started otherwise — and querying the API for it again
+          # would race the check run's own bookkeeping: a conclusion not yet visible would read as
+          # `missing` and silently cancel a legitimate release.
+          #
+          # `ci / Live` is not consulted on either path, and must not be: it is red precisely when a
+          # release is owed. That also rules out the workflow-level conclusion of a CI run, which
+          # includes `live` — the reason this is a called job rather than a `workflow_run` trigger.
+          if [[ ${GITHUB_EVENT_NAME} == workflow_dispatch ]]; then
+            conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs" \
+              --jq '[.check_runs[] | select(.name == "ci / CI") | .conclusion] | first // "missing"')
+            if [[ ${conclusion} != success ]]; then
+              echo "::error::ci / CI on ${GITHUB_SHA} is '${conclusion}', not success — the major tag would move onto unverified code"
+              exit 1
+            fi
           fi
 
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "highest-major=${highest%%.*}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "proceed=true"
+            echo "version=${version}"
+            echo "highest-major=${highest%%.*}"
+          } >> "${GITHUB_OUTPUT}"
 
       # Before any tag exists, so a failure here leaves nothing to clean up. That ordering is why
       # this is its own step: today's workflow tagged first and generated notes second, so a notes
@@ -133,6 +169,7 @@ jobs:
       # file, and `gh release create --notes-file` reads that file. A commit subject is a merged
       # pull request title, which is attacker-influenceable text.
       - name: Render the notes
+        if: steps.verify.outputs.proceed == 'true'
         env:
           VERSION: ${{ steps.verify.outputs.version }}
           HIGHEST_MAJOR: ${{ steps.verify.outputs.highest-major }}
@@ -180,7 +217,7 @@ jobs:
       # one — recover by re-running once the cause is fixed, deleting the version tag first if it
       # was already created.
       - name: Tag and publish
-        if: ${{ !inputs.dry-run }}
+        if: steps.verify.outputs.proceed == 'true' && !inputs.dry-run
         env:
           VERSION: ${{ steps.verify.outputs.version }}
         run: |

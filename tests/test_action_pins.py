@@ -31,7 +31,7 @@ REQUIRED_CHECKS = [
 REPO_URL = "https://api.github.com/repos/turboBasic/github-actions"
 # This repo's own plumbing: nothing outside resolves these, so they are neither callable nor a
 # reason to cut a release.
-OWN_CI = {"ci.yml", "commit-messages.yml", "release.yml"}
+OWN_CI = {"ci.yml", "commit-messages.yml", "release.yml", "release-proposal.yml"}
 # What a consumer resolves. `.github/workflows/` minus OWN_CI, plus every composite action.
 CONSUMER_FACING = (".github/workflows/", "actions/")
 # Applied rules for a branch, unlike the rulesets API, need no `administration` scope — it answers
@@ -238,6 +238,53 @@ def test_the_release_workflow_gives_gh_a_repository() -> None:
     assert not without_repo or "GH_REPO:" in workflow, (
         f"release.yml runs {without_repo} with no repository context. Set GH_REPO in the job env, "
         f"or pass --repo on the line."
+    )
+
+
+def test_the_release_waits_for_the_ci_verdict() -> None:
+    # The release is a job in ci.yml behind `needs: [ci]`, and that dependency *is* FR-011: it is
+    # what makes "CI passed on the commit being released" structurally true instead of something
+    # queried. Drop it and the release runs in parallel with the tests it is supposed to be gated on,
+    # tagging code nothing has verified — with every linter green, because a job without `needs` is
+    # perfectly valid YAML.
+    #
+    # `needs: [ci, live]` is equally wrong in the other direction: `live` is red precisely when a
+    # release is owed, so the release could only ever be cut when none was needed.
+    ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    release_job = re.search(r"(?ms)^  release:\n(.*?)(?=^  \w|\Z)", ci)
+    assert release_job, (
+        "ci.yml has no `release` job; that job is what cuts a release after a merge."
+    )
+    body = release_job.group(1)
+    assert re.search(r"needs:\s*\[\s*ci\s*\]", body), (
+        "ci.yml's release job does not declare `needs: [ci]`, so it no longer waits for the verdict "
+        "that covers the commit it would tag (FR-011)."
+    )
+    assert "live" not in body, (
+        "ci.yml's release job depends on `live`, which is red exactly when a release is owed — so a "
+        "release could only be cut when none was needed."
+    )
+    assert "uses: $/.github/workflows/release.yml" in body, (
+        "ci.yml's release job must call release.yml at this same commit with the `$/` form, so a "
+        "change to it is validated by the version under review rather than by the last tag."
+    )
+
+
+def test_the_release_is_not_triggered_by_workflow_run() -> None:
+    # `workflow_run` is the obvious trigger for "start when CI finishes" and is a high-severity
+    # zizmor finding. It also cannot express what is wanted: its `conclusion` is the *workflow's*,
+    # which includes ci.yml's `live` job — red precisely when a release is owed — so gating on it
+    # would refuse every release the moment one was actually due.
+    # Comments stripped: the header explains at length why this trigger is not used.
+    workflow = "\n".join(
+        line
+        for raw in (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text().splitlines()
+        if not (line := raw.strip()).startswith("#")
+    )
+    assert "workflow_run" not in workflow.split("jobs:")[0], (
+        "release.yml is triggered by workflow_run again. Its conclusion covers ci.yml's `live` job "
+        "as well, so it is red exactly when a release is due; ci.yml calls this workflow behind "
+        "`needs: [ci]` instead."
     )
 
 

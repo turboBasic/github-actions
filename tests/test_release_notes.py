@@ -2,7 +2,7 @@ import re
 import tomllib
 from typing import Any
 
-from test_action_pins import REPO_ROOT, block_of_words
+from test_action_pins import CONSUMER_FACING, OWN_CI, REPO_ROOT, block_of_words
 
 CLIFF = REPO_ROOT / ".cliff.toml"
 TYPES_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "conventional-commits.yml"
@@ -147,4 +147,24 @@ def test_tag_pattern_excludes_the_moving_major_tags() -> None:
     assert not moving, (
         f"tag_pattern {pattern!r} also matches the moving major tags {moving}, which sit on "
         f"main's tip. `--unreleased` would measure from there and render nothing."
+    )
+
+
+def test_the_surface_filter_agrees_with_own_ci() -> None:
+    # The version the proposal proposes turns on which commits count as consumer-facing, expressed as
+    # git-cliff `--include-path` / `--exclude-path` flags. That is a fourth copy of a list also held
+    # in OWN_CI, CONTRIBUTING.md twice — and the only copy a test can reach, so it is the one that
+    # gets held. A workflow added to OWN_CI but not to the filter would silently push the increment
+    # to a minor for a change no consumer resolves.
+    proposal = (REPO_ROOT / ".github" / "workflows" / "release-proposal.yml").read_text()
+    included = set(re.findall(r"--include-path '([^']+)'", proposal))
+    excluded = set(re.findall(r"--exclude-path '([^']+)'", proposal))
+    assert included == {f"{prefix}**" for prefix in CONSUMER_FACING}, (
+        f"release-proposal.yml includes {sorted(included)}; CONSUMER_FACING in test_action_pins.py "
+        f"says the surface is {sorted(CONSUMER_FACING)}."
+    )
+    assert excluded == {f".github/workflows/{name}" for name in OWN_CI}, (
+        f"release-proposal.yml excludes {sorted(excluded)} from the surface, but OWN_CI is "
+        f"{sorted(OWN_CI)}. A workflow in one list and not the other either proposes a minor for a "
+        f"change nothing resolves, or a patch for one consumers do."
     )
