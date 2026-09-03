@@ -1,6 +1,7 @@
 import os
 import subprocess
 from pathlib import Path
+from textwrap import indent
 
 from jinja2 import Template
 
@@ -25,9 +26,12 @@ for commit in commits:
     lines = commit.splitlines()
     subject = lines[0] if lines else ""
     subjects.append(subject)
-    body_lines = [ln.strip() for ln in lines[1:] if ln.strip()]
-    if body_lines:
-        change_items.append(f"- **{subject}**\n\n  " + "\n\n  ".join(body_lines))
+    # Blank lines are what separate the body's paragraphs, so they survive; indenting
+    # keeps each paragraph inside the list item. Joining every line with a blank line
+    # instead would render a wrapped paragraph as one paragraph per source line.
+    body = "\n".join(ln.rstrip() for ln in lines[1:]).strip()
+    if body:
+        change_items.append(f"- **{subject}**\n\n{indent(body, '  ')}")
     else:
         change_items.append(f"- {subject}")
 
