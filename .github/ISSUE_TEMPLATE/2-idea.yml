@@ -3,7 +3,7 @@
 name: Idea
 description: A new workflow or action, or a change to an existing one
 title: "feat: "
-labels: [enhancement]
+labels: ["kind:feat"]
 body:
   - type: checkboxes
     attributes:

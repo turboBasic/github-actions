@@ -69,6 +69,41 @@ read the run. A brand-new one cannot be dispatched at all: GitHub offers `workfl
 a workflow file already on the default branch, so exercising one before merge means a temporary
 trigger scoped to your branch, removed in the same pull request.
 
+## Labels
+
+Labels are on **issues only**, and nothing automated reads them — release notes come from commit
+types via `.cliff.toml`. A PR's kind already lives in its Conventional Commit title, so labelling one
+would be a second source of truth about what kind of change it is. The exception is `deps`, which
+Renovate applies to its own PRs and dashboard so a report can exclude bot traffic.
+
+Two required axes and four flags:
+
+| Axis | Labels | Rule |
+| --- | --- | --- |
+| kind | `kind:bug` `kind:feat` `kind:chore` `kind:docs` | exactly one |
+| area | `area:workflows` `area:actions` `area:release` `area:tooling` | one or more |
+| flags | `breaking` `blocked` `needs-spec` `deps` | as they apply |
+
+**This table is the label set.** Adding a label means adding it here and running
+`gh label create`; `tests/test_action_pins.py` reads the second column and fails when GitHub and this
+table disagree.
+
+Colour is by axis, not by label — `kind:` blue, `area:` purple, a flag red or amber, `deps` grey so
+bot traffic recedes. Darkest first down each axis. Nothing asserts a colour: it carries no data anyone
+groups by, and a rule regenerates it without a table of hex codes to keep current.
+
+`area:workflows` and `area:actions` are the consumer-facing surface; `area:release` and
+`area:tooling` are not. That split is the one the version bump turns on — a change confined to the
+second pair is a patch however it is titled. `breaking` means shipping it needs a new major tag, and
+those issues go in the `v3.0` milestone.
+
+Do not label a closure. GitHub's own close reason — *not planned*, *duplicate* — already records it
+and is queryable.
+
+```sh
+gh issue list --state open --json labels --jq '[.[].labels[].name]|group_by(.)|map({(.[0]):length})'
+```
+
 ## Pull requests
 
 Branch first. Title the PR as a Conventional Commit — a squash merge takes its subject from there.
