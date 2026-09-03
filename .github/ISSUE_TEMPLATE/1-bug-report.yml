@@ -3,7 +3,7 @@
 name: Bug report
 description: A workflow or action behaves differently than documented
 title: "fix: "
-labels: [bug]
+labels: ["kind:bug"]
 body:
   - type: checkboxes
     attributes:

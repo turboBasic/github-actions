@@ -220,6 +220,9 @@ bump and this file is what every AI tool loads.
 - Conventional Commits, commitizen's default types. The PR title is held to the same format.
 - Commit or push only when asked. Branch first if on the default branch.
 - Never commit a secret.
+- **Labels are on issues, never on a pull request.** A PR's kind is its Conventional Commit title and
+  a second copy of that on a label is a second source of truth. Nothing automated reads a label —
+  `CONTRIBUTING.md`'s Labels section owns the axes and what each one is for.
 
 ### CI
 
