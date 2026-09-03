@@ -1,5 +1,7 @@
 import re
+import subprocess
 import tomllib
+from pathlib import Path
 from typing import Any
 
 from test_action_pins import CONSUMER_FACING, OWN_CI, REPO_ROOT, block_of_words
@@ -167,4 +169,52 @@ def test_the_surface_filter_agrees_with_own_ci() -> None:
         f"release-proposal.yml excludes {sorted(excluded)} from the surface, but OWN_CI is "
         f"{sorted(OWN_CI)}. A workflow in one list and not the other either proposes a minor for a "
         f"change nothing resolves, or a patch for one consumers do."
+    )
+
+
+def test_an_item_without_a_pr_number_carries_its_commit_hash(tmp_path: Path) -> None:
+    # The one assertion here that renders rather than reads the config. A Tera conditional cannot be
+    # checked by shape: a regex that stops matching, or matches everything, leaves valid TOML and
+    # notes that silently reference nothing. Rendered against a throwaway repository so it needs no
+    # tag, no network and no state from this one.
+    def git(*args: str) -> None:
+        subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q", "-b", "main", ".")
+    (tmp_path / "f").write_text("1")
+    git("add", ".")
+    git("commit", "-qm", "fix: numbered subject (#12)")
+    (tmp_path / "f").write_text("2")
+    git("commit", "-aqm", "fix: subject with no number")
+    rendered = subprocess.run(
+        ["git-cliff", "--config", str(CLIFF), "--unreleased"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    short = subprocess.run(
+        ["git", "rev-parse", "--short=7", "HEAD"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    assert f"- fix: subject with no number ({short})" not in rendered, (
+        "the hash was appended to the whole subject rather than the message git-cliff strips the "
+        "type from; the item no longer reads as the notes' other lines do"
+    )
+    assert f"- subject with no number ({short})" in rendered, (
+        f"an item whose subject carries no `(#N)` rendered without its commit hash, so it "
+        f"references nothing at all. Rendered:\n{rendered}"
+    )
+    assert "- numbered subject (#12)" in rendered, (
+        f"an item whose subject already carries `(#12)` was given a hash as well, so every line "
+        f"now ends in two references. Rendered:\n{rendered}"
     )

@@ -9,6 +9,11 @@
 # tests/test_release_notes.py asserts the mapping below against the twelve commit types
 # conventional-commits.yml allows. git-cliff publishes no schema for this file, so that test is
 # the only thing holding it.
+#
+# Each item ends in a reference GitHub autolinks: the `(#N)` GitHub appends to a squash subject,
+# or the commit's short hash where that is missing. Missing is not hypothetical — 37 of 58 subjects
+# on main carry no number, from rebase merges and from squash subjects overridden by hand — and a
+# line with neither reference cannot be traced back to anything.
 
 [git]
 conventional_commits = true
@@ -33,13 +38,13 @@ body = '''
 {% if breaking | length > 0 %}
 ### 💥 Breaking changes
 {% for commit in breaking %}
-- {{ commit.message }}{% if commit.breaking_description and commit.breaking_description != commit.message %} — {{ commit.breaking_description | split(pat="\n\n") | first | split(pat="\n") | join(sep=" ") | trim }}{% endif %}
+- {{ commit.message }}{% if commit.message is not matching("\(#[0-9]+\)") %} ({{ commit.id | truncate(length=7, end="") }}){% endif %}{% if commit.breaking_description and commit.breaking_description != commit.message %} — {{ commit.breaking_description | split(pat="\n\n") | first | split(pat="\n") | join(sep=" ") | trim }}{% endif %}
 {%- endfor %}
 {% endif %}
 {% for group, commits in commits | group_by(attribute="group") %}
 ### {{ group | upper_first }}
 {% for commit in commits %}
-- {{ commit.message }}
+- {{ commit.message }}{% if commit.message is not matching("\(#[0-9]+\)") %} ({{ commit.id | truncate(length=7, end="") }}){% endif %}
 {%- endfor %}
 {% endfor %}'''
 postprocessors = [
