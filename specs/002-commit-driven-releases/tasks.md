@@ -422,13 +422,25 @@ output matches what a release over the same range publishes.
       claim holds, measured.
 - [x] T057 [P] Re-read `specs/002-commit-driven-releases/checklists/requirements.md` against what
       shipped and tick what now holds.
-- [ ] T058 **After merge** — quickstart.md stage 4, the first real release and the only exercise the
-      two automatic triggers get. `release-proposal.yml` runs on the push and raises a proposal; read
-      the version and the notes; let the three checks report and merge; `release.yml` starts by itself
-      when CI reports green, renders, tags, publishes and moves `vN` last. Then confirm
-      `mise run test-live` goes green — the check that says a release is owed passing is the
-      end-to-end proof one was cut. If it fails after the version tag exists, delete that tag, fix the
-      cause and re-dispatch.
+- [ ] T058 **After merge** — quickstart.md stage 4, the first real release. **Most of it has now been
+      rehearsed in `turboBasic/github-actions-test`** (its PR #8, run 33720736953), which is a repo
+      where a wrong tag costs nothing. A `release` job there with `needs: [ci]` called this branch's
+      `release.yml`, and on the merge push it ran green: `Verify the release`, `Render the notes` and
+      `Tag and publish` all succeeded, producing an annotated `v0.1.0`, a published release whose body
+      carries four of the seven sections rendered from `.cliff.toml` in the *caller's* checkout, and an
+      annotated `v0` messaged `v0 tracks v0.1.0`. Because that repo had **no tags at all**, it also
+      exercised two paths this repository will not take again: an empty "highest release", and
+      **creating** the major tag with `POST` rather than moving it with `PATCH` — the one branch of
+      FR-013 that had never run anywhere. What the rehearsal cannot cover, and what stays for the real
+      merge: `release-proposal.yml`'s `push: branches: [main]` trigger actually firing (its code ran
+      here via the temporary branch trigger; only the trigger match is unproven), the `PATCH` branch
+      that *moves* an existing major tag, and the whole sequence on this repository's own history.
+      So the steps here are unchanged, only better-founded: `release-proposal.yml` runs on the push and
+      raises a proposal; read the version and the notes; let the three checks report and merge; the
+      release starts by itself once `ci / CI` is green, renders, tags, publishes and moves `vN` last.
+      Then confirm `mise run test-live` goes green — the check that says a release is owed passing is
+      the end-to-end proof one was cut. If it fails after the version tag exists, delete that tag, fix
+      the cause and re-dispatch.
 
 ---
 

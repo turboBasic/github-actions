@@ -210,6 +210,15 @@ proof is `create-github-app-token` succeeding in stage 3.
 The two automatic triggers run for the first time here. This is the residual Principle VI gap in
 plan.md, and it is deliberate.
 
+**Rehearsed first in `turboBasic/github-actions-test`**, which is the one place a wrong tag costs
+nothing. A `release` job there with `needs: [ci]` called this branch's `release.yml`, and the merge
+push ran it green end to end: annotated `v0.1.0`, a release published with notes rendered from
+`.cliff.toml` in that repo's checkout, and an annotated `v0` messaged `v0 tracks v0.1.0`. Having no
+tags at all, it also covered an empty "highest release" and the `POST` that **creates** a major tag —
+the branch of FR-013 nothing had ever run. So what is genuinely first-time below is the
+`push: branches: [main]` trigger, the `PATCH` that *moves* an existing major tag, and this
+repository's own history.
+
 1. Merge this branch. **Expected**: `release-proposal.yml` runs on the push and, because
    `[project].version` is still the tagged one and the range is non-empty, raises a proposal.
 2. Read it — the version and the notes are the artifact under review (Story 2, FR-001).
