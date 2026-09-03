@@ -248,8 +248,8 @@ def test_the_release_waits_for_the_ci_verdict() -> None:
     # tagging code nothing has verified — with every linter green, because a job without `needs` is
     # perfectly valid YAML.
     #
-    # `needs: [ci, live]` is equally wrong in the other direction: `live` is red precisely when a
-    # release is owed, so the release could only ever be cut when none was needed.
+    # `needs: [ci, drift]` is equally wrong in the other direction: `drift` is red precisely when
+    # a release is owed, so the release could only ever be cut when none was needed.
     ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text()
     release_job = re.search(r"(?ms)^  release:\n(.*?)(?=^  \w|\Z)", ci)
     assert release_job, (
@@ -260,8 +260,8 @@ def test_the_release_waits_for_the_ci_verdict() -> None:
         "ci.yml's release job does not declare `needs: [ci]`, so it no longer waits for the verdict "
         "that covers the commit it would tag (FR-011)."
     )
-    assert "live" not in body, (
-        "ci.yml's release job depends on `live`, which is red exactly when a release is owed — so a "
+    assert "drift" not in body, (
+        "ci.yml's release job depends on `drift`, which is red exactly when a release is owed — so a "
         "release could only be cut when none was needed."
     )
     assert "uses: $/.github/workflows/release.yml" in body, (
@@ -312,7 +312,7 @@ def _declared_version() -> str:
     return str(project["version"])
 
 
-@pytest.mark.live
+@pytest.mark.drift
 def test_the_ruleset_requires_exactly_the_checks_that_exist() -> None:
     # The other direction, and the only assertion here that leaves the tree: REQUIRED_CHECKS is
     # what the workflows compose, so if the ruleset has drifted from it — a context renamed in the
@@ -327,7 +327,7 @@ def test_the_ruleset_requires_exactly_the_checks_that_exist() -> None:
     )
 
 
-@pytest.mark.live
+@pytest.mark.drift
 def test_this_repository_is_still_public() -> None:
     # Private `opus-magnum` can call these workflows only because this repository is public. The
     # setting that would replace that cannot be asserted — `actions/permissions/access` answers 422
@@ -344,7 +344,7 @@ def test_this_repository_is_still_public() -> None:
     assert repo["private"] is False, WENT_PRIVATE
 
 
-@pytest.mark.live
+@pytest.mark.drift
 def test_no_consumer_facing_change_is_waiting_for_a_release() -> None:
     # The major tag is force-moved by hand-initiated dispatch, so nothing stops it sitting behind
     # main: it once did for 19 days and 29 commits, stranding four changes consumers resolve. No

@@ -135,7 +135,7 @@ well as opening. An App is not "GitHub Actions", so it is not subject to that se
 requests trigger the required checks with no click.
 
 **If that key is rotated or the installation removed, no proposal is raised and nothing says so.** The
-backstop is `mise run test-live`, which fails while a reusable workflow or composite action is newer
+backstop is `mise run test-drift`, which fails while a reusable workflow or composite action is newer
 than the major tag — the repo-local workflows named under [Verifying a workflow
 change](#verifying-a-workflow-change) are excluded, since nothing outside resolves those — so the next
 pull request says a release is owed rather than someone noticing by accident. That check is why the major tag can no longer sit 29 commits behind

@@ -24,8 +24,8 @@ jobs:
   # of an event payload. zizmor rates `workflow_run` a high-severity dangerous trigger, and this
   # needs no trigger at all.
   #
-  # Deliberately not `needs: [ci, live]`. `live` is red precisely when a release is owed, so waiting
-  # on it would mean a release can only be cut when none is needed.
+  # Deliberately not `needs: [ci, drift]`. `drift` is red precisely when a release is owed, so
+  # waiting on it would mean a release can only be cut when none is needed.
   #
   # It refuses by itself on every ordinary merge — the declared version is already tagged — and says
   # so with a notice rather than a failure, so this does not redden main for doing nothing wrong.
@@ -38,8 +38,8 @@ jobs:
 
   # Separate: needs a token and network, which python-ci.yml gives `mise run test` neither of.
   # Deliberately not a required context — a red check is signal enough here.
-  live:
-    name: Live
+  drift:
+    name: Drift
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -50,4 +50,4 @@ jobs:
       - run: uv sync --locked
       - env:
           GH_TOKEN: ${{ github.token }} # only to lift the unauthenticated rate limit
-        run: mise run test-live
+        run: mise run test-drift
