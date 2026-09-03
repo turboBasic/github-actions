@@ -80,9 +80,13 @@ Two required axes and four flags:
 
 | Axis | Labels | Rule |
 | --- | --- | --- |
-| `kind:` | `bug`, `feat`, `chore`, `docs` | exactly one |
-| `area:` | `workflows`, `actions`, `release`, `tooling` | one or more |
-| flags | `breaking`, `blocked`, `needs-spec`, `deps` | as they apply |
+| kind | `kind:bug` `kind:feat` `kind:chore` `kind:docs` | exactly one |
+| area | `area:workflows` `area:actions` `area:release` `area:tooling` | one or more |
+| flags | `breaking` `blocked` `needs-spec` `deps` | as they apply |
+
+**This table is the label set.** Adding a label means adding it here and running
+`gh label create`; `tests/test_action_pins.py` reads the second column and fails when GitHub and this
+table disagree.
 
 `area:workflows` and `area:actions` are the consumer-facing surface; `area:release` and
 `area:tooling` are not. That split is the one the version bump turns on — a change confined to the
