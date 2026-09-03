@@ -1,5 +1,6 @@
 [tools]
 actionlint = "1.7.12"
+git-cliff = "2.13.1"
 "npm:cspell" = "10.2.0"
 "npm:markdownlint-cli2" = "0.23.2"
 "pipx:specify-cli" = "1.0.2"
@@ -46,7 +47,6 @@ run = [
   "uv run check-jsonschema --builtin-schema vendor.github-issue-forms .github/ISSUE_TEMPLATE/[0-9]-*.yml",
   "uv run check-jsonschema --builtin-schema vendor.github-issue-config .github/ISSUE_TEMPLATE/config.yml",
   "uv run check-jsonschema --builtin-schema vendor.github-actions actions/*/action.yml",
-  "uv run check-jsonschema --schemafile https://www.schemastore.org/github-release-config.json .github/release.yml",
   "uv run check-jsonschema --schemafile https://www.schemastore.org/actionlint.json .github/actionlint.yaml",
   "uv run check-jsonschema --builtin-schema custom.github-workflows-require-timeout .github/workflows/*.yml",
 ]
@@ -58,6 +58,13 @@ run = "uv run pyright"
 [tasks.test]
 description = "Run the test suite"
 run = "uv run pytest"
+
+# Not in `ci`, and not because of the network: it needs a full clone with tags, since git-cliff
+# measures the range from the newest version tag and renders an empty one without complaining on a
+# shallow checkout. `mise run ci` has to pass there.
+[tasks.release-notes]
+description = "Render the release notes for the unreleased range, offline, creating nothing"
+run = "git-cliff --unreleased"
 
 # Not in `ci`: it reaches api.github.com, and `mise run ci` stays offline. ci.yml runs it as its
 # own job, which is also where a token is available.

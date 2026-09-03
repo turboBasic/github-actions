@@ -63,8 +63,11 @@ Before a change to a reusable workflow is done:
 
 Move the major tag only after that.
 
-A workflow only this repo runs — `ci.yml`, `commit-messages.yml`, `release.yml` — has no consumer to
-call it. Dispatch it, or open a PR that triggers it, and read the run.
+A workflow only this repo runs — `ci.yml`, `commit-messages.yml`, `release.yml`,
+`release-proposal.yml` — has no consumer to call it. Dispatch it, or open a PR that triggers it, and
+read the run. A brand-new one cannot be dispatched at all: GitHub offers `workflow_dispatch` only for
+a workflow file already on the default branch, so exercising one before merge means a temporary
+trigger scoped to your branch, removed in the same pull request.
 
 ## Pull requests
 
@@ -78,34 +81,65 @@ input contract moves. Agent-written code is welcome; you are still the author of
 ## Releasing
 
 Merging changes nothing for consumers. They pin the major tag — see [Versioning][readme-versioning] —
-and it only moves when a release is cut, which is two steps:
+and it only moves when a release is cut, which is now **one step: approve a proposal.**
 
-1. **Bump `[project].version` in `pyproject.toml`** and re-run `uv lock` so the lockfile agrees, then
-   merge that as a normal pull request. `uv run cz bump --version-files-only` makes the edit and will
-   offer an increment computed from the commit range; the number is still yours. Judge it by the surface
-   consumers resolve — `.github/workflows/` and `actions/` — not by this repo's commit history. A
-   `feat:` that only touched our own linting is a patch.
-2. **Run the [Release workflow][release-workflow]** against `main`. It tags that commit `vX.Y.Z`,
-   publishes the release with notes generated from `.github/release.yml` covering everything since the
-   previous version tag, and force-moves `vX` last, once the rest has succeeded.
+After any merge to `main` that leaves something worth describing, the [Release
+proposal][release-proposal-workflow] workflow opens a pull request titled `bump: release vX.Y.Z`. Its
+body is the exact notes that release will publish, and its diff is `pyproject.toml`'s
+`[project].version` and `uv.lock`'s matching line, nothing else. Read the notes, and:
 
-Nothing is built and nothing is uploaded. A consumer resolves this repository's tree at a ref, so
-the tag *is* the artifact — which is also why the version in `pyproject.toml` is the only place the
-number is decided, and why deciding it in a reviewed pull request is the whole point.
+- **Agree with the version?** Merge it. `ci.yml` runs on the merge commit and, when `ci / CI` passes,
+  calls the release: it renders the notes again from the same rules, tags `vX.Y.Z`, publishes the
+  release with those notes, and force-moves `vX` last. No further human action.
+- **Disagree with the version?** Change it on the proposal branch before merging. The released version
+  is the one you approved, and every later refresh leaves it alone — a commit on that branch authored
+  by anyone but the bot is how the workflow knows a human has decided.
 
-The workflow refuses to tag when the version is already tagged, when `ci / CI` has not passed on the
-commit, or when it is dispatched from anywhere but `main`. If it fails after the version tag exists,
-delete that tag and re-run once the cause is fixed.
+The proposal proposes; it does not decide. The increment it offers is computed from the commits that
+touch the surface consumers resolve — `.github/workflows/` and `actions/`, minus this repo's own
+CI — so a `feat:` that only touched our own linting comes out a patch, which is the rule the number
+has always followed. `pyproject.toml` remains the only place the version is decided.
+
+Nothing is built and nothing is uploaded. A consumer resolves this repository's tree at a ref, so the
+tag *is* the artifact — which is why deciding the number in a reviewed pull request is the whole point.
 
 A major bump is a new tag rather than a move: the old major stays where it is, and the
-[README][readme]'s Versioning section is updated to name the new one in the same pull request as the
-version bump.
+[README][readme]'s Versioning section is updated to name the new one in the same pull request.
 
-Neither step existed until now, which is how the major tag came to sit 29 commits behind `main` for 19
-days with four consumer-facing changes stranded. `mise run test-live` fails while a reusable workflow
-or a composite action is newer than the major tag — `ci.yml`, `commit-messages.yml` and `release.yml`
-are excluded, since nothing outside resolves those — so the next pull request says a release is owed
-rather than someone noticing by accident.
+### What refuses, and why
+
+The release renders the notes *before* it creates any ref, so a failure leaves no tag behind. It
+refuses when the version is not ahead of every existing release, when the notes render nothing, and
+when the range holds a breaking change under a version that is not a new major — publishing that would
+move the existing major tag onto a broken contract.
+
+On an ordinary merge, where the declared version is already tagged, it says so with a notice and stops.
+It does not redden `main` for doing nothing wrong.
+
+`mise run release-notes` renders the notes locally, offline, creating nothing.
+[Dispatching the Release workflow][release-workflow] with `dry-run` runs every refusal and prints the
+notes it would publish, without creating a tag. If a release fails *after* the version tag exists,
+delete that tag and re-dispatch once the cause is fixed — the major tag moves last precisely so
+consumers stay on the previous release until the rest has succeeded.
+
+### The App behind the proposal
+
+The proposal is opened by a GitHub App, `turbobasic-release-proposal`, installed on this repository
+with `Contents` and `Pull requests` write and nothing else. Its id and private key live in the
+`RELEASE_APP_ID` and `RELEASE_APP_PRIVATE_KEY` Actions secrets, and the token each run mints is
+narrowed to those two permissions and expires in an hour.
+
+`GITHUB_TOKEN` cannot do this job: opening a pull request from Actions requires *Allow GitHub Actions
+to create and approve pull requests*, which is off here and stays off, because it grants approving as
+well as opening. An App is not "GitHub Actions", so it is not subject to that setting — and its pull
+requests trigger the required checks with no click.
+
+**If that key is rotated or the installation removed, no proposal is raised and nothing says so.** The
+backstop is `mise run test-live`, which fails while a reusable workflow or composite action is newer
+than the major tag — the repo-local workflows named under [Verifying a workflow
+change](#verifying-a-workflow-change) are excluded, since nothing outside resolves those — so the next
+pull request says a release is owed rather than someone noticing by accident. That check is why the major tag can no longer sit 29 commits behind
+`main` for 19 days with four consumer-facing changes stranded, as it once did.
 
 <!-- Links -->
 
@@ -124,4 +158,5 @@ rather than someone noticing by accident.
 [readme]: README.md
 [test-consumer]: https://github.com/turboBasic/github-actions-test
 [readme-versioning]: README.md#versioning
+[release-proposal-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release-proposal.yml
 [release-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release.yml

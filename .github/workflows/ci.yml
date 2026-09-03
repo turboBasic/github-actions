@@ -18,6 +18,24 @@ jobs:
     permissions:
       contents: read
 
+  # The release is a job here rather than a workflow of its own with a `workflow_run` trigger,
+  # because `needs: [ci]` *is* the CI verdict: this cannot start unless `ci / CI` succeeded on this
+  # exact commit, so there is no check run to query, no API race to lose, and no head SHA to read out
+  # of an event payload. zizmor rates `workflow_run` a high-severity dangerous trigger, and this
+  # needs no trigger at all.
+  #
+  # Deliberately not `needs: [ci, live]`. `live` is red precisely when a release is owed, so waiting
+  # on it would mean a release can only be cut when none is needed.
+  #
+  # It refuses by itself on every ordinary merge — the declared version is already tagged — and says
+  # so with a notice rather than a failure, so this does not redden main for doing nothing wrong.
+  release:
+    needs: [ci]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: $/.github/workflows/release.yml
+    permissions:
+      contents: write # creates the version tag, publishes the release, moves the major tag
+
   # Separate: needs a token and network, which python-ci.yml gives `mise run test` neither of.
   # Deliberately not a required context — a red check is signal enough here.
   live:

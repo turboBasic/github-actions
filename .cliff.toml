@@ -1,0 +1,51 @@
+# git-cliff's shaping rules: the seven sections a release body carries, and which commit type
+# lands in each. Three callers read it — release-proposal.yml, release.yml and
+# `mise run release-notes` — and none passes `--config`, because git-cliff's discovery finds
+# this name on its own.
+#
+# The dotted name is deliberate, and `git-cliff --init` does not respect it: that writes
+# `cliff.toml`, which would then win on name and become a rival config. Do not run it here.
+#
+# tests/test_release_notes.py asserts the mapping below against the twelve commit types
+# conventional-commits.yml allows. git-cliff publishes no schema for this file, so that test is
+# the only thing holding it.
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+tag_pattern = "v[0-9]+\\.[0-9]+\\.[0-9]+"
+commit_parsers = [
+  { message = '^bump(\([^)]*\))?!?:', skip = true },
+  { message = "^feat", group = "<!--2-->🚀 Features" },
+  { message = "^fix", group = "<!--3-->🐛 Fixes" },
+  { message = "^perf", group = "<!--3-->🐛 Fixes" },
+  { message = "^revert", group = "<!--3-->🐛 Fixes" },
+  { message = "^docs", group = "<!--4-->📚 Documentation" },
+  { message = "^(ci|build)", group = "<!--5-->🚚 CI and dependencies" },
+  { message = "^(chore|refactor|style|test)", group = "<!--6-->🧹 Maintenance" },
+  { message = ".*", group = "<!--7-->Other changes" },
+]
+
+[changelog]
+trim = true
+body = '''
+{%- set breaking = commits | filter(attribute="breaking", value=true) -%}
+{% if breaking | length > 0 %}
+### 💥 Breaking changes
+{% for commit in breaking %}
+- {{ commit.message }}{% if commit.breaking_description and commit.breaking_description != commit.message %} — {{ commit.breaking_description | split(pat="\n\n") | first | split(pat="\n") | join(sep=" ") | trim }}{% endif %}
+{%- endfor %}
+{% endif %}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+- {{ commit.message }}
+{%- endfor %}
+{% endfor %}'''
+postprocessors = [
+  { pattern = '<!--[0-9]+-->', replace = "" },
+  # Collapsing the footer's newlines above leaves two spaces where the original had a
+  # paragraph break. Squeezed here rather than in Tera, whose `replace` only takes a literal
+  # and so would leave a run of three.
+  { pattern = ' {2,}', replace = " " },
+]
