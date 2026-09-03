@@ -22,7 +22,9 @@ name: Release proposal
 
 on:
   push:
-    branches: [main]
+    # TEMPORARY, remove before merge: `workflow_dispatch` is offered only for a workflow already on
+    # the default branch, so this is the only way to exercise a new one at the ref under review.
+    branches: [main, 002-commit-driven-releases]
   workflow_dispatch: # recovery, and re-running a refresh by hand
 
 permissions: {}
