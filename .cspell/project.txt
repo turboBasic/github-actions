@@ -84,6 +84,7 @@ autouse
 testpaths
 
 # --- Repository jargon ---
+autolinks
 bumpable
 callee
 commitlint
