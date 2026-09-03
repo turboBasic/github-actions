@@ -29,6 +29,28 @@ REQUIRED_CHECKS = [
     ("commits / Commit messages", "commit-messages.yml", "conventional-commits.yml"),
 ]
 REPO_URL = "https://api.github.com/repos/turboBasic/github-actions"
+# The label set, stated once. Two axes and four flags — `CONTRIBUTING.md`'s Labels section says what
+# each is for and which are required. Nothing automated reads a label, so a stray one costs no build;
+# it costs a report, silently, by splitting a count across two names nobody notices.
+LABELS = {
+    "kind:bug",
+    "kind:chore",
+    "kind:docs",
+    "kind:feat",
+    "area:actions",
+    "area:release",
+    "area:tooling",
+    "area:workflows",
+    "blocked",
+    "breaking",
+    "deps",
+    "needs-spec",
+}
+LABEL_WRITERS = (
+    Path(".github/ISSUE_TEMPLATE/1-bug-report.yml"),
+    Path(".github/ISSUE_TEMPLATE/2-idea.yml"),
+    Path(".github/renovate.json"),
+)
 # This repo's own plumbing: nothing outside resolves these, so they are neither callable nor a
 # reason to cut a release.
 OWN_CI = {"ci.yml", "commit-messages.yml", "release.yml", "release-proposal.yml"}
@@ -378,6 +400,35 @@ def test_no_consumer_facing_change_is_waiting_for_a_release() -> None:
         f"{major} predates changes to {stranded}, so every consumer pinned to @{major} still runs "
         f"the previous version of them. Bump [project].version in a pull request — that decides "
         f"the next version — then run the Release workflow."
+    )
+
+
+def test_every_label_a_file_applies_is_declared() -> None:
+    # An issue form naming a label that does not exist is dropped in silence — GitHub neither creates
+    # it nor complains — so the issue opens unlabelled and every `kind:` report undercounts.
+    for path in LABEL_WRITERS:
+        for block in re.findall(r'(?i)labels"?:\s*\[([^\]]*)\]', (REPO_ROOT / path).read_text()):
+            applied = set(re.findall(r'"([^"]+)"', block))
+            # A bare `kind:bug` in a YAML flow sequence is ambiguous, so entries here are quoted;
+            # an unquoted one reads as empty and would otherwise pass this test by matching nothing.
+            assert applied, f"{path} has an unquoted or unreadable labels list: [{block}]"
+            assert not (applied - LABELS), (
+                f"{path} applies {sorted(applied - LABELS)}, which LABELS does not declare. "
+                f"Add it there and to CONTRIBUTING's Labels section, or fix the reference."
+            )
+
+
+@pytest.mark.drift
+def test_the_repository_has_exactly_the_declared_labels() -> None:
+    # Labels exist only on GitHub, where anyone can add one from the issue sidebar in a click, and
+    # nothing in the tree would look wrong afterwards. That is the whole failure: a second name for
+    # a kind splits a count in half and the report stays plausible. Names only — a drifted colour
+    # or description misleads nobody who is grouping by name.
+    live = {str(label["name"]) for label in _api_json(f"{REPO_URL}/labels?per_page=100")}
+    assert live == LABELS, (
+        f"the repository's labels have drifted from LABELS: {sorted(live - LABELS)} exist and are "
+        f"undeclared, {sorted(LABELS - live)} are declared and missing. Reconcile with "
+        f"`gh label create` / `gh label delete`, or amend LABELS if the set really did change."
     )
 
 

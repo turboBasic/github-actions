@@ -169,9 +169,9 @@ Python 3.14. The only Python here supports the actions and their tests.
 - **The suite is offline; `mise run ci` must never need the network.** The exceptions are marked
   `@pytest.mark.drift` and deselected by default, run by `mise run test-drift` from its own `ci.yml`
   job where a token exists. Reach for one only where the thing being asserted is repository state no
-  file can express: the required status checks on the `main` ruleset, this repository still being
-  public, which is what lets a private consumer resolve these workflows at all, and whether the major
-  tag still predates a change consumers resolve.
+  file can express: the required status checks on the `main` ruleset, the label set against `LABELS`,
+  this repository still being public, which is what lets a private consumer resolve these workflows at
+  all, and whether the major tag still predates a change consumers resolve.
 - **Lint does not verify a workflow. Run it.** Exercise every changed workflow before tagging: a
   reusable one from a real PR, anything else from a dispatch. Every linter here passes on a workflow
   that fails on its first run, because the file is correct and its environment is not: the caller
