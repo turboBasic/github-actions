@@ -88,6 +88,10 @@ Two required axes and four flags:
 `gh label create`; `tests/test_action_pins.py` reads the second column and fails when GitHub and this
 table disagree.
 
+Colour is by axis, not by label — `kind:` blue, `area:` purple, a flag red or amber, `deps` grey so
+bot traffic recedes. Darkest first down each axis. Nothing asserts a colour: it carries no data anyone
+groups by, and a rule regenerates it without a table of hex codes to keep current.
+
 `area:workflows` and `area:actions` are the consumer-facing surface; `area:release` and
 `area:tooling` are not. That split is the one the version bump turns on — a change confined to the
 second pair is a patch however it is titled. `breaking` means shipping it needs a new major tag, and
