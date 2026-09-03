@@ -205,12 +205,9 @@ bump by what changed under `.github/workflows/` and `actions/`; a `feat:` touchi
 linting or editor config is a patch. So the number is a human decision recorded as a one-line diff to
 `pyproject.toml`'s `[project].version`, merged like any other change, and never computed unattended.
 
-`release-proposal.yml` proposes that diff — a pull request carrying a computed increment and the notes
-the release would publish — and **proposing is not deciding**: the increment comes from a path-filtered
-pass over the consumer surface, a reviewer may change it, and a version a human has edited survives
-every refresh. Merging the proposal is the approval; `ci.yml` then calls `release.yml` behind
-`needs: [ci]`, which tags what `[project].version` declares and refuses if the tag already exists, so
-the release cannot disagree with the reviewed decision. Notes are rendered before any tag is created,
+`release-proposal.yml` proposes that diff, and **proposing is not deciding**: a reviewer may change the
+number, and a version a human has edited survives every refresh. The release refuses if the tag already
+exists, so it cannot disagree with the reviewed decision. Notes are rendered before any tag is created,
 from commit types in `.cliff.toml` — never from a pull request label. `CONTRIBUTING.md`'s Releasing
 section is the procedure.
 

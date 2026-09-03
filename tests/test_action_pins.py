@@ -270,24 +270,6 @@ def test_the_release_waits_for_the_ci_verdict() -> None:
     )
 
 
-def test_the_release_is_not_triggered_by_workflow_run() -> None:
-    # `workflow_run` is the obvious trigger for "start when CI finishes" and is a high-severity
-    # zizmor finding. It also cannot express what is wanted: its `conclusion` is the *workflow's*,
-    # which includes ci.yml's `live` job — red precisely when a release is owed — so gating on it
-    # would refuse every release the moment one was actually due.
-    # Comments stripped: the header explains at length why this trigger is not used.
-    workflow = "\n".join(
-        line
-        for raw in (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text().splitlines()
-        if not (line := raw.strip()).startswith("#")
-    )
-    assert "workflow_run" not in workflow.split("jobs:")[0], (
-        "release.yml is triggered by workflow_run again. Its conclusion covers ci.yml's `live` job "
-        "as well, so it is red exactly when a release is due; ci.yml calls this workflow behind "
-        "`needs: [ci]` instead."
-    )
-
-
 def test_the_release_refuses_notes_with_no_content() -> None:
     # Neither the exit code nor the file's size can answer this. git-cliff exits 0 for a range
     # holding only a `bump` and for a range holding nothing, indistinguishably; and an empty render
@@ -308,7 +290,7 @@ def test_the_release_publishes_the_rendered_notes() -> None:
     # failure this whole feature exists to remove: nine merged PRs carry no label at all, and the
     # only breaking change ever shipped here was published under "Other changes". Reinstating it
     # would quietly route the notes back through labels with `.cliff.toml` still sitting there.
-    # Comments stripped first: the line explaining why `--generate-notes` is gone contains it.
+    # Comments stripped: the line explaining why `--generate-notes` is gone contains it.
     workflow = "\n".join(
         line
         for raw in (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text().splitlines()

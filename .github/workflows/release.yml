@@ -3,10 +3,7 @@
 # major tag consumers pin.
 #
 # The notes are shaped from commit types by `.cliff.toml`, and rendered *before* any tag exists —
-# so a failure to produce them leaves no tag behind, and nothing reads a pull request label. An
-# empty range is not an empty release: git-cliff exits 0 for a range holding nothing, and renders a
-# lone newline rather than zero bytes, so the check is for content — never the exit code, never the
-# file's size.
+# so a failure to produce them leaves no tag behind, and nothing reads a pull request label.
 #
 # The version bump is not done here. `main`'s ruleset requires a pull request and bypasses only for
 # the Repository admin role, which `GITHUB_TOKEN` does not hold, so a bump commit pushed from here
@@ -94,11 +91,10 @@ jobs:
             exit 1
           fi
 
-          # Read as TOML, not as the first `version = ` line: this is a one-shot write path, and
-          # positional parsing would take a version from whichever table happened to come first.
-          gh api "repos/${GITHUB_REPOSITORY}/contents/pyproject.toml?ref=${GITHUB_SHA}" \
-            -H 'Accept: application/vnd.github.raw' > "${RUNNER_TEMP}/pyproject.toml"
-          version=$(python3 -c 'import sys, tomllib; print(tomllib.load(open(sys.argv[1], "rb"))["project"]["version"])' "${RUNNER_TEMP}/pyproject.toml")
+          # From the checkout, which is at the commit being released. Read as TOML, not as the
+          # first `version = ` line: this is a one-shot write path, and positional parsing would
+          # take a version from whichever table happened to come first.
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
 
           if [[ ! ${version} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::pyproject.toml declares no plain semantic version: '${version}'"
@@ -142,10 +138,6 @@ jobs:
           # verdict — the job could not have started otherwise — and querying the API for it again
           # would race the check run's own bookkeeping: a conclusion not yet visible would read as
           # `missing` and silently cancel a legitimate release.
-          #
-          # `ci / Live` is not consulted on either path, and must not be: it is red precisely when a
-          # release is owed. That also rules out the workflow-level conclusion of a CI run, which
-          # includes `live` — the reason this is a called job rather than a `workflow_run` trigger.
           if [[ ${GITHUB_EVENT_NAME} == workflow_dispatch ]]; then
             conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs" \
               --jq '[.check_runs[] | select(.name == "ci / CI") | .conclusion] | first // "missing"')

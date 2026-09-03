@@ -6,10 +6,9 @@ Andrii
 Melnyk
 
 # --- Repository and tooling ---
-turboBasic
 actionlint
-cargonautica
 aicommits
+cargonautica
 changie
 cocogitto
 commisery
@@ -30,6 +29,7 @@ ruff
 shellcheck
 speckit
 taplo
+turboBasic
 vfox
 zizmor
 
@@ -70,8 +70,8 @@ postprocessors
 precommit
 pyupgrade
 rawfile
-rtrimstr
 revspec
+rtrimstr
 ruamel
 schemafile
 tera

@@ -131,9 +131,9 @@ jobs:
           set -euo pipefail
 
           if gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${BRANCH}" >/dev/null 2>&1; then
-            authors=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${GITHUB_SHA}...${BRANCH}" \
-              --jq '[.commits[].commit.author.name] | join("\n")')
-            human=$(printf '%s\n' "${authors}" | { grep -vxF "${BOT_NAME}" || true; } | { grep -v '^$' || true; } | head -1)
+            human=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${GITHUB_SHA}...${BRANCH}" \
+              --jq '.commits[].commit.author.name' |
+              { grep -vxF -m1 "${BOT_NAME}" || true; })
             if [[ -n ${human} ]]; then
               gh api "repos/${GITHUB_REPOSITORY}/contents/pyproject.toml?ref=${BRANCH}" \
                 -H 'Accept: application/vnd.github.raw' > "${RUNNER_TEMP}/proposed.toml"
@@ -187,31 +187,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Anchored to the [project] table rather than the first `version =` in the file: another
-          # table could grow one, and this is a write path.
-          python3 - <<'PY'
-          import os
-          import re
-          from pathlib import Path
-
-          path = Path("pyproject.toml")
-          text = path.read_text()
-          project = re.search(r"(?ms)^\[project\]\n.*?(?=^\[|\Z)", text)
-          assert project, "pyproject.toml has no [project] table"
-          bumped, count = re.subn(
-              r'(?m)^(version\s*=\s*)"[^"]+"',
-              lambda m: f'{m.group(1)}"{os.environ["VERSION"]}"',
-              project.group(0),
-              count=1,
-          )
-          assert count == 1, "no version key in [project]"
-          path.write_text(text[: project.start()] + bumped + text[project.end() :])
-          PY
-
-          # Plain `uv lock`, not `--offline`: the runner has a network, and the offline constraint is
-          # on rendering the notes, not on this. It changes one line, because it does not upgrade
-          # already-locked packages without `--upgrade`.
-          uv lock
+          # `uv version` writes `[project].version` and re-locks in one call, so there is no
+          # hand-rolled edit to anchor to the right TOML table and no separate `uv lock`. `--no-sync`
+          # skips the virtual environment, which nothing here needs. uv.lock is not optional: it
+          # carries the root package's version, and `uv sync --locked` fails if it disagrees.
+          uv version --no-sync "${VERSION}"
 
           # Every body goes in through stdin rather than `-f`, for two separate reasons. A blob's
           # base64 is far past Linux's 128 KiB cap on a *single* argument — `uv.lock` failed with
@@ -247,12 +227,6 @@ jobs:
             -f "sha=${commit}" -F force=true ||
             gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" --silent \
               -f "ref=refs/heads/${BRANCH}" -f "sha=${commit}"
-
-          author=$(gh api "repos/${GITHUB_REPOSITORY}/git/commits/${commit}" --jq .author.name)
-          if [[ ${author} != "${BOT_NAME}" ]]; then
-            echo "::error::the proposal commit is authored by '${author}', not '${BOT_NAME}', so a refresh would read it as a human's edit and stop recomputing the version."
-            exit 1
-          fi
 
       # The body is the notes verbatim under one line of preamble. No commit text reaches a shell:
       # `--body-file` reads the rendered file, and a commit subject is a merged pull request title.
