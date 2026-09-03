@@ -68,9 +68,9 @@ run = "git-cliff --unreleased"
 
 # Not in `ci`: it reaches api.github.com, and `mise run ci` stays offline. ci.yml runs it as its
 # own job, which is also where a token is available.
-[tasks.test-live]
+[tasks.test-drift]
 description = "Check GitHub's own state: the main ruleset, this repo staying public, and whether a release is owed"
-run = "uv run pytest -m live"
+run = "uv run pytest -m drift"
 
 [tasks.ci]
 description = "Run everything CI runs, locally"

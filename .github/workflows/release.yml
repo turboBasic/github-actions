@@ -78,7 +78,7 @@ jobs:
       # consumer resolves — onto code nothing has run. `filter=latest` is the endpoint's default,
       # so a re-run supersedes the run it replaced.
       #
-      # `ci / Live` is deliberately not consulted, and must not be: it is red precisely when a
+      # `ci / Drift` is deliberately not consulted, and must not be: it is red precisely when a
       # release is owed, because that is what its drift test asserts. Gating on it would mean a
       # release can only be cut when none is needed.
       - name: Verify the release
