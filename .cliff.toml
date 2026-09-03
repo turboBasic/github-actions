@@ -44,6 +44,11 @@ body = '''
 {% endfor %}'''
 postprocessors = [
   { pattern = '<!--[0-9]+-->', replace = "" },
+  # The body opens with a blank line or two, depending on whether the breaking-changes block
+  # rendered: the `{% endif %}` and the group loop each contribute one. Stripped here rather than
+  # by threading Tera whitespace control through both branches, where getting it right for one
+  # case breaks the other.
+  { pattern = '^\n+', replace = "" },
   # Collapsing the footer's newlines above leaves two spaces where the original had a
   # paragraph break. Squeezed here rather than in Tera, whose `replace` only takes a literal
   # and so would leave a run of three.
