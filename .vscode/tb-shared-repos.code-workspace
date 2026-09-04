@@ -8,7 +8,9 @@
     }
   ],
   "settings": {
-    "hide-files.files": []
+    "files.exclude": {
+      "**/.venv": true
+    }
   },
   "extensions": {
     "recommendations": [
