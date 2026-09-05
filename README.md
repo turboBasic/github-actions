@@ -176,7 +176,7 @@ permissions:
   contents: read
 
 jobs:
-  review:
+  deps:
     uses: turboBasic/github-actions/.github/workflows/dependency-review.yml@v4
     permissions:
       contents: read

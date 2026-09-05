@@ -9,7 +9,7 @@ current in the same change that alters an input contract.
 | Repository | Visibility | Calls | Notable inputs |
 | --- | --- | --- | --- |
 | `github-actions` (this one) | public | `python-ci`, `conventional-commits`, `dependency-review`, all **as self-calls** | defaults throughout |
-| `github-actions-test` | public | everything: `python-ci` twice, `conventional-commits`, `prek-advisory`, `populate-pr-description` | one call at defaults, one with `lint-changed-only: true`, `hook-stage: pre-push`, `run-typecheck: false` |
+| `github-actions-test` | public | everything: `python-ci` twice, `conventional-commits`, `prek-advisory`, `release`, `populate-pr-description` | one call at defaults, one with `lint-changed-only: true`, `hook-stage: pre-push`, `run-typecheck: false` |
 | `python-app-baseline` | public | `python-ci`, `conventional-commits` | defaults throughout |
 | `repo-factory` | public | `populate-pr-description` action only | — |
 | `opus-magnum` | private, **not yet migrated** | `python-ci`, `prek-advisory`, `conventional-commits` | `lint-changed-only: true`, `hook-stage: pre-push` on both, `run-typecheck: false`, `run-tests: false`, `mise-version` pinned |
@@ -56,9 +56,11 @@ test, in that order.
 
 A call site changes the names of the repo's status checks to `<caller job> / <called job>`, so a
 required check named after the old job stops reporting and blocks every merge. Update the required
-checks in the same change — for `python-app-baseline` they became `ci / CI`, `commits / PR title` and
-`commits / Commit messages`. This repository hit the same rename when `ci.yml` stopped running its
-checks inline and began calling `python-ci.yml`: its required `CI` became `ci / CI`.
+checks in the same change. `v4` renamed the called half of all three, so they are now
+`ci / lint-typecheck-test`, `commits / pr-title` and `commits / commit-messages` — a repin that
+leaves the old contexts required blocks every pull request on a check nothing will ever report.
+The caller half has moved before too: `python-app-baseline`'s required check gained a caller-id
+prefix when `ci.yml` stopped running its checks inline and began calling `python-ci.yml`.
 
 `REQUIRED_CHECKS` in `tests/test_action_pins.py` is the single statement of these contexts, checked
 against both the workflows and the live ruleset. A consumer wanting the same guard needs its own
