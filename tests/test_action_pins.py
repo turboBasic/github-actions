@@ -35,8 +35,15 @@ LABEL_WRITERS = (
     Path(".github/renovate.json"),
 )
 LABEL_TABLE_ROWS = 3
-# This repo's own plumbing: nothing outside resolves these, so they are neither callable nor a
-# reason to cut a release.
+# This repo's own plumbing. A change to one alters nothing a consumer's own build does, so it is
+# neither a reason to cut a release nor a version increment — the version describes the
+# consumer-facing surface, not this repository's history.
+#
+# The criterion is not whether anything outside can reach them. `github-actions-test` calls
+# `release.yml` at a tag, as standing coverage of this repository's release path rather than because
+# it needs a release cut, so its copy lags a change here until the next release — acceptable, because
+# every real release exercises the same path. Moving `release.yml` onto the consumer surface instead
+# would make every release-plumbing fix a version bump describing something no consumer resolves.
 OWN_CI = {
     "ci.yml",
     "commit-messages.yml",
