@@ -37,7 +37,13 @@ LABEL_WRITERS = (
 LABEL_TABLE_ROWS = 3
 # This repo's own plumbing: nothing outside resolves these, so they are neither callable nor a
 # reason to cut a release.
-OWN_CI = {"ci.yml", "commit-messages.yml", "release.yml", "release-proposal.yml"}
+OWN_CI = {
+    "ci.yml",
+    "commit-messages.yml",
+    "release.yml",
+    "release-proposal.yml",
+    "dependabot-automerge.yml",
+}
 # What a consumer resolves. `.github/workflows/` minus OWN_CI, plus every composite action.
 CONSUMER_FACING = (".github/workflows/", "actions/")
 # Applied rules for a branch, unlike the rulesets API, need no `administration` scope — it answers

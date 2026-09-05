@@ -4,6 +4,8 @@
 # at any depth and can maintain the `# vX.Y.Z` comment beside a digest pin.
 #
 # Kept for security-only updates, which Renovate does not replace.
+# dependabot-automerge.yml auto-merges a patch-level fix from here, same as renovate.json
+# does for a patch/digest bump — minor and major still wait for a human either way.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
