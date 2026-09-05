@@ -8,7 +8,7 @@ current in the same change that alters an input contract.
 
 | Repository | Visibility | Calls | Notable inputs |
 | --- | --- | --- | --- |
-| `github-actions` (this one) | public | `python-ci`, `conventional-commits`, both **as self-calls** | defaults throughout |
+| `github-actions` (this one) | public | `python-ci`, `conventional-commits`, `dependency-review`, all **as self-calls** | defaults throughout |
 | `github-actions-test` | public | everything: `python-ci` twice, `conventional-commits`, `precommit-advisory`, `populate-pr-description` | one call at defaults, one with `lint-changed-only: true`, `hook-stage: pre-push`, `run-typecheck: false` |
 | `python-app-baseline` | public | `python-ci`, `conventional-commits` | defaults throughout |
 | `repo-factory` | public | `populate-pr-description` action only | — |
