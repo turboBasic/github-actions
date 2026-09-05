@@ -19,9 +19,9 @@ name: release
 
 # Called by ci.yml behind `needs: [ci]` on a push to main, which is what makes the CI verdict a
 # structural fact rather than something to query: the job cannot start unless
-# `ci / lint-typecheck-test` succeeded on
-# this exact commit. `workflow_run` was the obvious trigger and is not used — zizmor rates it a
-# high-severity dangerous trigger, and it would also have meant reading the head SHA out of the event
+# `ci / lint-typecheck-test` succeeded on this exact commit. `workflow_run` was the obvious trigger
+# and is not used — zizmor rates it a high-severity dangerous trigger, and it would also have meant
+# reading the head SHA out of the event
 # payload, because `GITHUB_SHA` under `workflow_run` is the default branch's tip rather than the
 # commit CI reported on.
 on:
@@ -74,9 +74,9 @@ jobs:
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
 
-      # `ci / lint-typecheck-test` is the context the `main` ruleset requires, so on a merged commit it is the
-      # verdict that covers this tree. Releasing past it would move the major tag — the ref every
-      # consumer resolves — onto code nothing has run. `filter=latest` is the endpoint's default,
+      # `ci / lint-typecheck-test` is the context the `main` ruleset requires, so on a merged commit
+      # it is the verdict that covers this tree. Releasing past it would move the major tag — the ref
+      # every consumer resolves — onto code nothing has run. `filter=latest` is the endpoint's default,
       # so a re-run supersedes the run it replaced.
       #
       # `drift` is deliberately not consulted, and must not be: it is red precisely when a
