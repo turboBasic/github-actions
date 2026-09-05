@@ -18,6 +18,14 @@ jobs:
     permissions:
       contents: read
 
+  # Not a required context: a dependency this repo's own PRs pull in is reviewed the same as any
+  # consumer's, but nothing here should block a merge on an advisory a human hasn't triaged yet.
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    uses: $/.github/workflows/dependency-review.yml
+    permissions:
+      contents: read
+
   # The release is a job here rather than a workflow of its own with a `workflow_run` trigger,
   # because `needs: [ci]` *is* the CI verdict: this cannot start unless `ci / CI` succeeded on this
   # exact commit, so there is no check run to query, no API race to lose, and no head SHA to read out

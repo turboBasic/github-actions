@@ -9,11 +9,17 @@
   "semanticCommits": "enabled",
   "semanticCommitType": "chore",
   "semanticCommitScope": "deps",
+  "platformAutomerge": true,
   "packageRules": [
     {
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "non-major updates",
       "groupSlug": "non-major"
+    },
+    {
+      "description": "Every action here is already SHA-pinned, so a digest or patch bump only moves which commit the pin resolves to — the required checks are the review. A minor or major still waits for a human.",
+      "matchUpdateTypes": ["patch", "digest"],
+      "automerge": true
     },
     {
       "description": "First-party references track the moving major tag by design; a digest pin here would defeat it.",

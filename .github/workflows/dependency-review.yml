@@ -1,0 +1,34 @@
+# Reads the PR's dependency-graph diff against GitHub's advisory database. Renovate only ever
+# proposes upgrades for dependencies it already knows about, on its own schedule — nothing else
+# here gates a PR that introduces a new one with a known advisory or a disallowed license.
+
+name: Dependency review
+
+on:
+  workflow_call:
+    inputs:
+      fail-on-severity:
+        description: Minimum severity that fails the check. Empty fails on any severity.
+        type: string
+        required: false
+        default: ""
+      timeout-minutes:
+        type: number
+        required: false
+        default: 10
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    steps:
+      # No checkout: the action reads the dependency-graph diff between the PR's base and head
+      # commits from the API, not from a working tree.
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: ${{ inputs.fail-on-severity }}

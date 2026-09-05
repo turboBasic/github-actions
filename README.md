@@ -162,6 +162,36 @@ commit the local `commit-msg` hook accepts cannot fail here. Types must be bare 
 This workflow needs no `mise.toml` — it installs `uv` directly, so a repo with no mise config can
 still have its commit messages checked.
 
+### `dependency-review.yml`
+
+Reads the PR's dependency-graph diff against GitHub's advisory database and license policy. Renovate
+proposes upgrades for dependencies it already knows about, on its own schedule — this instead gates
+the PR that introduces a new one.
+
+```yaml
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    uses: turboBasic/github-actions/.github/workflows/dependency-review.yml@v2
+    permissions:
+      contents: read
+```
+
+| Input | Default | Purpose |
+| --- | --- | --- |
+| `fail-on-severity` | `""` | Minimum advisory severity that fails the check; empty uses the action's own default. |
+| `timeout-minutes` | `10` | Job timeout. |
+
+`contents: read` is all this needs. Pass `comment-summary-in-pr` yourself in a fork of this workflow
+if you want the summary posted as a PR comment too — that needs `pull-requests: write`, which this
+workflow does not request, for the same reason `python-ci.yml` does not: a caller wanting write
+access should have to ask for it in a workflow that says so.
+
 ## Composite actions
 
 ### `actions/precommit-advisory-pr`
