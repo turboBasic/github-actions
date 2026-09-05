@@ -36,7 +36,7 @@ permissions:
 
 jobs:
   advisory:
-    name: all-files
+    name: prek-advisory
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout-minutes }}

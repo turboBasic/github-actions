@@ -63,7 +63,7 @@ test, in that order.
 A call site changes the names of the repo's status checks to `<caller job> / <called job>`, so a
 required check named after the old job stops reporting and blocks every merge. Update the required
 checks in the same change. `v4` renamed the called half of all three, so they are now
-`ci / lint-typecheck-test`, `commits / pr-title` and `commits / commit-messages` — a repin that
+`ci / python-ci`, `commits / pr-title` and `commits / commit-messages` — a repin that
 leaves the old contexts required blocks every pull request on a check nothing will ever report.
 The caller half has moved before too, in this repository: its required check was named `CI` until
 `ci.yml` stopped running its checks inline and began calling `python-ci.yml` (`2596188`), which

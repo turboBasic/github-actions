@@ -122,7 +122,7 @@ proposal][release-proposal-workflow] workflow opens a pull request titled `bump:
 body is the exact notes that release will publish, and its diff is `pyproject.toml`'s
 `[project].version` and `uv.lock`'s matching line, nothing else. Read the notes, and:
 
-- **Agree with the version?** Merge it. `ci.yml` runs on the merge commit and, when `ci / lint-typecheck-test` passes,
+- **Agree with the version?** Merge it. `ci.yml` runs on the merge commit and, when `ci / python-ci` passes,
   calls the release: it renders the notes again from the same rules, tags `vX.Y.Z`, publishes the
   release with those notes, and force-moves `vX` last. No further human action.
 - **Disagree with the version?** Change it on the proposal branch before merging. The released version

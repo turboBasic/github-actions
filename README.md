@@ -236,7 +236,7 @@ major tag instead.
 
 `v3` is frozen where it is, and so is `v2` before it. Both resolve check names that no longer
 exist on `main`: `v4` renamed every job whose name composes one, so the three required contexts
-became `ci / lint-typecheck-test`, `commits / pr-title` and `commits / commit-messages`. A required
+became `ci / python-ci`, `commits / pr-title` and `commits / commit-messages`. A required
 check that stops reporting blocks every pull request, so **update your required status checks in the
 same change as the ref** — nothing else about the call sites moved. `v3` also renamed
 `precommit-advisory.yml` to `prek-advisory.yml` and `actions/precommit-advisory-pr` to

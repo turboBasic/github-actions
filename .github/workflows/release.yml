@@ -18,12 +18,11 @@
 name: release
 
 # Called by ci.yml behind `needs: [ci]` on a push to main, which is what makes the CI verdict a
-# structural fact rather than something to query: the job cannot start unless
-# `ci / lint-typecheck-test` succeeded on this exact commit. `workflow_run` was the obvious trigger
-# and is not used — zizmor rates it a high-severity dangerous trigger, and it would also have meant
-# reading the head SHA out of the event
-# payload, because `GITHUB_SHA` under `workflow_run` is the default branch's tip rather than the
-# commit CI reported on.
+# structural fact rather than something to query: the job cannot start unless `ci / python-ci`
+# succeeded on this exact commit. `workflow_run` was the obvious trigger and is not used — zizmor
+# rates it a high-severity dangerous trigger, and it would also have meant reading the head SHA out
+# of the event payload, because `GITHUB_SHA` under `workflow_run` is the default branch's tip rather
+# than the commit CI reported on.
 on:
   workflow_call:
     inputs:
@@ -74,10 +73,10 @@ jobs:
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
 
-      # `ci / lint-typecheck-test` is the context the `main` ruleset requires, so on a merged commit
-      # it is the verdict that covers this tree. Releasing past it would move the major tag — the ref
-      # every consumer resolves — onto code nothing has run. `filter=latest` is the endpoint's default,
-      # so a re-run supersedes the run it replaced.
+      # `ci / python-ci` is the context the `main` ruleset requires, so on a merged commit it is the
+      # verdict that covers this tree. Releasing past it would move the major tag — the ref every
+      # consumer resolves — onto code nothing has run. `filter=latest` is the endpoint's default, so
+      # a re-run supersedes the run it replaced.
       #
       # `drift` is deliberately not consulted, and must not be: it is red precisely when a
       # release is owed, because that is what its drift test asserts. Gating on it would mean a
@@ -141,9 +140,9 @@ jobs:
           # `missing` and silently cancel a legitimate release.
           if [[ ${GITHUB_EVENT_NAME} == workflow_dispatch ]]; then
             conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs" \
-              --jq '[.check_runs[] | select(.name == "ci / lint-typecheck-test") | .conclusion] | first // "missing"')
+              --jq '[.check_runs[] | select(.name == "ci / python-ci") | .conclusion] | first // "missing"')
             if [[ ${conclusion} != success ]]; then
-              echo "::error::ci / lint-typecheck-test on ${GITHUB_SHA} is '${conclusion}', not success — the major tag would move onto unverified code"
+              echo "::error::ci / python-ci on ${GITHUB_SHA} is '${conclusion}', not success — the major tag would move onto unverified code"
               exit 1
             fi
           fi
