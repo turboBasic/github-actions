@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   ci:
-    uses: turboBasic/github-actions/.github/workflows/python-ci.yml@v3
+    uses: turboBasic/github-actions/.github/workflows/python-ci.yml@v4
     permissions:
       contents: read
 ```
@@ -81,7 +81,7 @@ permissions:
 
 jobs:
   advisory:
-    uses: turboBasic/github-actions/.github/workflows/prek-advisory.yml@v3
+    uses: turboBasic/github-actions/.github/workflows/prek-advisory.yml@v4
     permissions:
       contents: read
       pull-requests: write
@@ -118,7 +118,7 @@ permissions:
 
 jobs:
   commits:
-    uses: turboBasic/github-actions/.github/workflows/conventional-commits.yml@v3
+    uses: turboBasic/github-actions/.github/workflows/conventional-commits.yml@v4
     permissions:
       contents: read
       pull-requests: read
@@ -177,7 +177,7 @@ permissions:
 
 jobs:
   review:
-    uses: turboBasic/github-actions/.github/workflows/dependency-review.yml@v3
+    uses: turboBasic/github-actions/.github/workflows/dependency-review.yml@v4
     permissions:
       contents: read
 ```
@@ -200,7 +200,7 @@ Runs prek over every file, non-blocking, and reports failures as a job summary p
 PR comment that is *updated* rather than duplicated on later pushes.
 
 ```yaml
-- uses: turboBasic/github-actions/actions/prek-advisory-pr@v3
+- uses: turboBasic/github-actions/actions/prek-advisory-pr@v4
   with:
     github-token: ${{ github.token }}
     hook-stage: pre-push # optional
@@ -214,7 +214,7 @@ Renders the repo's PR template as a Jinja2 template, substituting `{{ descriptio
 subjects and `{{ changes }}` with full commit messages, then patches the PR body.
 
 ```yaml
-- uses: turboBasic/github-actions/actions/populate-pr-description@v3
+- uses: turboBasic/github-actions/actions/populate-pr-description@v4
   with:
     github-token: ${{ github.token }}
     pr-number: ${{ github.event.pull_request.number }}
@@ -229,24 +229,27 @@ Python or `uv` setup. `template-path` overrides the default `.github/PULL_REQUES
 
 ## Versioning
 
-Pin `@v3`. `v3.x.y` tags are immutable; `v3` is force-moved to each release, so fixes arrive on the
+Pin `@v4`. `v4.x.y` tags are immutable; `v4` is force-moved to each release, so fixes arrive on the
 next run without a PR in every consumer. A change that breaks an existing call site gets a new
 major tag instead.
 
-`v2` is frozen where it is. It resolves the pre-`v3` names — `precommit-advisory.yml` and
-`actions/precommit-advisory-pr` — which no longer exist on `main`; `v3` renamed both to `prek-*`
-after the tool they run. Nothing else about the call sites changed, so migrating is those two paths
-and the ref.
+`v3` is frozen where it is, and so is `v2` before it. Both resolve check names that no longer
+exist on `main`: `v4` renamed every job whose name composes one, so the three required contexts
+became `ci / lint-typecheck-test`, `commits / pr-title` and `commits / commit-messages`. A required
+check that stops reporting blocks every pull request, so **update your required status checks in the
+same change as the ref** — nothing else about the call sites moved. `v3` also renamed
+`precommit-advisory.yml` to `prek-advisory.yml` and `actions/precommit-advisory-pr` to
+`actions/prek-advisory-pr`, so a consumer coming from `v2` changes those two paths as well.
 
-`v3` moves when a release is cut, and cutting one is approving a pull request: after a merge to
+`v4` moves when a release is cut, and cutting one is approving a pull request: after a merge to
 `main` a bot opens a proposal carrying the next version and the exact notes it would publish, and
 merging that proposal tags and releases once CI passes on it. Nothing is built or published from
 here, so the tag itself is the artifact. The procedure, and what decides the next version, are in
 [CONTRIBUTING][contributing-releasing].
 
 One exception to that immutability: `prek-advisory.yml` references
-`actions/prek-advisory-pr@v3`, because a reusable workflow cannot interpolate its own ref into
-a `uses:`. A consumer pinned to `@v3.0.1` therefore still gets the *current* `v3` composite action
+`actions/prek-advisory-pr@v4`, because a reusable workflow cannot interpolate its own ref into
+a `uses:`. A consumer pinned to `@v4.0.1` therefore still gets the *current* `v4` composite action
 in that one job. Pin the action directly in your own workflow if you need it frozen.
 
 This is a deliberate exception to the rule that actions are pinned to a full SHA. That rule exists
