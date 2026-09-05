@@ -198,8 +198,16 @@ SHA-pinning rule above, and the distinction matters: that rule exists because a 
 repoint a tag. This repo shares its owner with every consumer, and SHA-pinning first-party
 workflows would mean one Dependabot PR per consumer for every one-line fix.
 
-A change to a workflow's input contract that would break an existing call site is a major bump — a
-new major tag, with the old one left where it is — not a move of the current one.
+A major bump — a new major tag, with the old one left where it is, not a move of the current one — is
+owed by any change a consumer cannot absorb by resolving the new ref alone. Three shapes have come up,
+and only the first is about inputs:
+
+- **The call site stops working.** A removed or renamed input, a `uses:` path that no longer exists.
+- **A status check the consumer requires stops reporting.** Renaming a job whose name composes a check
+  context retires it, and a required context that never reports blocks every pull request — the
+  consumer's ruleset has to be edited, which no ref can do for it.
+- **A permission the caller must grant changes.** Job permissions are validated before any job exists,
+  so a caller granting too little fails at startup with no job and no log.
 
 **The version describes the consumer-facing surface, not this repository's commit history.** Judge a
 bump by what changed under `.github/workflows/` and `actions/`; a `feat:` touching only our own

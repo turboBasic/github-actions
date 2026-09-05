@@ -230,7 +230,8 @@ Python or `uv` setup. `template-path` overrides the default `.github/PULL_REQUES
 ## Versioning
 
 Pin `@v4`. `v4.x.y` tags are immutable; `v4` is force-moved to each release, so fixes arrive on the
-next run without a PR in every consumer. A change that breaks an existing call site gets a new
+next run without a PR in every consumer. Anything a consumer cannot absorb by resolving the new ref
+alone — a broken call site, a retired status-check context, a permission it must grant — gets a new
 major tag instead.
 
 `v3` is frozen where it is, and so is `v2` before it. Both resolve check names that no longer
