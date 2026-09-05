@@ -8,8 +8,8 @@ current in the same change that alters an input contract.
 
 | Repository | Visibility | Calls | Notable inputs |
 | --- | --- | --- | --- |
-| `github-actions` (this one) | public | `python-ci`, `conventional-commits`, `dependency-review`, all **as self-calls** | defaults throughout |
-| `github-actions-test` | public | everything: `python-ci` twice, `conventional-commits`, `prek-advisory`, `populate-pr-description` | one call at defaults, one with `lint-changed-only: true`, `hook-stage: pre-push`, `run-typecheck: false` |
+| `github-actions` (this one) | public | `python-ci`, `conventional-commits`, `dependency-review`, `release`, all **as self-calls** | defaults throughout |
+| `github-actions-test` | public | everything: `python-ci` twice, `conventional-commits`, `prek-advisory`, `release`, `populate-pr-description` | one call at defaults, one with `lint-changed-only: true`, `hook-stage: pre-push`, `run-typecheck: false` |
 | `python-app-baseline` | public | `python-ci`, `conventional-commits` | defaults throughout |
 | `repo-factory` | public | `populate-pr-description` action only | — |
 | `opus-magnum` | private, **not yet migrated** | `python-ci`, `prek-advisory`, `conventional-commits` | `lint-changed-only: true`, `hook-stage: pre-push` on both, `run-typecheck: false`, `run-tests: false`, `mise-version` pinned |
@@ -17,11 +17,17 @@ current in the same change that alters an input contract.
 `v3` renamed `precommit-advisory.yml` to `prek-advisory.yml` and `actions/precommit-advisory-pr` to
 `actions/prek-advisory-pr`, so a consumer's `uses:` path has to change with the ref — a call left on
 the old path fails at workflow-parse time with no job and no check to re-run. `v2` stays
-where it is and still resolves the old names, so nothing breaks until a repo repins. Repin
-`github-actions-test` first: it is the only live caller of `prek-advisory`, and `opus-magnum` should
-migrate straight onto `@v3`.
+where it is and still resolves the old names, so nothing breaks until a repo repins.
 
-`github-actions-test` exists to run these at `@v3` rather than to do work of its own. It is the only
+Repin order for `v4`, and the reason for it: `github-actions-test` first, because it is the only
+caller of `prek-advisory` and `release` and so the only place their renamed checks report at all.
+`python-app-baseline` second — it never pinned `v3`, so it moves from `v2` to `v4` in one hop and
+changes the `prek-*` paths at the same time. `opus-magnum` has never migrated and goes straight to
+`v4` whenever it does. `repo-factory` needs nothing: a composite action reports no check of its own.
+Each repin updates that repository's own required status checks in the same change, or its next pull
+request blocks on three contexts nothing will report.
+
+`github-actions-test` exists to run these at `@v4` rather than to do work of its own. It is the only
 caller of `opus-magnum`'s input combination, so it is where those inputs are known to work before
 `opus-magnum` migrates onto them. Break a workflow and it goes red there, on a repository nobody
 depends on.
@@ -56,9 +62,12 @@ test, in that order.
 
 A call site changes the names of the repo's status checks to `<caller job> / <called job>`, so a
 required check named after the old job stops reporting and blocks every merge. Update the required
-checks in the same change — for `python-app-baseline` they became `ci / CI`, `commits / PR title` and
-`commits / Commit messages`. This repository hit the same rename when `ci.yml` stopped running its
-checks inline and began calling `python-ci.yml`: its required `CI` became `ci / CI`.
+checks in the same change. `v4` renamed the called half of all three, so they are now
+`ci / python-ci`, `commits / pr-title` and `commits / commit-messages` — a repin that
+leaves the old contexts required blocks every pull request on a check nothing will ever report.
+The caller half has moved before too, in this repository: its required check was named `CI` until
+`ci.yml` stopped running its checks inline and began calling `python-ci.yml` (`2596188`), which
+prefixed it with the calling job's id.
 
 `REQUIRED_CHECKS` in `tests/test_action_pins.py` is the single statement of these contexts, checked
 against both the workflows and the live ruleset. A consumer wanting the same guard needs its own

@@ -16,8 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The job id prefixes the called jobs' check names: `commits / PR title` and
-  # `commits / Commit messages`, which the ruleset requires.
+  # The job id prefixes the called jobs' check names: `commits / pr-title` and
+  # `commits / commit-messages`, which the ruleset requires.
   commits:
     uses: $/.github/workflows/conventional-commits.yml
     permissions:

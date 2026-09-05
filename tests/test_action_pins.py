@@ -24,9 +24,9 @@ TAG_COMMENT = re.compile(r"#\s*v?\d")
 # context and blocks every pull request. This table is the single statement of that contract: the
 # tree is checked against it offline, the live ruleset against it in CI.
 REQUIRED_CHECKS = [
-    ("ci / CI", "ci.yml", "python-ci.yml"),
-    ("commits / PR title", "commit-messages.yml", "conventional-commits.yml"),
-    ("commits / Commit messages", "commit-messages.yml", "conventional-commits.yml"),
+    ("ci / python-ci", "ci.yml", "python-ci.yml"),
+    ("commits / pr-title", "commit-messages.yml", "conventional-commits.yml"),
+    ("commits / commit-messages", "commit-messages.yml", "conventional-commits.yml"),
 ]
 REPO_URL = "https://api.github.com/repos/turboBasic/github-actions"
 LABEL_WRITERS = (
@@ -35,8 +35,18 @@ LABEL_WRITERS = (
     Path(".github/renovate.json"),
 )
 LABEL_TABLE_ROWS = 3
-# This repo's own plumbing: nothing outside resolves these, so they are neither callable nor a
-# reason to cut a release.
+# This repo's own plumbing. A change to how one *behaves* alters nothing a consumer's own build
+# does, so it is neither a reason to cut a release nor a version increment — the version describes
+# the consumer-facing surface, not this repository's history. Input contracts are a separate
+# question: `release.yml` declares `workflow_call` with a `dry-run` input that a real caller pins,
+# so breaking that input is a major like any other. Membership excuses behaviour, not contracts.
+#
+# The criterion is not whether anything outside can reach them. `github-actions-test` calls
+# `release.yml` at a tag, as standing coverage of this repository's release path rather than
+# because it needs a release cut, so its copy lags a change here until the next release —
+# acceptable, because every real release exercises the same path. Moving `release.yml` onto the
+# consumer surface instead would make every release-plumbing fix a version bump describing
+# something no consumer resolves.
 OWN_CI = {
     "ci.yml",
     "commit-messages.yml",
@@ -215,7 +225,10 @@ def test_the_required_check_names_are_intact(
         f"{caller_name}'s calling job must keep the id `{job_id}`; it is the first half of the "
         f"required check `{context}`."
     )
-    assert f"name: {job_name}\n" in called.read_text(), (
+    # Anchored on the four-space job indent: a workflow-level `name:` sits at column 0, and since
+    # v4 the job names are lowercase-kebab, so an unanchored match could pass off the wrong line —
+    # `name: python-ci` at python-ci.yml:4 would satisfy a job named `python-ci`.
+    assert f"\n    name: {job_name}\n" in called.read_text(), (
         f"{called_name} must keep `name: {job_name}`; it is the second half of the required "
         f"check `{context}`."
     )

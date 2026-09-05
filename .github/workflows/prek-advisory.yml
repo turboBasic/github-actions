@@ -36,7 +36,7 @@ permissions:
 
 jobs:
   advisory:
-    name: Advisory lint (all files)
+    name: prek-advisory
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout-minutes }}
@@ -64,9 +64,10 @@ jobs:
           restore-keys: |
             prek-${{ runner.os }}-
 
-      # Resolves at the moving @v3 even when the caller pins @v3.0.1: a reusable
-      # workflow cannot interpolate its own ref into `uses:`.
-      - uses: turboBasic/github-actions/actions/prek-advisory-pr@v3
+      # Resolves at the moving @v4 even when the caller pins @v4.0.1: a reusable
+      # workflow cannot interpolate its own ref into `uses:`. This line moves with every major —
+      # left behind, it pins a frozen tag and no later fix to the action reaches a consumer.
+      - uses: turboBasic/github-actions/actions/prek-advisory-pr@v4
         with:
           github-token: ${{ github.token }}
           hook-stage: ${{ inputs.hook-stage }}
