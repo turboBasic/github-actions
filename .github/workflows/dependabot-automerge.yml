@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   automerge:
-    name: Auto-merge
+    name: auto-merge
     # The PR author's numeric id, not github.actor: the latter is whoever triggered this
     # run (a maintainer re-running it, say), not necessarily who opened the PR. 49699333
     # is Dependabot's fixed id; a login string alone can be spoofed by a display name.

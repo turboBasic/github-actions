@@ -33,7 +33,7 @@ concurrency:
 
 jobs:
   propose:
-    name: Propose
+    name: propose
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
