@@ -63,11 +63,10 @@ Before a change to a reusable workflow is done:
 
 Move the major tag only after that.
 
-A workflow only this repo runs — `ci.yml`, `commit-messages.yml`, `release.yml`,
-`release-proposal.yml` — has no consumer to call it. Dispatch it, or open a PR that triggers it, and
-read the run. A brand-new one cannot be dispatched at all: GitHub offers `workflow_dispatch` only for
-a workflow file already on the default branch, so exercising one before merge means a temporary
-trigger scoped to your branch, removed in the same pull request.
+A workflow only this repo runs — `ci.yml`, `commit-messages.yml`, `dependabot-automerge.yml`,
+`release.yml`, `release-proposal.yml` — has no consumer to call it. Dispatch it, or open a PR that
+triggers it, and read the run. A brand-new one cannot be dispatched at all: GitHub offers `workflow_dispatch` only for a workflow file already on the default branch, so exercising one before
+merge means a temporary trigger scoped to your branch, removed in the same pull request.
 
 ## Labels
 

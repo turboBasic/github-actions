@@ -1,0 +1,46 @@
+# Dependabot here only ever opens security-fix PRs — dependabot.yml sets
+# `open-pull-requests-limit: 0` for version updates, which Renovate owns exclusively. A
+# security fix is not "boring" the way a Renovate patch/digest bump is: fixing a CVE can
+# require jumping to a minor or major release, which changes behavior. So this mirrors
+# Renovate's own rule rather than trusting "security" alone — semver-patch auto-merges,
+# minor and major still wait for a human, same risk line drawn in renovate.json.
+#
+# Not repo-local plumbing in the OWN_CI sense of "nothing outside resolves this": nothing
+# outside ever *could*, since it reacts only to this repo's own dependabot.yml and requires
+# no `workflow_call`. tests/test_action_pins.py's OWN_CI set covers it for that reason.
+
+name: Dependabot auto-merge
+
+on:
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  automerge:
+    name: Auto-merge
+    # The PR author's numeric id, not github.actor: the latter is whoever triggered this
+    # run (a maintainer re-running it, say), not necessarily who opened the PR. 49699333
+    # is Dependabot's fixed id; a login string alone can be spoofed by a display name.
+    if: github.event.pull_request.user.id == 49699333
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write # enables auto-merge on the PR
+      contents: write # gh pr merge writes to the base branch once checks pass
+    steps:
+      - uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        id: metadata
+        with:
+          github-token: ${{ github.token }}
+
+      - name: Enable auto-merge for a patch-level fix
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "${PR_URL}"
