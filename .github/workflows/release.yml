@@ -46,7 +46,7 @@ concurrency:
 
 jobs:
   release:
-    name: Release
+    name: tag-and-publish
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
