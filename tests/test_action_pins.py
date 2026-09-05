@@ -134,6 +134,34 @@ def test_first_party_actions_use_the_major_tag(path: Path) -> None:
             f"{path.name}:{number} references first-party {target}; these track the "
             f"moving major tag, not a SHA — see README."
         )
+        # Shape alone is not enough: a ref left on the *previous* major keeps matching `^v\d+$`
+        # forever while pointing at a tag README has since declared frozen, so no later fix to the
+        # target ever reaches a consumer. v4 shipped with prek-advisory.yml still on `@v3` for
+        # exactly this reason, caught by hand in review rather than by a gate.
+        current = f"v{_declared_version().split('.')[0]}"
+        assert version == current, (
+            f"{path.name}:{number} references first-party {target}, but [project].version declares "
+            f"{current}. A ref on a frozen major stops moving, so nothing done to the target after "
+            f"that major was frozen reaches anyone resolving this line."
+        )
+
+
+def test_readme_call_sites_name_the_declared_major() -> None:
+    # README is the only place a concrete major is written literally, which makes it the copy a
+    # consumer pastes — and the one file nothing checked against pyproject.toml. Restricted to lines
+    # carrying a `uses:`, so prose about a frozen major is free to name it.
+    readme = REPO_ROOT / "README.md"
+    current = f"v{_declared_version().split('.')[0]}"
+    stale = [
+        f"{number}: {line.strip()}"
+        for number, line in enumerate(readme.read_text().splitlines(), start=1)
+        if "uses:" in line and (found := re.search(rf"{re.escape(FIRST_PARTY)}\S+@(v\d+)", line))
+        if found.group(1) != current
+    ]
+    assert not stale, (
+        f"README names a major other than {current}, which [project].version declares, on a call "
+        f"site a consumer copies: {stale}."
+    )
 
 
 def _mise_tool_versions() -> dict[str, str]:
