@@ -2,7 +2,7 @@
 # method: a squash merge takes its subject from the PR title, a rebase merge keeps
 # the commits themselves.
 
-name: Conventional Commits
+name: conventional-commits
 
 on:
   workflow_call:

@@ -1,7 +1,7 @@
 # Self-repository `$/` ref rather than `@vN`: it resolves at this commit, so a defect in
 # conventional-commits.yml fails the pull request that introduces it. See docs/ai-instructions.md.
 
-name: Commit messages
+name: commit-messages
 
 on:
   pull_request:

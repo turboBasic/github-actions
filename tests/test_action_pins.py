@@ -166,7 +166,7 @@ def test_ai_instructions_names_no_concrete_major() -> None:
 
 def test_a_self_call_resolves_at_the_commit_under_review() -> None:
     # Every other gate accepts both forms — test_first_party_actions_use_the_major_tag accepts the
-    # tagged one by design, since precommit-advisory.yml references a composite action that way —
+    # tagged one by design, since prek-advisory.yml references a composite action that way —
     # so nothing else here would notice a self-call rewritten to resolve at the tag instead.
     for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
         for number, ref in _uses_lines(path):
@@ -505,11 +505,11 @@ def test_allowed_types_match_the_commitizen_builtin_set() -> None:
 def test_python_ci_requests_no_pull_request_permission() -> None:
     # A called workflow's job permissions are validated when the run starts, before any
     # `if:` can skip the job, so a `pull-requests: write` anywhere here would force every
-    # caller to grant it. A job needing write belongs in precommit-advisory.yml, which
+    # caller to grant it. A job needing write belongs in prek-advisory.yml, which
     # only its own callers invoke.
     workflow = REPO_ROOT / ".github" / "workflows" / "python-ci.yml"
     assert "pull-requests" not in workflow.read_text(), (
         "python-ci.yml requests a pull-requests permission; every caller would then be "
         "forced to grant it, failing at startup otherwise. Put the job that needs it in "
-        "precommit-advisory.yml instead."
+        "prek-advisory.yml instead."
     )

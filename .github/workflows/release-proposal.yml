@@ -18,7 +18,7 @@
 # Nothing is pushed from the working tree: the checkout carries no credential, so the Git Data API
 # is the only route to the branch.
 
-name: Release proposal
+name: release-proposal
 
 on:
   push:

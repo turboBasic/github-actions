@@ -2,7 +2,7 @@
 # proposes upgrades for dependencies it already knows about, on its own schedule — nothing else
 # here gates a PR that introduces a new one with a known advisory or a disallowed license.
 
-name: Dependency review
+name: dependency-review
 
 on:
   workflow_call:

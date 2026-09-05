@@ -22,7 +22,7 @@ body:
       options:
         - .github/workflows/python-ci.yml
         - .github/workflows/conventional-commits.yml
-        - actions/precommit-advisory-pr
+        - actions/prek-advisory-pr
         - actions/populate-pr-description
         - Something else, or not sure
     validations:

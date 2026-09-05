@@ -4,7 +4,7 @@
 # anywhere forces every caller to grant it — and a caller that does not gets
 # `startup_failure` with no job, no log and no diagnostic.
 
-name: prek advisory
+name: prek-advisory
 
 on:
   workflow_call:
@@ -22,7 +22,7 @@ on:
         type: string
         required: false
         default: ""
-      cache-pre-commit:
+      cache-prek:
         type: boolean
         required: false
         default: true
@@ -56,17 +56,17 @@ jobs:
         run: uv sync --locked
 
       - name: Cache prek environments
-        if: inputs.cache-pre-commit
+        if: inputs.cache-prek
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/prek
-          key: precommit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
           restore-keys: |
-            precommit-${{ runner.os }}-
+            prek-${{ runner.os }}-
 
-      # Resolves at the moving @v2 even when the caller pins @v2.1.3: a reusable
+      # Resolves at the moving @v3 even when the caller pins @v3.0.1: a reusable
       # workflow cannot interpolate its own ref into `uses:`.
-      - uses: turboBasic/github-actions/actions/precommit-advisory-pr@v2
+      - uses: turboBasic/github-actions/actions/prek-advisory-pr@v3
         with:
           github-token: ${{ github.token }}
           hook-stage: ${{ inputs.hook-stage }}
