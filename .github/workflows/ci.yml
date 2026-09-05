@@ -20,7 +20,10 @@ jobs:
 
   # Not a required context: a dependency this repo's own PRs pull in is reviewed the same as any
   # consumer's, but nothing here should block a merge on an advisory a human hasn't triaged yet.
-  dependency-review:
+  #
+  # `deps` rather than `dependency-review`: the job id is the first half of the check name and the
+  # called job's name is the second, so matching them reads `dependency-review / dependency-review`.
+  deps:
     if: github.event_name == 'pull_request'
     uses: $/.github/workflows/dependency-review.yml
     permissions:
