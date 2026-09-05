@@ -48,7 +48,7 @@ permissions:
 
 jobs:
   title:
-    name: PR title
+    name: pr-title
     if: inputs.check-title && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout-minutes }}
@@ -63,7 +63,7 @@ jobs:
           types: ${{ inputs.types }}
 
   commits:
-    name: Commit messages
+    name: commit-messages
     if: inputs.check-commits && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout-minutes }}

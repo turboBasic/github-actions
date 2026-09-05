@@ -67,7 +67,7 @@ permissions:
 
 jobs:
   ci:
-    name: CI
+    name: lint-typecheck-test
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout-minutes }}
     steps:

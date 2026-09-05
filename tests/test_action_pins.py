@@ -24,9 +24,9 @@ TAG_COMMENT = re.compile(r"#\s*v?\d")
 # context and blocks every pull request. This table is the single statement of that contract: the
 # tree is checked against it offline, the live ruleset against it in CI.
 REQUIRED_CHECKS = [
-    ("ci / CI", "ci.yml", "python-ci.yml"),
-    ("commits / PR title", "commit-messages.yml", "conventional-commits.yml"),
-    ("commits / Commit messages", "commit-messages.yml", "conventional-commits.yml"),
+    ("ci / lint-typecheck-test", "ci.yml", "python-ci.yml"),
+    ("commits / pr-title", "commit-messages.yml", "conventional-commits.yml"),
+    ("commits / commit-messages", "commit-messages.yml", "conventional-commits.yml"),
 ]
 REPO_URL = "https://api.github.com/repos/turboBasic/github-actions"
 LABEL_WRITERS = (
