@@ -1,7 +1,7 @@
 # The canonical Python CI: mise tasks are the entry point, so what CI runs and what
 # `mise run ci` runs locally cannot drift apart.
 
-name: Python CI
+name: python-ci
 
 on:
   workflow_call:
@@ -40,7 +40,7 @@ on:
         description: >
           Run prek over changed files instead of the lint task. Faster on a large
           tree, but a PR can pass while the tree is broken — pair it with a call to
-          precommit-advisory.yml, which is the compensating control.
+          prek-advisory.yml, which is the compensating control.
         type: boolean
         required: false
         default: false
@@ -49,11 +49,11 @@ on:
           prek hook stage for the changed-files run. Empty runs the default stage;
           set pre-push for repos that reserve the slow hooks for it, otherwise those
           hooks silently stop running on PRs. Pass the same value to
-          precommit-advisory.yml if you call it.
+          prek-advisory.yml if you call it.
         type: string
         required: false
         default: ""
-      cache-pre-commit:
+      cache-prek:
         type: boolean
         required: false
         default: true
@@ -84,13 +84,13 @@ jobs:
         run: uv sync --locked
 
       - name: Cache prek environments
-        if: inputs.cache-pre-commit && inputs.lint-changed-only
+        if: inputs.cache-prek && inputs.lint-changed-only
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/prek
-          key: precommit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
           restore-keys: |
-            precommit-${{ runner.os }}-
+            prek-${{ runner.os }}-
 
       - name: Get changed files
         if: inputs.lint-changed-only && github.event_name == 'pull_request'

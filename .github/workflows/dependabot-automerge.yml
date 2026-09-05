@@ -9,7 +9,7 @@
 # outside ever *could*, since it reacts only to this repo's own dependabot.yml and requires
 # no `workflow_call`. tests/test_action_pins.py's OWN_CI set covers it for that reason.
 
-name: Dependabot auto-merge
+name: dependabot-automerge
 
 on:
   pull_request:

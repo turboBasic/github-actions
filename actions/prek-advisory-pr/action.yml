@@ -1,4 +1,4 @@
-name: precommit-advisory-pr
+name: prek-advisory-pr
 description: Run prek on all files for PRs as advisory warning with summary and idempotent PR comment
 
 inputs:

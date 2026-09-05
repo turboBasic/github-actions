@@ -15,7 +15,7 @@
 # nothing is pushed from the working tree: every write still goes through the API, so no credential
 # is left in a workspace for a later step to pick up.
 
-name: Release
+name: release
 
 # Called by ci.yml behind `needs: [ci]` on a push to main, which is what makes the CI verdict a
 # structural fact rather than something to query: the job cannot start unless `ci / CI` succeeded on

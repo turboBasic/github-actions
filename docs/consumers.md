@@ -9,12 +9,19 @@ current in the same change that alters an input contract.
 | Repository | Visibility | Calls | Notable inputs |
 | --- | --- | --- | --- |
 | `github-actions` (this one) | public | `python-ci`, `conventional-commits`, `dependency-review`, all **as self-calls** | defaults throughout |
-| `github-actions-test` | public | everything: `python-ci` twice, `conventional-commits`, `precommit-advisory`, `populate-pr-description` | one call at defaults, one with `lint-changed-only: true`, `hook-stage: pre-push`, `run-typecheck: false` |
+| `github-actions-test` | public | everything: `python-ci` twice, `conventional-commits`, `prek-advisory`, `populate-pr-description` | one call at defaults, one with `lint-changed-only: true`, `hook-stage: pre-push`, `run-typecheck: false` |
 | `python-app-baseline` | public | `python-ci`, `conventional-commits` | defaults throughout |
 | `repo-factory` | public | `populate-pr-description` action only | — |
-| `opus-magnum` | private, **not yet migrated** | `python-ci`, `precommit-advisory`, `conventional-commits` | `lint-changed-only: true`, `hook-stage: pre-push` on both, `run-typecheck: false`, `run-tests: false`, `mise-version` pinned |
+| `opus-magnum` | private, **not yet migrated** | `python-ci`, `prek-advisory`, `conventional-commits` | `lint-changed-only: true`, `hook-stage: pre-push` on both, `run-typecheck: false`, `run-tests: false`, `mise-version` pinned |
 
-`github-actions-test` exists to run these at `@v2` rather than to do work of its own. It is the only
+`v3` renamed `precommit-advisory.yml` to `prek-advisory.yml` and `actions/precommit-advisory-pr` to
+`actions/prek-advisory-pr`, so a consumer's `uses:` path has to change with the ref — a call left on
+the old path fails at workflow-parse time with no job and no check to re-run. `v2` stays
+where it is and still resolves the old names, so nothing breaks until a repo repins. Repin
+`github-actions-test` first: it is the only live caller of `prek-advisory`, and `opus-magnum` should
+migrate straight onto `@v3`.
+
+`github-actions-test` exists to run these at `@v3` rather than to do work of its own. It is the only
 caller of `opus-magnum`'s input combination, so it is where those inputs are known to work before
 `opus-magnum` migrates onto them. Break a workflow and it goes red there, on a repository nobody
 depends on.
@@ -27,7 +34,7 @@ so it needs `run-typecheck: false` and `run-tests: false` alongside the lint inp
 
 `opus-magnum` needs `hook-stage: pre-push`: it reserves mypy for that stage, and without the input
 those hooks silently stop running on PRs. It and `github-actions-test` are the only repos calling
-`precommit-advisory.yml`, so the only two granting `pull-requests: write` — pass `hook-stage` to both
+`prek-advisory.yml`, so the only two granting `pull-requests: write` — pass `hook-stage` to both
 calls, or the blocking run and the advisory run check different hooks. No other consumer needs
 `write` on anything. Callers of
 `conventional-commits.yml` all grant `pull-requests: read` — see the README for why it is not

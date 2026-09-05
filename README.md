@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   ci:
-    uses: turboBasic/github-actions/.github/workflows/python-ci.yml@v2
+    uses: turboBasic/github-actions/.github/workflows/python-ci.yml@v3
     permissions:
       contents: read
 ```
@@ -45,23 +45,23 @@ jobs:
 | `lint-task` / `typecheck-task` / `test-task` | `lint` / `typecheck` / `test` | Override a differently-named `mise` task. |
 | `lint-changed-only` | `false` | Lint changed files via prek instead of the lint task. |
 | `hook-stage` | `""` | prek hook stage for the changed-files run; empty is the default stage. |
-| `cache-pre-commit` | `true` | Cache `~/.cache/prek`, keyed on the config hash. |
+| `cache-prek` | `true` | Cache `~/.cache/prek`, keyed on the config hash. |
 | `timeout-minutes` | `20` | Job timeout. |
 
 `contents: read` is all this workflow needs, and all you should grant it.
 
 `lint-changed-only` is faster on a large tree but lets a PR pass while the tree is broken. Pair it
-with [`precommit-advisory.yml`][precommit-advisory-heading], which is the compensating control.
+with [`prek-advisory.yml`][prek-advisory-heading], which is the compensating control.
 
 Set `hook-stage: pre-push` if the repo reserves its slow hooks for that stage — without it those
-hooks silently stop running on PRs. Pass the same value to `precommit-advisory.yml` if you call it,
+hooks silently stop running on PRs. Pass the same value to `prek-advisory.yml` if you call it,
 or the two runs disagree about which hooks apply.
 
 Requires a `mise.toml` with the tasks being run, and a `uv.lock` — the workflow runs
 `uv sync --locked`, so any lockfile drift fails it, including a project version bumped without
 re-running `uv lock`.
 
-### `precommit-advisory.yml`
+### `prek-advisory.yml`
 
 Runs prek over every file, non-blocking, and reports the result as a single PR comment that is
 updated in place on each push. The compensating control for `lint-changed-only`.
@@ -81,7 +81,7 @@ permissions:
 
 jobs:
   advisory:
-    uses: turboBasic/github-actions/.github/workflows/precommit-advisory.yml@v2
+    uses: turboBasic/github-actions/.github/workflows/prek-advisory.yml@v3
     permissions:
       contents: read
       pull-requests: write
@@ -91,7 +91,7 @@ jobs:
 | --- | --- | --- |
 | `mise-version` | `""` | Pin the mise release; empty uses the action's default. |
 | `hook-stage` | `""` | prek hook stage; match what `python-ci.yml` is given. |
-| `cache-pre-commit` | `true` | Cache `~/.cache/prek`, keyed on the config hash. |
+| `cache-prek` | `true` | Cache `~/.cache/prek`, keyed on the config hash. |
 | `timeout-minutes` | `20` | Job timeout. |
 
 Trigger on `pull_request`: the job is gated on that event name and silently skips under any other,
@@ -118,7 +118,7 @@ permissions:
 
 jobs:
   commits:
-    uses: turboBasic/github-actions/.github/workflows/conventional-commits.yml@v2
+    uses: turboBasic/github-actions/.github/workflows/conventional-commits.yml@v3
     permissions:
       contents: read
       pull-requests: read
@@ -130,7 +130,7 @@ correcting a title is an edit, not a push. Keep it in its own workflow, or every
 your whole suite.
 
 **`pull-requests: read` is required at the call site**, at both levels shown above, and for the same
-reason `precommit-advisory.yml` needs `write`: permissions are validated before any job exists, so a
+reason `prek-advisory.yml` needs `write`: permissions are validated before any job exists, so a
 caller granting less fails the run as `startup_failure`.
 
 | Input | Default | Purpose |
@@ -177,7 +177,7 @@ permissions:
 
 jobs:
   review:
-    uses: turboBasic/github-actions/.github/workflows/dependency-review.yml@v2
+    uses: turboBasic/github-actions/.github/workflows/dependency-review.yml@v3
     permissions:
       contents: read
 ```
@@ -194,13 +194,13 @@ access should have to ask for it in a workflow that says so.
 
 ## Composite actions
 
-### `actions/precommit-advisory-pr`
+### `actions/prek-advisory-pr`
 
 Runs prek over every file, non-blocking, and reports failures as a job summary plus a single
 PR comment that is *updated* rather than duplicated on later pushes.
 
 ```yaml
-- uses: turboBasic/github-actions/actions/precommit-advisory-pr@v2
+- uses: turboBasic/github-actions/actions/prek-advisory-pr@v3
   with:
     github-token: ${{ github.token }}
     hook-stage: pre-push # optional
@@ -214,7 +214,7 @@ Renders the repo's PR template as a Jinja2 template, substituting `{{ descriptio
 subjects and `{{ changes }}` with full commit messages, then patches the PR body.
 
 ```yaml
-- uses: turboBasic/github-actions/actions/populate-pr-description@v2
+- uses: turboBasic/github-actions/actions/populate-pr-description@v3
   with:
     github-token: ${{ github.token }}
     pr-number: ${{ github.event.pull_request.number }}
@@ -229,19 +229,24 @@ Python or `uv` setup. `template-path` overrides the default `.github/PULL_REQUES
 
 ## Versioning
 
-Pin `@v2`. `v2.x.y` tags are immutable; `v2` is force-moved to each release, so fixes arrive on the
+Pin `@v3`. `v3.x.y` tags are immutable; `v3` is force-moved to each release, so fixes arrive on the
 next run without a PR in every consumer. A change that breaks an existing call site gets a new
 major tag instead.
 
-`v2` moves when a release is cut, and cutting one is approving a pull request: after a merge to
+`v2` is frozen where it is. It resolves the pre-`v3` names — `precommit-advisory.yml` and
+`actions/precommit-advisory-pr` — which no longer exist on `main`; `v3` renamed both to `prek-*`
+after the tool they run. Nothing else about the call sites changed, so migrating is those two paths
+and the ref.
+
+`v3` moves when a release is cut, and cutting one is approving a pull request: after a merge to
 `main` a bot opens a proposal carrying the next version and the exact notes it would publish, and
 merging that proposal tags and releases once CI passes on it. Nothing is built or published from
 here, so the tag itself is the artifact. The procedure, and what decides the next version, are in
 [CONTRIBUTING][contributing-releasing].
 
-One exception to that immutability: `precommit-advisory.yml` references
-`actions/precommit-advisory-pr@v2`, because a reusable workflow cannot interpolate its own ref into
-a `uses:`. A consumer pinned to `@v2.1.3` therefore still gets the *current* `v2` composite action
+One exception to that immutability: `prek-advisory.yml` references
+`actions/prek-advisory-pr@v3`, because a reusable workflow cannot interpolate its own ref into
+a `uses:`. A consumer pinned to `@v3.0.1` therefore still gets the *current* `v3` composite action
 in that one job. Pin the action directly in your own workflow if you need it frozen.
 
 This is a deliberate exception to the rule that actions are pinned to a full SHA. That rule exists
@@ -277,5 +282,5 @@ validates those against their published JSON schemas.
 [contributing]: CONTRIBUTING.md
 [contributing-releasing]: CONTRIBUTING.md#releasing
 [consumers]: docs/consumers.md
-[precommit-advisory-heading]: #precommit-advisoryyml
+[prek-advisory-heading]: #prek-advisoryyml
 [job-conditions]: https://docs.github.com/en/actions/using-jobs/using-conditions-to-control-job-execution
