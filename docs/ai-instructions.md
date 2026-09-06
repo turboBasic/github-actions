@@ -179,8 +179,10 @@ Python 3.14. The only Python here supports the actions and their tests.
 - pytest. Never `unittest.TestCase`. `tests/` asserts properties of the YAML, since there is no
   application to test.
 - **The suite is offline; `mise run ci` must never need the network.** The exceptions are marked
-  `@pytest.mark.drift` and deselected by default, run by `mise run test-drift` from its own `ci.yml`
-  job where a token exists. Reach for one only where the thing being asserted is repository state no
+  `@pytest.mark.drift` and deselected by default, run by `mise run test-drift` from `drift.yml`,
+  which is scheduled as well as run on a pull request because the state it reads changes with no
+  commit. It carries no `push` trigger, so it never shares a run with the release that moves the
+  major tag, and `ci.yml`'s badge answers for the code alone. Reach for one only where the thing being asserted is repository state no
   file can express: the required status checks on the `main` ruleset, the label set against
   `CONTRIBUTING.md`'s table, this repository still being public, and whether the major tag still
   predates a change consumers resolve.
