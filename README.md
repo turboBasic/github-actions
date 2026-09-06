@@ -197,8 +197,14 @@ access should have to ask for it in a workflow that says so.
 Cuts this repository's own releases, and callable so that a consumer can cut its own the same way.
 Refuses unless `[project].version` is ahead of every existing release, the notes render something, and
 a range that breaks the consumer surface carries a new major; renders the notes before creating any
-ref, so a failure leaves no tag behind. The version tag is annotated, the release is published from those notes, and the major tag
-moves last.
+ref, so a failure leaves no tag behind. The version tag is annotated, the release is published from
+those notes, and the major tag moves last.
+
+That last refusal reads *this* repository's surface — `.github/workflows/**` and `actions/**`, minus
+the workflows that are its own CI — because the paths are written into the workflow rather than taken
+as an input. A consumer calling this to cut its own release gets the other two refusals in full and
+that one only insofar as its layout matches; a breaking change to its own source refuses nothing.
+Cut a release whose contract moved as a major deliberately rather than relying on it.
 
 ```yaml
 jobs:

@@ -190,6 +190,12 @@ jobs:
           # justifies, while the notes still have to describe everything that landed. Same list as
           # release-proposal.yml's increment, which is what makes the two halves agree on what
           # "breaking" means; tests/test_release_notes.py holds both to OWN_CI.
+          #
+          # The paths are *this* repository's, written in rather than taken as an input, so under
+          # `workflow_call` a consumer gets this refusal only insofar as its layout matches ours — a
+          # breaking change to its own source is invisible here. Not an input: that is new contract
+          # surface on a reusable workflow, and nobody has asked for it. #61 owns making them an
+          # input, alongside removing the copies. README says so where a caller reads.
           surface=(
             --include-path '.github/workflows/**'
             --include-path 'actions/**'
