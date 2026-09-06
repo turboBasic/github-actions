@@ -6,16 +6,30 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from decisions import SURFACE_EXCLUDE, SURFACE_INCLUDE
+from decisions import surface_args
 
 from test_action_pins import REPO_ROOT, block_of_words
 
 CLIFF = REPO_ROOT / ".cliff.toml"
-TYPES_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "conventional-commits.yml"
-# The workflows that still spell the surface filter in shell. `release-proposal.yml` has left: it
-# takes its flags from `surface_args()`, so there is nothing in its text to hold. `release.yml`
-# follows once it can reference the action at the major tag, and this constant goes with it.
-SURFACE_FILTERED = ("release.yml",)
+WORKFLOWS = REPO_ROOT / ".github" / "workflows"
+TYPES_WORKFLOW = WORKFLOWS / "conventional-commits.yml"
+# The two workflows the release path is made of. Neither decides anything in shell any more, and the
+# two guards at the bottom of this file are what hold them to that.
+RELEASE_PATH = ("release.yml", "release-proposal.yml")
+# Each is the shell spelling of a decision that now lives in decisions.py, mapped to what answers it.
+# Nothing can tell a plumbing branch from a decision by shape — `[[ ${conclusion} != success ]]` and
+# `major="v${VERSION%%.*}"` both stay — so this names the constructs the removed decisions were
+# written in rather than trying to recognise a decision in general.
+SHELL_DECISIONS = {
+    "$((": "an arithmetic increment; next_version does the increment",
+    "sort -V": "an ordering of versions; highest_version and is_ahead answer that",
+    "=~": "a regex match over a version; parse_version answers that",
+    r"[0-9]+\.[0-9]+\.[0-9]+": "a semantic-version pattern; PLAIN_VERSION is the one copy",
+    "python3 -c": "an inline interpreter reading the version; declared_version answers that",
+    "[^[:space:]]": "a content test over the rendered notes; notes_are_empty answers that",
+    ".breaking": "a jq filter over commit data; verdicts answers that",
+}
+SURFACE_FLAGS = ("--include-path", "--exclude-path")
 
 # data-model.md's Section table, which FR-002 fixes in both title and position. Order 1 is
 # deliberately not a `group`: a breaking commit also keeps its own type's section (FR-005), so
@@ -160,37 +174,6 @@ def test_tag_pattern_excludes_the_moving_major_tags() -> None:
     )
 
 
-@pytest.mark.parametrize("workflow", SURFACE_FILTERED)
-def test_the_surface_filter_agrees_with_the_one_definition(workflow: str) -> None:
-    # Which commits count as consumer-facing decides the increment in release-proposal.yml and the
-    # refusal in release.yml, and the two disagreeing about it once deadlocked a release (#62). There
-    # is one definition now, in decisions.py, and test_release_decisions.py holds *that* to OWN_CI —
-    # so a copy still written in shell is held here to the definition rather than to OWN_CI directly.
-    text = (REPO_ROOT / ".github" / "workflows" / workflow).read_text()
-    included = set(re.findall(r"--include-path '([^']+)'", text))
-    excluded = set(re.findall(r"--exclude-path '([^']+)'", text))
-    assert included == set(SURFACE_INCLUDE), (
-        f"{workflow} includes {sorted(included)}; decisions.py defines the surface as "
-        f"{sorted(SURFACE_INCLUDE)}."
-    )
-    assert excluded == set(SURFACE_EXCLUDE), (
-        f"{workflow} excludes {sorted(excluded)} from the surface, but decisions.py excludes "
-        f"{sorted(SURFACE_EXCLUDE)}. A workflow in one list and not the other either proposes a minor "
-        f"for a change nothing resolves, or a patch for one consumers do."
-    )
-
-
-def _surface_flags(workflow: str) -> list[str]:
-    # Read back out of the workflow rather than restated here, so the assertion below exercises the
-    # flags a release actually passes. A copy would pass while release.yml carried a broken list.
-    text = (REPO_ROOT / ".github" / "workflows" / workflow).read_text()
-    return [
-        flag
-        for kind, path in re.findall(r"--(include|exclude)-path '([^']+)'", text)
-        for flag in (f"--{kind}-path", path)
-    ]
-
-
 def _breaking(repo: Path, *flags: str) -> bool:
     context = subprocess.run(
         ["git-cliff", "--config", str(CLIFF), "--unreleased", "--context", *flags],
@@ -211,6 +194,9 @@ def test_only_a_breaking_change_to_the_surface_refuses_a_release(tmp_path: Path)
     # whole behaviour: unfiltered, a `!` on a commit touching nothing consumers resolve deadlocks a
     # release the proposal correctly numbered a patch, and the only ways out are a major nothing
     # justifies or rewriting the commit.
+    #
+    # The flags come from `surface_args()`, which is the one definition both range reads now take
+    # them from — no workflow spells them, so there is no text left to scrape.
     def git(*args: str) -> None:
         subprocess.run(
             ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
@@ -225,7 +211,7 @@ def test_only_a_breaking_change_to_the_surface_refuses_a_release(tmp_path: Path)
     git("add", ".")
     git("commit", "-qm", "chore!: a breaking change off the consumer surface")
 
-    flags = _surface_flags("release.yml")
+    flags = surface_args()
     # The control. Without it a filter excluding everything satisfies the assertion below, which is
     # the way this test could pass while the refusal it guards never fires at all.
     assert _breaking(tmp_path), (
@@ -234,9 +220,9 @@ def test_only_a_breaking_change_to_the_surface_refuses_a_release(tmp_path: Path)
         "is not shaped like one."
     )
     assert not _breaking(tmp_path, *flags), (
-        f"release.yml's surface filter {flags} still reports a breaking change for a commit touching "
-        f"only docs/. That refuses a release the proposal numbered a patch, with a new major and "
-        f"history rewriting as the only ways forward (#62)."
+        f"surface_args() {flags} still reports a breaking change for a commit touching only docs/. "
+        f"That refuses a release the proposal numbered a patch, with a new major and history "
+        f"rewriting as the only ways forward (#62)."
     )
 
     surface = tmp_path / ".github" / "workflows"
@@ -245,9 +231,9 @@ def test_only_a_breaking_change_to_the_surface_refuses_a_release(tmp_path: Path)
     git("add", ".")
     git("commit", "-qm", "feat!: a breaking change to a reusable workflow")
     assert _breaking(tmp_path, *flags), (
-        f"release.yml's surface filter {flags} does not see a breaking change to a reusable workflow "
-        f"consumers call, so the FR-012a refusal no longer fires where it must: the major tag would "
-        f"move onto a broken contract."
+        f"surface_args() {flags} does not see a breaking change to a reusable workflow consumers "
+        f"call, so the FR-012a refusal no longer fires where it must: the major tag would move onto "
+        f"a broken contract."
     )
 
 
@@ -296,4 +282,49 @@ def test_an_item_without_a_pr_number_carries_its_commit_hash(tmp_path: Path) -> 
     assert "- numbered subject (#12)" in rendered, (
         f"an item whose subject already carries `(#12)` was given a hash as well, so every line "
         f"now ends in two references. Rendered:\n{rendered}"
+    )
+
+
+def _shell(workflow: str) -> str:
+    # Comment lines dropped, so prose naming a construct is documentation rather than a failure. What
+    # is left is the shell a run executes and the `with:` blocks it passes.
+    return "\n".join(
+        line
+        for raw in (WORKFLOWS / workflow).read_text().splitlines()
+        if not (line := raw.strip()).startswith("#")
+    )
+
+
+@pytest.mark.parametrize("workflow", RELEASE_PATH)
+def test_neither_release_workflow_decides_anything_in_shell(workflow: str) -> None:
+    # The readable half of the extraction, and the half no linter can hold: shell quoting, `${{ }}`
+    # interpolation and block-scalar rules stack in the same lines, so a decision written there is
+    # reviewable only by someone holding all three grammars at once. Every one of them is a call into
+    # decisions.py now, where it has a test.
+    text = _shell(workflow)
+    found = sorted(
+        f"{construct!r} — {answered_by}"
+        for construct, answered_by in SHELL_DECISIONS.items()
+        if construct in text
+    )
+    assert not found, (
+        f"{workflow} decides in shell again: {found}. Call the decision through "
+        f"actions/release-decisions and give it a test in tests/test_release_decisions.py (SC-003)."
+    )
+
+
+@pytest.mark.parametrize("workflow", RELEASE_PATH)
+def test_neither_release_workflow_spells_the_surface_filter(workflow: str) -> None:
+    # One definition, in decisions.py, held to OWN_CI by tests/test_release_decisions.py. Two copies
+    # in shell is what deadlocked a release when they disagreed (#62); a third copy anywhere is the
+    # same defect waiting, so the flags may not appear in a workflow at all.
+    #
+    # Replaces test_the_surface_filter_agrees_with_the_one_definition, which read the flags out of
+    # workflow text and had nothing left to read. That is the whole change: the question is no longer
+    # whether a copy agrees, it is that there is no copy.
+    text = _shell(workflow)
+    spelled = [flag for flag in SURFACE_FLAGS if flag in text]
+    assert not spelled, (
+        f"{workflow} spells {spelled} itself. The consumer surface has one definition — take the "
+        f"flags from the action's `surface-args` decision (SC-004)."
     )

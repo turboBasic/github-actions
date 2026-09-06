@@ -191,9 +191,9 @@ ship the action complete. Priority orders value, not execution.
 - [X] T035 [P] Add `release-decisions` to `README.md`'s composite actions list
 - [X] T036 [P] Confirm `docs/consumers.md` still reads true — `github-actions-test` calls `release` at
       `@v4`, unchanged by stage 1
-- [ ] T037 Merge stage 1 and let `ci.yml` cut its release. `release.yml` is untouched here, so the old
+- [X] T037 Merge stage 1 and let `ci.yml` cut its release. `release.yml` is untouched here, so the old
       shell cuts it — which is what makes this safe (quickstart rung 3)
-- [ ] T038 Confirm `@v4` now contains the action before starting stage 2:
+- [X] T038 Confirm `@v4` now contains the action before starting stage 2:
       `gh api repos/turboBasic/github-actions/contents/actions/release-decisions/action.yml?ref=v4`.
       **A 404 blocks stage 2 entirely**
 
@@ -205,53 +205,60 @@ ship the action complete. Priority orders value, not execution.
 
 ### Phase 7: User Story 2b - `release.yml` (Priority: P2)
 
-- [ ] T039 [US2] Replace `release.yml`'s "Verify the release" logic with a `uses:` of
+- [X] T039 [US2] Replace `release.yml`'s "Verify the release" logic with a `uses:` of
       `turboBasic/github-actions/actions/release-decisions@v4` at `decision: verify-version`, keeping the
       `gh api` matching-refs call as shell — **and keeping the `workflow_dispatch`-only check-runs query
       for `"ci / python-ci"` as shell**, because `test_the_release_gates_on_a_required_context` asserts
       that literal is in this file (FR-007)
-- [ ] T040 [US2] Replace `release.yml`'s emptiness and breaking-under-a-non-major refusals with a `uses:`
+- [X] T040 [US2] Replace `release.yml`'s emptiness and breaking-under-a-non-major refusals with a `uses:`
       at `decision: check-notes`, keeping both `git-cliff` invocations as shell
-- [ ] T041 [US2] Remove the surface argument array from `.github/workflows/release.yml`, taking it from
+- [X] T041 [US2] Remove the surface argument array from `.github/workflows/release.yml`, taking it from
       `surface_args()` instead, and confirm the two range reads stay distinct — whole range for the notes,
       filtered for the refusal (FR-006, US3 AS-3)
-- [ ] T042 [US2] Rewrite `test_the_release_refuses_notes_with_no_content` in `tests/test_action_pins.py`:
+- [X] T042 [US2] Rewrite `test_the_release_refuses_notes_with_no_content` in `tests/test_action_pins.py`:
       the literal `[^[:space:]]` no longer appears in `release.yml`, so it must assert the `check-notes`
       invocation instead, with `notes_are_empty`'s own tests now carrying the rule (FR-017)
-- [ ] T043 [US2] Rewrite `_surface_flags` and
+- [X] T043 [US2] Rewrite `_surface_flags` and
       `test_only_a_breaking_change_to_the_surface_refuses_a_release` in `tests/test_release_notes.py` to
       take flags from `surface_args()` rather than scraping workflow text. Left alone it hard-fails, since
       empty flags make its second assertion `not _breaking(unfiltered)` (FR-017)
-- [ ] T044 [US2] Extend the `SURFACE_FILTERED` retirement from T028 to `release.yml` in
+- [X] T044 [US2] Extend the `SURFACE_FILTERED` retirement from T028 to `release.yml` in
       `tests/test_release_notes.py` (FR-017)
-- [ ] T045 [US2] Add a guard to `tests/test_release_notes.py` asserting no `run:` block in either workflow
+- [X] T045 [US2] Add a guard to `tests/test_release_notes.py` asserting no `run:` block in either workflow
       holds a comparison, an arithmetic increment, a version parse, or a `jq` filter over commit data
       (SC-003, US2 AS-1)
-- [ ] T046 [US2] Add a guard to `tests/test_release_notes.py` asserting neither workflow contains an
+- [X] T046 [US2] Add a guard to `tests/test_release_notes.py` asserting neither workflow contains an
       `--include-path` or `--exclude-path` flag (SC-004, US3 AS-1)
-- [ ] T047 [US2] Add a guard to `tests/test_action_pins.py` asserting both workflows' `workflow_call`
+- [X] T047 [US2] Add a guard to `tests/test_action_pins.py` asserting both workflows' `workflow_call`
       inputs and job `permissions` blocks are unchanged from stage 0 — the interface FR-009 freezes
-- [ ] T048 [US2] Cut the comments in `release.yml` that narrate an incident, keeping those that state a
+- [X] T048 [US2] Cut the comments in `release.yml` that narrate an incident, keeping those that state a
       rule
-- [ ] T049 [US2] Diff every `release.yml` refusal against its pre-change wording (FR-010, US2 AS-2)
+- [X] T049 [US2] Diff every `release.yml` refusal against its pre-change wording (FR-010, US2 AS-2)
 
 ---
 
 ### Phase 8: Stage-2 verification and release
 
-- [ ] T050 Run `mise run ci` and confirm green — including that
+- [X] T050 Run `mise run ci` and confirm green — including that
       `test_first_party_actions_use_the_major_tag` still passes unmodified with the new `@v4` reference in
       `release.yml` (SC-005, SC-010)
-- [ ] T051 Run quickstart rung 4: dispatch `.github/workflows/release.yml` with `dry-run=true` from the
+- [X] T051 Run quickstart rung 4: dispatch `.github/workflows/release.yml` with `dry-run=true` from the
       stage-2 branch; confirm the not-ahead case reports as a **notice**, the notes render to the step
       summary, and nothing is created (SC-006). Read the summary in a browser — no `gh` or REST route
       reaches it
-- [ ] T052 Run quickstart rung 5: repoint `github-actions-test`'s `release` job at the stage-2 branch, bump
+- [X] T052 Run quickstart rung 5: repoint `github-actions-test`'s `release` job at the stage-2 branch, bump
       its `[project].version`, merge there, and confirm a release is published, `v0` moves, and
       `release / tag-and-publish` reports under that exact name (SC-007, SC-008). Only the consumer is
-      repointed — nothing here is pinned, so SC-010 holds
-- [ ] T053 Revert `github-actions-test`'s `release` job to `@v4`
-- [ ] T054 Confirm every FR-017 gate now asserts the new form or is gone with its reason recorded, and none
+      repointed — nothing here is pinned, so SC-010 holds.
+      **`v0` did not move, and could not.** 0.1.1 was refused — `ci!: repin every call site to @v4` is in
+      that repository's range and touches workflows outside this one's exclusion list, so the range breaks
+      the consumer surface under a non-major. Reproduced against `main`'s own flags before concluding it, so
+      the refusal is the old shell's verdict rather than a regression; it is the cost README's `release.yml`
+      section already documents. The release was cut as **1.0.0**, creating `v1` through the tagging step's
+      POST branch, then **1.0.1**, moving it through the PATCH branch — which is the branch every release of
+      this repository takes, so both are now proven
+- [X] T053 Revert `github-actions-test`'s `release` job to `@v4`
+- [X] T054 Confirm every FR-017 gate now asserts the new form or is gone with its reason recorded, and none
       is left failing (SC-011)
 - [ ] T055 Merge stage 2 and watch `ci.yml` cut the first release under the new `release.yml`
       (quickstart rung 6). Recovery from a bad release is a bump to the next patch, never a re-run

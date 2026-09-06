@@ -310,6 +310,66 @@ def test_the_release_job_names_are_pinned(workflow: str, job_name: str) -> None:
     )
 
 
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip())
+
+
+def _under(lines: list[str], header: str) -> list[str]:
+    # Indent-based, like block_of_words and for the same reason: a pattern matching what a key ought
+    # to look like ends the block at the first line it does not recognise and hides the rest.
+    start = next((i for i, line in enumerate(lines) if line.strip() == header), None)
+    assert start is not None, f"no `{header}` block found"
+    depth = _indent(lines[start])
+    nested: list[str] = []
+    for line in lines[start + 1 :]:
+        if line.strip() and _indent(line) <= depth:
+            break
+        nested.append(line)
+    return nested
+
+
+def _entries(lines: list[str]) -> set[str]:
+    populated = [line for line in lines if line.strip()]
+    depth = min(_indent(line) for line in populated)
+    return {line.split("#")[0].strip().rstrip(":") for line in populated if _indent(line) == depth}
+
+
+@pytest.mark.parametrize(
+    ("workflow", "job_id", "inputs", "permissions"),
+    [
+        ("release.yml", "release", {"dry-run"}, {"contents: write"}),
+        ("release-proposal.yml", "propose", set[str](), {"contents: read"}),
+    ],
+)
+def test_the_release_interface_is_frozen(
+    workflow: str, job_id: str, inputs: set[str], permissions: set[str]
+) -> None:
+    # The two halves of these workflows a caller writes into its own file, and both are validated
+    # before any job exists — so a renamed input breaks the call site outright, and a caller granting
+    # a permission that is no longer enough fails at startup with no job and no log to read. Stated
+    # here rather than diffed against a commit, so it holds for every later change too.
+    lines = (REPO_ROOT / ".github" / "workflows" / workflow).read_text().splitlines()
+    job = _under(_under(lines, "jobs:"), f"{job_id}:")
+
+    assert _entries(_under(job, "permissions:")) == permissions, (
+        f"{workflow}'s `{job_id}` job no longer asks for exactly {sorted(permissions)}. Job "
+        f"permissions can only be reduced down a call chain, so a caller cannot make up a shortfall "
+        f"— widening this is a major bump (FR-009)."
+    )
+
+    if not inputs:
+        assert "workflow_call:" not in "\n".join(lines), (
+            f"{workflow} gained a `workflow_call` trigger, so it now has an input contract and "
+            f"callers this table does not account for (FR-009)."
+        )
+        return
+    assert _entries(_under(_under(lines, "workflow_call:"), "inputs:")) == inputs, (
+        f"{workflow} no longer declares exactly the inputs {sorted(inputs)} under `workflow_call`. A "
+        f"removed or renamed input breaks every call site that passes it, which no ref can fix for "
+        f"the caller — that is a major bump (FR-009)."
+    )
+
+
 def test_the_release_gates_on_a_required_context() -> None:
     # release.yml refuses to tag unless one named check passed on the commit being released. That
     # name is composed from a job id in one file and a job name in another, so a rename would turn
@@ -371,14 +431,20 @@ def test_the_release_waits_for_the_ci_verdict() -> None:
 
 
 def test_the_release_refuses_notes_with_no_content() -> None:
-    # Neither the exit code nor the file's size can answer this. git-cliff exits 0 for a range
-    # holding only a `bump` and for a range holding nothing, indistinguishably; and an empty render
-    # is *one* byte, not zero, because a trailing newline is still emitted.
+    # The rule this used to assert as text — that emptiness is a content question, never a size and
+    # never an exit code — is `notes_are_empty`'s now, with its own tests. What is left to hold here
+    # is that release.yml still asks: the notes it renders reach the `check-notes` decision, whose
+    # refusal is what stops a range that renders nothing from publishing a blank release body.
     workflow = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text()
-    assert "[^[:space:]]" in workflow, (
-        "release.yml does not test the rendered notes for non-whitespace content, so a range that "
-        "renders nothing would publish a blank release body (FR-007). A `-s` test is not enough: an "
-        "empty render is a lone newline, which `-s` accepts."
+    asking = [step for step in workflow.split("\n      - ") if "decision: check-notes" in step]
+    assert len(asking) == 1, (
+        f"release.yml has {len(asking)} steps invoking the `check-notes` decision, expected one. "
+        f"Without it nothing refuses a range that renders no notes, and the release publishes a "
+        f"blank body (FR-007)."
+    )
+    assert "notes-file: ${{ env.NOTES }}" in asking[0], (
+        f"release.yml's `check-notes` step passes no notes-file, so the decision cannot see what "
+        f"git-cliff rendered and answers about the wrong thing:\n{asking[0]}"
     )
 
 

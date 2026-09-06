@@ -83,18 +83,24 @@ GH_TOKEN=$(gh auth token -u turboBasic) gh pr close <n> --repo turboBasic/github
 **Fails if**: the increment disagrees with the old shell's for the same range, or the `release-proposal`
 branch is left behind.
 
-### Rung 3 — merge stage 1 and let it release
+### Rung 3 — merge stage 1, then merge the bump it proposes
 
-`ci.yml`'s `$/` self-call resolves at the merge commit and cuts this repository's release. `release.yml` is
-**unchanged** in stage 1, so this release is cut by the old shell — which is exactly what makes it safe.
+**Merging a stage cuts nothing.** `ci.yml`'s `$/` self-call does resolve `release.yml` at the merge commit
+and run it, but the declared version is already tagged by then, so it answers with a notice — "v4.0.3 is
+already released, so this merge cuts nothing" — and stops. That is the ordinary path, and it is what
+happened on the stage-1 merge. The release arrives one merge later: `release-proposal.yml` runs on the same
+push and opens a `bump: release vX.Y.Z` pull request, and **merging that** is what tags and publishes.
+
+`release.yml` is **unchanged** in stage 1, so the old shell cuts that release — which is exactly what makes
+it safe.
 
 ```bash
 GH_TOKEN=$(gh auth token -u turboBasic) gh run list --repo turboBasic/github-actions \
   --workflow ci.yml --branch main --limit 3
 ```
 
-**Expected**: a release published, `v4` moved onto a tree that now contains
-`actions/release-decisions/`. Confirm that before starting stage 2:
+**Expected**: once the bump pull request has merged, a release published and `v4` moved onto a tree that now
+contains `actions/release-decisions/`. Confirm that before starting stage 2:
 
 ```bash
 GH_TOKEN=$(gh auth token -u turboBasic) gh api \
@@ -157,14 +163,18 @@ this repository's release. Our version tags are immutable: `refs/tags/v*.*.*` is
 **Fails if**: a tag is created but no release attached — ordering regressed, and notes must render before
 any tag exists — or the major tag does not move, or the check reports under a different name.
 
-### Rung 6 — merge stage 2
+### Rung 6 — merge stage 2, then merge the bump it proposes
+
+Two merges again, for the reason rung 3 gives: the stage-2 merge runs the new `release.yml` and it declines,
+because the declared version is already tagged. That decline is itself the first real exercise of the
+rewritten path — the `verify-version` decision answering `proceed=false` on a push — so watch it. The
+release comes when the bump pull request `release-proposal.yml` opens is merged, and **that** is the first
+release the new `release.yml` cuts.
 
 ```bash
 GH_TOKEN=$(gh auth token -u turboBasic) gh run list --repo turboBasic/github-actions \
   --workflow ci.yml --branch main --limit 3
 ```
-
-This is the first release cut by the new `release.yml`. Watch it.
 
 **Recovery if it goes wrong**: bump to the next patch version and merge that. Never re-run — a version tag
 already created cannot be deleted.
