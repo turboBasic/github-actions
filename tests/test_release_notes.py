@@ -318,6 +318,10 @@ def test_neither_release_workflow_spells_the_surface_filter(workflow: str) -> No
     # One definition, in decisions.py, held to OWN_CI by tests/test_release_decisions.py. Two copies
     # in shell is what deadlocked a release when they disagreed (#62); a third copy anywhere is the
     # same defect waiting, so the flags may not appear in a workflow at all.
+    #
+    # Replaces test_the_surface_filter_agrees_with_the_one_definition, which read the flags out of
+    # workflow text and had nothing left to read. That is the whole change: the question is no longer
+    # whether a copy agrees, it is that there is no copy.
     text = _shell(workflow)
     spelled = [flag for flag in SURFACE_FLAGS if flag in text]
     assert not spelled, (

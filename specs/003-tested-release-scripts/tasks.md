@@ -242,16 +242,23 @@ ship the action complete. Priority orders value, not execution.
 - [X] T050 Run `mise run ci` and confirm green — including that
       `test_first_party_actions_use_the_major_tag` still passes unmodified with the new `@v4` reference in
       `release.yml` (SC-005, SC-010)
-- [ ] T051 Run quickstart rung 4: dispatch `.github/workflows/release.yml` with `dry-run=true` from the
+- [X] T051 Run quickstart rung 4: dispatch `.github/workflows/release.yml` with `dry-run=true` from the
       stage-2 branch; confirm the not-ahead case reports as a **notice**, the notes render to the step
       summary, and nothing is created (SC-006). Read the summary in a browser — no `gh` or REST route
       reaches it
-- [ ] T052 Run quickstart rung 5: repoint `github-actions-test`'s `release` job at the stage-2 branch, bump
+- [X] T052 Run quickstart rung 5: repoint `github-actions-test`'s `release` job at the stage-2 branch, bump
       its `[project].version`, merge there, and confirm a release is published, `v0` moves, and
       `release / tag-and-publish` reports under that exact name (SC-007, SC-008). Only the consumer is
-      repointed — nothing here is pinned, so SC-010 holds
-- [ ] T053 Revert `github-actions-test`'s `release` job to `@v4`
-- [ ] T054 Confirm every FR-017 gate now asserts the new form or is gone with its reason recorded, and none
+      repointed — nothing here is pinned, so SC-010 holds.
+      **`v0` did not move, and could not.** 0.1.1 was refused — `ci!: repin every call site to @v4` is in
+      that repository's range and touches workflows outside this one's exclusion list, so the range breaks
+      the consumer surface under a non-major. Reproduced against `main`'s own flags before concluding it, so
+      the refusal is the old shell's verdict rather than a regression; it is the cost README's `release.yml`
+      section already documents. The release was cut as **1.0.0**, creating `v1` through the tagging step's
+      POST branch, then **1.0.1**, moving it through the PATCH branch — which is the branch every release of
+      this repository takes, so both are now proven
+- [X] T053 Revert `github-actions-test`'s `release` job to `@v4`
+- [X] T054 Confirm every FR-017 gate now asserts the new form or is gone with its reason recorded, and none
       is left failing (SC-011)
 - [ ] T055 Merge stage 2 and watch `ci.yml` cut the first release under the new `release.yml`
       (quickstart rung 6). Recovery from a bad release is a bump to the next patch, never a re-run
