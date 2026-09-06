@@ -145,3 +145,28 @@ PYPROJECT=/tmp/bad.toml DECISION=surface-args python3 actions/release-decisions/
 
 Each exits non-zero with an `::error::`. The suite covers all three; running them once is how you find out
 the message is worth reading.
+
+## Outcome
+
+Ran to completion on 2026-09-06. Every rung passed; the two findings are recorded above rather than
+smoothed out, and both were found by running the ladder rather than by reasoning about it.
+
+| Rung | Where | Evidence |
+| --- | --- | --- |
+| 1–2 offline, hand-rendered filter, three rejections | here | `mise run ci`, 128 passed; each rejection named its value and exited 1 |
+| 3 `release.yml` dispatch | here | [34059521759](https://github.com/turboBasic/github-actions/actions/runs/34059521759) — **and it proved the rung was mis-specified**: it logged `release-decisions@v4` and rendered the constants, so no dispatch can exercise the module |
+| 3a `release-proposal.yml` on the merge commit | here | [34059816893](https://github.com/turboBasic/github-actions/actions/runs/34059816893) — `proposing 4.1.0: a feat touching the consumer surface`, the first real execution of the module |
+| release | here | `v4.1.0`; `v4` dereferences to `20cc7e0` with `v4 tracks v4.1.0` |
+| 4 undeclared → unfiltered + notice, no tag | `github-actions-test` [#33](https://github.com/turboBasic/github-actions-test/pull/33) | the notice fired, then `the range breaks the consumer surface but 1.0.2 is not a new major`; no `v1.0.2` tag afterwards |
+| 5a off-surface break proceeds | [#34](https://github.com/turboBasic/github-actions-test/pull/34) | `SURFACE: --include-path src/**` — the caller's layout, none of ours — and the identical range that refused in #33 cut `v1.0.2` |
+| 5b on-surface break refuses | [#35](https://github.com/turboBasic/github-actions-test/pull/35) | `the range breaks the consumer surface but 1.0.3 is not a new major, so publishing it would move v1 onto a broken contract`; no `v1.0.3` tag |
+| 6 notes describe the whole range | #34, #36 | `v1.0.2`'s notes carry the `docs!` commit under both 💥 Breaking changes and 📚 Documentation, though it was outside the filter |
+| the way out of 5b | [#36](https://github.com/turboBasic/github-actions-test/pull/36) | `v2.0.0` and `v2` created — a new major may break the surface, so the range that refused a patch proceeds |
+
+Rungs 4 and 5a are the pair that matters: the same range, refused with no declaration and released with
+one, which is the whole feature in two runs. Rung 5b is the false negative #110 was filed about — before
+`v4.1.0` the filter was this repository's layout and never matched `src/`, so that break would have
+shipped under a patch.
+
+`github-actions-test` now declares `surface-include = ["src/**"]` and carries the probe commits in
+`README.md` and `src/probe/__init__.py`; both are harmless and left in place as the record of what was run.
