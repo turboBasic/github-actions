@@ -6,15 +6,16 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from decisions import SURFACE_EXCLUDE, SURFACE_INCLUDE
 
-from test_action_pins import CONSUMER_FACING, OWN_CI, REPO_ROOT, block_of_words
+from test_action_pins import REPO_ROOT, block_of_words
 
 CLIFF = REPO_ROOT / ".cliff.toml"
 TYPES_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "conventional-commits.yml"
-# Every workflow whose git-cliff call is scoped to the consumer surface: the proposal's increment and
-# the release's breaking-change refusal. They have to answer the same question the same way, or a
-# version one half proposes is a release the other half refuses.
-SURFACE_FILTERED = ("release-proposal.yml", "release.yml")
+# The workflows that still spell the surface filter in shell. `release-proposal.yml` has left: it
+# takes its flags from `surface_args()`, so there is nothing in its text to hold. `release.yml`
+# follows once it can reference the action at the major tag, and this constant goes with it.
+SURFACE_FILTERED = ("release.yml",)
 
 # data-model.md's Section table, which FR-002 fixes in both title and position. Order 1 is
 # deliberately not a `group`: a breaking commit also keeps its own type's section (FR-005), so
@@ -160,25 +161,22 @@ def test_tag_pattern_excludes_the_moving_major_tags() -> None:
 
 
 @pytest.mark.parametrize("workflow", SURFACE_FILTERED)
-def test_the_surface_filter_agrees_with_own_ci(workflow: str) -> None:
+def test_the_surface_filter_agrees_with_the_one_definition(workflow: str) -> None:
     # Which commits count as consumer-facing decides the increment in release-proposal.yml and the
-    # refusal in release.yml, expressed in both as git-cliff `--include-path` / `--exclude-path`
-    # flags. That is a fifth copy of a list also held in OWN_CI and twice in CONTRIBUTING.md — and
-    # the only copies a test can reach, so they are the ones that get held, to OWN_CI and to each
-    # other through it. #61 is where the count goes back down to one. A workflow added to OWN_CI and
-    # not to a filter silently pushes the increment to a minor for a change no consumer resolves; in
-    # release.yml it refuses a release outright.
+    # refusal in release.yml, and the two disagreeing about it once deadlocked a release (#62). There
+    # is one definition now, in decisions.py, and test_release_decisions.py holds *that* to OWN_CI —
+    # so a copy still written in shell is held here to the definition rather than to OWN_CI directly.
     text = (REPO_ROOT / ".github" / "workflows" / workflow).read_text()
     included = set(re.findall(r"--include-path '([^']+)'", text))
     excluded = set(re.findall(r"--exclude-path '([^']+)'", text))
-    assert included == {f"{prefix}**" for prefix in CONSUMER_FACING}, (
-        f"{workflow} includes {sorted(included)}; CONSUMER_FACING in test_action_pins.py "
-        f"says the surface is {sorted(CONSUMER_FACING)}."
+    assert included == set(SURFACE_INCLUDE), (
+        f"{workflow} includes {sorted(included)}; decisions.py defines the surface as "
+        f"{sorted(SURFACE_INCLUDE)}."
     )
-    assert excluded == {f".github/workflows/{name}" for name in OWN_CI}, (
-        f"{workflow} excludes {sorted(excluded)} from the surface, but OWN_CI is "
-        f"{sorted(OWN_CI)}. A workflow in one list and not the other either proposes a minor for a "
-        f"change nothing resolves, or a patch for one consumers do."
+    assert excluded == set(SURFACE_EXCLUDE), (
+        f"{workflow} excludes {sorted(excluded)} from the surface, but decisions.py excludes "
+        f"{sorted(SURFACE_EXCLUDE)}. A workflow in one list and not the other either proposes a minor "
+        f"for a change nothing resolves, or a patch for one consumers do."
     )
 
 

@@ -293,6 +293,23 @@ def test_the_required_check_names_are_intact(
     )
 
 
+@pytest.mark.parametrize(
+    ("workflow", "job_name"),
+    [("release.yml", "tag-and-publish"), ("release-proposal.yml", "propose")],
+)
+def test_the_release_job_names_are_pinned(workflow: str, job_name: str) -> None:
+    # `tag-and-publish` composes `release / tag-and-publish`, the context `github-actions-test`
+    # reports and requires. A required context that stops reporting blocks every pull request there
+    # until its own ruleset is edited, which no ref can do for it — so a rename is a major bump.
+    # `propose` is pinned for the same reason a step away: nothing requires it today, and the cost of
+    # finding out otherwise is another repository's blocked queue.
+    text = (REPO_ROOT / ".github" / "workflows" / workflow).read_text()
+    assert f"\n    name: {job_name}\n" in text, (
+        f"{workflow} no longer names its job `{job_name}`. That name is half of a check context "
+        f"consumers type into a ruleset by hand; renaming it is a major bump (FR-009a)."
+    )
+
+
 def test_the_release_gates_on_a_required_context() -> None:
     # release.yml refuses to tag unless one named check passed on the commit being released. That
     # name is composed from a job id in one file and a job name in another, so a rename would turn

@@ -1,0 +1,96 @@
+name: Release Decisions
+description: >
+  Answers one release question from files and environment variables, writing its answers to
+  GITHUB_OUTPUT and its verdicts as workflow commands. Does no network I/O: gh api and git-cliff stay
+  in the calling workflow, so their results arrive here as an input path or a string. Exits non-zero
+  to say the caller should not proceed.
+
+inputs:
+  decision:
+    description: >
+      Which question to answer. `verify-version` runs the refusal ladder over the declared version;
+      `check-notes` refuses notes with no content, and a breaking range under a non-major;
+      `next-version` proposes the increment; `declared-version` reads [project].version; and
+      `surface-args` prints the consumer-surface path list as git-cliff flags.
+    required: true
+  pyproject:
+    description: Path to the pyproject.toml whose [project].version is read.
+    default: pyproject.toml
+  tag-refs:
+    description: >
+      Newline-separated `refs/tags/…` list, as `gh api …/git/matching-refs/tags/v` produced it. Empty
+      means nothing has been released, which permits the release rather than refusing it.
+    default: ""
+  event-name:
+    description: >
+      Selects the three-way severity of the not-ahead refusal. Defaults to the run's own event.
+    default: ""
+  dry-run:
+    description: "`true` softens the not-ahead refusal to a notice and lets the rest of the path run."
+    default: "false"
+  notes-file:
+    description: Path to the rendered notes, tested for content rather than for size.
+    default: ""
+  context-file:
+    description: Path to `git-cliff --context` JSON over the surface-filtered range.
+    default: ""
+  current-version:
+    description: The version to increment from, or to report. Defaults to `pyproject`'s.
+    default: ""
+  highest-major:
+    description: >
+      Major of the highest existing release, as `verify-version` reported it. Empty means no tag
+      exists to be moved onto a broken contract.
+    default: ""
+  severity:
+    description: >
+      `notice` reports an empty range as a decline rather than refusing the release, for a caller
+      that runs on every push and must not redden its default branch.
+    default: error
+
+outputs:
+  proceed:
+    description: "`true` when the later steps should run."
+    value: ${{ steps.decide.outputs.proceed }}
+  version:
+    description: The declared version.
+    value: ${{ steps.decide.outputs.version }}
+  highest-major:
+    description: Major of the highest existing release; empty when none exists.
+    value: ${{ steps.decide.outputs.highest-major }}
+  breaking:
+    description: The breaking verdict over the surface-filtered range.
+    value: ${{ steps.decide.outputs.breaking }}
+  feature:
+    description: The feature verdict over the surface-filtered range.
+    value: ${{ steps.decide.outputs.feature }}
+  next-version:
+    description: The proposed version.
+    value: ${{ steps.decide.outputs.next-version }}
+  reason:
+    description: The one-line why, as a maintainer reads it.
+    value: ${{ steps.decide.outputs.reason }}
+  args:
+    description: The consumer-surface path list as one line of git-cliff flags.
+    value: ${{ steps.decide.outputs.args }}
+
+runs:
+  using: composite
+  steps:
+    # `python3`, not `uv run`: the logic is standard-library-only, so there is nothing to resolve, and
+    # every caller of this action already runs python3 in the same job.
+    - name: Decide
+      id: decide
+      env:
+        DECISION: ${{ inputs.decision }}
+        PYPROJECT: ${{ inputs.pyproject }}
+        TAG_REFS: ${{ inputs.tag-refs }}
+        EVENT_NAME: ${{ inputs.event-name }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        NOTES_FILE: ${{ inputs.notes-file }}
+        CONTEXT_FILE: ${{ inputs.context-file }}
+        CURRENT_VERSION: ${{ inputs.current-version }}
+        HIGHEST_MAJOR: ${{ inputs.highest-major }}
+        SEVERITY: ${{ inputs.severity }}
+      shell: bash
+      run: python3 "${GITHUB_ACTION_PATH}/decisions.py"

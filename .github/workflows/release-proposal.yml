@@ -9,6 +9,10 @@
 # `feat` touching only this repository's own CI is a patch, because the version describes the
 # surface consumers resolve. That is why the second git-cliff pass is path-filtered.
 #
+# Every decision below is a call into actions/release-decisions/decisions.py, by in-repo path rather
+# than through `uses:`, because this workflow has no `workflow_call` trigger and so only ever runs
+# here — the path is always on disk. Every argument reaches it through the environment.
+#
 # Every write uses a GitHub App installation token, never `GITHUB_TOKEN`. `GITHUB_TOKEN` cannot open
 # a pull request here at all — `POST /pulls` answers "GitHub Actions is not permitted to create or
 # approve pull requests" while *Allow GitHub Actions to create and approve pull requests* is off,
@@ -40,7 +44,11 @@ jobs:
       contents: read # the checkout, and nothing else — every write uses the App token
     env:
       GH_REPO: ${{ github.repository }}
+      # `runner.temp` is not available in a job-level env, so the workspace's parent — which exists
+      # and is writable — keeps these out of the checked-out tree.
       NOTES: ${{ github.workspace }}/../release-notes.md
+      CONTEXT: ${{ github.workspace }}/../release-context.json
+      SCRIPT: actions/release-decisions/decisions.py
       BRANCH: release-proposal
       # The refresh distinguishes its own commits from a reviewer's by author, so it needs an
       # identity this workflow chooses rather than one the token implies: a commit made with an App
@@ -77,18 +85,20 @@ jobs:
           cache: false
 
       # Two reasons not to propose, in order. Both exit 0: this runs on every push to main, and a
-      # workflow that reddened main whenever a release was not due is one nobody would read.
+      # workflow that reddened main whenever a release was not due is one nobody would read — which
+      # is why the emptiness check is asked at `notice` severity.
       - name: Decide whether a proposal is wanted
         id: gate
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SEVERITY: notice
         run: |
           set -euo pipefail
 
           # The triggering commit's own tree — under `push: main` that is main's tip. Never the
           # proposal branch: reading the version from there would find this workflow's own bump,
           # conclude a release was already in flight, and stop refreshing the proposal it wrote.
-          declared=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          declared=$(DECISION=declared-version python3 "${SCRIPT}")
 
           if ! gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/v${declared}" >/dev/null 2>&1; then
             echo "::notice::[project].version is ${declared}, which is not tagged yet — a release is already in flight or owed, so there is nothing to propose on top of it."
@@ -98,10 +108,8 @@ jobs:
 
           git-cliff --unreleased > "${NOTES}"
 
-          # Content, not size: an empty render is a lone newline rather than zero bytes, so a `-s`
-          # test would call it non-empty and propose a release with an empty body.
-          if ! grep -q '[^[:space:]]' "${NOTES}"; then
-            echo "::notice::nothing has landed since v${declared} that the notes would describe, so no release is due."
+          # Non-zero means the range renders nothing, and the script has already said so.
+          if ! NOTES_FILE="${NOTES}" CURRENT_VERSION="${declared}" DECISION=check-notes python3 "${SCRIPT}"; then
             open=$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number // empty')
             if [[ -n ${open} ]]; then
               gh pr close "${open}" --comment "The release range is empty again, so this proposal has nothing to publish." --delete-branch
@@ -112,7 +120,6 @@ jobs:
           fi
 
           echo "wanted=true" >> "${GITHUB_OUTPUT}"
-          echo "declared=${declared}" >> "${GITHUB_OUTPUT}"
 
       # A reviewer's number outranks a computed one, and survives every later refresh. Authorship is
       # the signal because it needs no stored state: this workflow always writes as BOT_NAME, so any
@@ -122,7 +129,7 @@ jobs:
         if: steps.gate.outputs.wanted == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          DECLARED: ${{ steps.gate.outputs.declared }}
+          DECLARED: ${{ steps.gate.outputs.version }}
         run: |
           set -euo pipefail
 
@@ -133,46 +140,18 @@ jobs:
             if [[ -n ${human} ]]; then
               gh api "repos/${GITHUB_REPOSITORY}/contents/pyproject.toml?ref=${BRANCH}" \
                 -H 'Accept: application/vnd.github.raw' > "${RUNNER_TEMP}/proposed.toml"
-              kept=$(python3 -c 'import sys, tomllib; print(tomllib.load(open(sys.argv[1], "rb"))["project"]["version"])' "${RUNNER_TEMP}/proposed.toml")
+              kept=$(PYPROJECT="${RUNNER_TEMP}/proposed.toml" DECISION=declared-version python3 "${SCRIPT}")
               echo "::notice::keeping ${kept}, the version on the proposal branch: it carries a commit by ${human}, so a human has already decided it."
-              echo "version=${kept}" >> "${GITHUB_OUTPUT}"
+              echo "next-version=${kept}" >> "${GITHUB_OUTPUT}"
               exit 0
             fi
           fi
 
-          # What a consumer resolves: every reusable workflow and composite action, minus this
-          # repository's own plumbing. tests/test_release_notes.py holds this list to OWN_CI.
-          surface=(
-            --include-path '.github/workflows/**'
-            --include-path 'actions/**'
-            --exclude-path '.github/workflows/ci.yml'
-            --exclude-path '.github/workflows/commit-messages.yml'
-            --exclude-path '.github/workflows/dependabot-automerge.yml'
-            --exclude-path '.github/workflows/drift.yml'
-            --exclude-path '.github/workflows/release.yml'
-            --exclude-path '.github/workflows/release-proposal.yml'
-          )
-          context=$(git-cliff --unreleased --context "${surface[@]}")
+          # The consumer surface has one definition, in the module. No workflow spells the flags.
+          mapfile -t surface < <(DECISION=surface-args python3 "${SCRIPT}")
+          git-cliff --unreleased --context "${surface[@]}" > "${CONTEXT}"
 
-          # `== true` rather than truthiness: the key is absent, not false, on a commit matching no
-          # Conventional Commit, and a null in a boolean test answers wrongly.
-          breaking=$(jq 'any(.[].commits[]; .breaking == true)' <<<"${context}")
-          feature=$(jq 'any(.[].commits[]; .raw_message | test("^feat"))' <<<"${context}")
-
-          IFS=. read -r major minor patch <<<"${DECLARED}"
-          if [[ ${breaking} == true ]]; then
-            proposed="$((major + 1)).0.0"
-            why="a breaking change to the consumer surface"
-          elif [[ ${feature} == true ]]; then
-            proposed="${major}.$((minor + 1)).0"
-            why="a feat touching the consumer surface"
-          else
-            proposed="${major}.${minor}.$((patch + 1))"
-            why="nothing consumers resolve changed"
-          fi
-
-          echo "::notice::proposing ${proposed}: ${why}."
-          echo "version=${proposed}" >> "${GITHUB_OUTPUT}"
+          CONTEXT_FILE="${CONTEXT}" CURRENT_VERSION="${DECLARED}" DECISION=next-version python3 "${SCRIPT}"
 
       # Through the Git Data API, because the checkout holds no credential and there is nothing to
       # push from. Two blobs: pyproject.toml, and uv.lock, which carries the root package's version
@@ -181,7 +160,7 @@ jobs:
         if: steps.gate.outputs.wanted == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.version.outputs.next-version }}
         run: |
           set -euo pipefail
 
@@ -192,10 +171,9 @@ jobs:
           uv version --no-sync "${VERSION}"
 
           # Every body goes in through stdin rather than `-f`, for two separate reasons. A blob's
-          # base64 is far past Linux's 128 KiB cap on a *single* argument — `uv.lock` failed with
-          # `/usr/bin/gh: Argument list too long` — and `gh`'s `-f` has no syntax for an array of
-          # objects, which is what a tree is. jq builds the JSON; `--rawfile` keeps the large string
-          # off the command line entirely.
+          # base64 is past Linux's 128 KiB cap on a *single* argument, which `uv.lock` exceeds; and
+          # `gh`'s `-f` has no syntax for an array of objects, which is what a tree is. jq builds the
+          # JSON; `--rawfile` keeps the large string off the command line entirely.
           blob() {
             base64 -w0 < "$1" > "${RUNNER_TEMP}/blob.b64"
             jq -n --rawfile content "${RUNNER_TEMP}/blob.b64" \
@@ -232,7 +210,7 @@ jobs:
         if: steps.gate.outputs.wanted == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.version.outputs.next-version }}
         run: |
           set -euo pipefail
 

@@ -277,6 +277,25 @@ Needs `pull-requests: write` and a full-history checkout (`fetch-depth: 0`) — 
 from the range, so a shallow clone renders an empty body. It installs `uv` itself; the caller needs no
 Python or `uv` setup. `template-path` overrides the default `.github/PULL_REQUEST_TEMPLATE.md`.
 
+### `actions/release-decisions`
+
+Answers one release question — `verify-version`, `check-notes`, `next-version`, `declared-version` or
+`surface-args` — from files and environment variables, writing its answers to `GITHUB_OUTPUT` and its
+verdicts as `::notice::` / `::error::`. It exits non-zero to say the caller should not proceed.
+
+```yaml
+- uses: turboBasic/github-actions/actions/release-decisions@v4
+  with:
+    decision: verify-version
+    tag-refs: ${{ steps.tags.outputs.refs }}
+```
+
+`release.yml` and `release-proposal.yml` are its only callers, and nothing outside this repository has
+a reason to be one — it exists so their decisions can be tested offline rather than asserted as text.
+It does no network I/O and declares no permissions: `gh api` and `git-cliff` stay in the calling
+workflow, and their results arrive as an input path or a string. Needs `python3` in the job, which
+`mise-action` provides.
+
 ## Versioning
 
 Pin `@v4`. `v4.x.y` tags are immutable; `v4` is force-moved to each release, so fixes arrive on the

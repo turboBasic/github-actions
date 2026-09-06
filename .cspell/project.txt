@@ -74,6 +74,7 @@ revspec
 rtrimstr
 ruamel
 schemafile
+stdlib
 tera
 versionrc
 worktree
