@@ -202,9 +202,14 @@ those notes, and the major tag moves last.
 
 That last refusal reads *this* repository's surface — `.github/workflows/**` and `actions/**`, minus
 the workflows that are its own CI — because the paths are written into the workflow rather than taken
-as an input. A consumer calling this to cut its own release gets the other two refusals in full and
-that one only insofar as its layout matches; a breaking change to its own source refuses nothing.
-Cut a release whose contract moved as a major deliberately rather than relying on it.
+as an input. It is the one refusal here that does not travel: a caller gets the other two in full, and
+this one measured against our layout, which misses in both directions. A consumer's breaking change to
+its own source refuses nothing. One touching its own `.github/workflows/**` still refuses under a patch
+even where nothing consumes it — unless it lands in a file our exclusions happen to name, its own
+`ci.yml` or its own `release.yml`, which drops it from the check by coincidence of naming. That is
+narrower than the unfiltered range this replaced, which refused over any path at all, but it is not
+gone: cut a release whose contract moved as a major deliberately rather than relying on this to notice.
+[#61](https://github.com/turboBasic/github-actions/issues/61) is where the paths become an input.
 
 ```yaml
 jobs:
