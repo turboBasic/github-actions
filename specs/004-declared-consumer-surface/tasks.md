@@ -126,7 +126,7 @@ empty table renders no flags and prints nothing.
 
 - [x] T012 [P] Correct the stale comment on `release.yml`'s `Read the consumer-surface filter` step: it currently states the paths are deliberately not an input and points at #110 as owning that. Replace it with what is now true — the surface comes from the released repository's own `pyproject.toml`, and there is deliberately no input to override it (FR-010).
 - [x] T013 [P] Record the obligation on `release.yml`'s callers in `docs/consumers.md`: `github-actions-test` declares its own surface, an undeclared caller gets the unfiltered range, and `release-decisions` still has no external caller (FR-012).
-- [ ] T014 [P] Comment on [#110](https://github.com/turboBasic/github-actions/issues/110) recording that the input was rejected and why, linking [research.md D1](./research.md#d1), so the issue closes against a decision rather than against a different implementation.
+- [x] T014 [P] Comment on [#110](https://github.com/turboBasic/github-actions/issues/110) recording that the input was rejected and why, linking [research.md D1](./research.md#d1), so the issue closes against a decision rather than against a different implementation.
 
 **Checkpoint**: every document the change affects is correct in the same change, per
 `docs/ai-instructions.md`.
