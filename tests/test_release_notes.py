@@ -1,13 +1,20 @@
+import json
 import re
 import subprocess
 import tomllib
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from test_action_pins import CONSUMER_FACING, OWN_CI, REPO_ROOT, block_of_words
 
 CLIFF = REPO_ROOT / ".cliff.toml"
 TYPES_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "conventional-commits.yml"
+# Every workflow whose git-cliff call is scoped to the consumer surface: the proposal's increment and
+# the release's breaking-change refusal. They have to answer the same question the same way, or a
+# version one half proposes is a release the other half refuses (#62).
+SURFACE_FILTERED = ("release-proposal.yml", "release.yml")
 
 # data-model.md's Section table, which FR-002 fixes in both title and position. Order 1 is
 # deliberately not a `group`: a breaking commit also keeps its own type's section (FR-005), so
@@ -152,23 +159,97 @@ def test_tag_pattern_excludes_the_moving_major_tags() -> None:
     )
 
 
-def test_the_surface_filter_agrees_with_own_ci() -> None:
-    # The version the proposal proposes turns on which commits count as consumer-facing, expressed as
-    # git-cliff `--include-path` / `--exclude-path` flags. That is a fourth copy of a list also held
-    # in OWN_CI, CONTRIBUTING.md twice — and the only copy a test can reach, so it is the one that
-    # gets held. A workflow added to OWN_CI but not to the filter would silently push the increment
-    # to a minor for a change no consumer resolves.
-    proposal = (REPO_ROOT / ".github" / "workflows" / "release-proposal.yml").read_text()
-    included = set(re.findall(r"--include-path '([^']+)'", proposal))
-    excluded = set(re.findall(r"--exclude-path '([^']+)'", proposal))
+@pytest.mark.parametrize("workflow", SURFACE_FILTERED)
+def test_the_surface_filter_agrees_with_own_ci(workflow: str) -> None:
+    # Which commits count as consumer-facing decides the increment in release-proposal.yml and the
+    # refusal in release.yml, expressed in both as git-cliff `--include-path` / `--exclude-path`
+    # flags. That is a fifth copy of a list also held in OWN_CI and twice in CONTRIBUTING.md — and
+    # the only copies a test can reach, so they are the ones that get held, to OWN_CI and to each
+    # other through it. #61 is where the count goes back down to one. A workflow added to OWN_CI and
+    # not to a filter silently pushes the increment to a minor for a change no consumer resolves; in
+    # release.yml it refuses a release outright.
+    text = (REPO_ROOT / ".github" / "workflows" / workflow).read_text()
+    included = set(re.findall(r"--include-path '([^']+)'", text))
+    excluded = set(re.findall(r"--exclude-path '([^']+)'", text))
     assert included == {f"{prefix}**" for prefix in CONSUMER_FACING}, (
-        f"release-proposal.yml includes {sorted(included)}; CONSUMER_FACING in test_action_pins.py "
+        f"{workflow} includes {sorted(included)}; CONSUMER_FACING in test_action_pins.py "
         f"says the surface is {sorted(CONSUMER_FACING)}."
     )
     assert excluded == {f".github/workflows/{name}" for name in OWN_CI}, (
-        f"release-proposal.yml excludes {sorted(excluded)} from the surface, but OWN_CI is "
+        f"{workflow} excludes {sorted(excluded)} from the surface, but OWN_CI is "
         f"{sorted(OWN_CI)}. A workflow in one list and not the other either proposes a minor for a "
         f"change nothing resolves, or a patch for one consumers do."
+    )
+
+
+def _surface_flags(workflow: str) -> list[str]:
+    # Read back out of the workflow rather than restated here, so the assertion below exercises the
+    # flags a release actually passes. A copy would pass while release.yml carried a broken list.
+    text = (REPO_ROOT / ".github" / "workflows" / workflow).read_text()
+    return [
+        flag
+        for kind, path in re.findall(r"--(include|exclude)-path '([^']+)'", text)
+        for flag in (f"--{kind}-path", path)
+    ]
+
+
+def _breaking(repo: Path, *flags: str) -> bool:
+    context = subprocess.run(
+        ["git-cliff", "--config", str(CLIFF), "--unreleased", "--context", *flags],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    return any(
+        commit.get("breaking") is True
+        for release in json.loads(context)
+        for commit in release["commits"]
+    )
+
+
+def test_only_a_breaking_change_to_the_surface_refuses_a_release(tmp_path: Path) -> None:
+    # release.yml refuses a non-major version over a breaking range. Which range it reads is the
+    # whole behaviour: unfiltered, a `!` on a commit touching nothing consumers resolve deadlocks a
+    # release the proposal correctly numbered a patch, and the only ways out are a major nothing
+    # justifies or rewriting the commit.
+    def git(*args: str) -> None:
+        subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q", "-b", "main", ".")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "technical-debt.md").write_text("1")
+    git("add", ".")
+    git("commit", "-qm", "chore!: a breaking change off the consumer surface")
+
+    flags = _surface_flags("release.yml")
+    # The control. Without it a filter excluding everything satisfies the assertion below, which is
+    # the way this test could pass while the refusal it guards never fires at all.
+    assert _breaking(tmp_path), (
+        "an unfiltered --context does not see a `!` commit as breaking, so this test proves nothing "
+        "about the filtered one. Either .cliff.toml stopped setting `breaking` or the probe commit "
+        "is not shaped like one."
+    )
+    assert not _breaking(tmp_path, *flags), (
+        f"release.yml's surface filter {flags} still reports a breaking change for a commit touching "
+        f"only docs/. That refuses a release the proposal numbered a patch, with a new major and "
+        f"history rewriting as the only ways forward (#62)."
+    )
+
+    surface = tmp_path / ".github" / "workflows"
+    surface.mkdir(parents=True)
+    (surface / "python-ci.yml").write_text("1")
+    git("add", ".")
+    git("commit", "-qm", "feat!: a breaking change to a reusable workflow")
+    assert _breaking(tmp_path, *flags), (
+        f"release.yml's surface filter {flags} does not see a breaking change to a reusable workflow "
+        f"consumers call, so the FR-012a refusal no longer fires where it must: the major tag would "
+        f"move onto a broken contract."
     )
 
 
