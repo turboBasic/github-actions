@@ -191,9 +191,9 @@ ship the action complete. Priority orders value, not execution.
 - [X] T035 [P] Add `release-decisions` to `README.md`'s composite actions list
 - [X] T036 [P] Confirm `docs/consumers.md` still reads true — `github-actions-test` calls `release` at
       `@v4`, unchanged by stage 1
-- [ ] T037 Merge stage 1 and let `ci.yml` cut its release. `release.yml` is untouched here, so the old
+- [X] T037 Merge stage 1 and let `ci.yml` cut its release. `release.yml` is untouched here, so the old
       shell cuts it — which is what makes this safe (quickstart rung 3)
-- [ ] T038 Confirm `@v4` now contains the action before starting stage 2:
+- [X] T038 Confirm `@v4` now contains the action before starting stage 2:
       `gh api repos/turboBasic/github-actions/contents/actions/release-decisions/action.yml?ref=v4`.
       **A 404 blocks stage 2 entirely**
 
