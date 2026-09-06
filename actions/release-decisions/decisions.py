@@ -4,7 +4,7 @@ import re
 import tomllib
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, Literal, NamedTuple, NoReturn
+from typing import Any, Literal, NamedTuple, NoReturn, cast
 
 # A plain alias rather than a `type` statement: a caller whose mise.toml pins no python falls back
 # to the runner's own interpreter, so this module keeps to syntax every maintained version parses.
@@ -14,18 +14,11 @@ Severity = Literal["notice", "error"]
 # The whole string, so no pre-release, no build metadata, and no `v` — the `v` belongs to the tag.
 PLAIN_VERSION = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
-# What a consumer resolves: every reusable workflow and composite action, minus this repository's own
-# plumbing. tests/test_release_decisions.py holds the exclusions to OWN_CI.
-SURFACE_INCLUDE = (".github/workflows/**", "actions/**")
-OWN_WORKFLOWS = (
-    "ci.yml",
-    "commit-messages.yml",
-    "dependabot-automerge.yml",
-    "drift.yml",
-    "release.yml",
-    "release-proposal.yml",
-)
-SURFACE_EXCLUDE = tuple(f".github/workflows/{name}" for name in OWN_WORKFLOWS)
+# What a consumer resolves, declared by the repository being released rather than constant here: this
+# file is read from the caller's tree, so a caller's own layout is what its release is judged against.
+# An absent table is not a licence to assume ours — see `_surface_args`.
+SURFACE_TABLE = "turbobasic-release"
+SURFACE_KEYS = ("surface-include", "surface-exclude")
 
 
 class ReleaseVerdict(NamedTuple):
@@ -129,10 +122,49 @@ def release_verdict(
     )
 
 
-def surface_args() -> list[str]:
+def surface_config(raw: bytes) -> tuple[list[str], list[str]] | None:
+    # `None` for an absent table, distinguishably from a table declaring nothing: both render an
+    # unfiltered range, but only the first is worth telling a caller about.
+    manifest: dict[str, Any] = tomllib.loads(raw.decode())
+    tools: dict[str, Any] = manifest.get("tool", {})
+    if SURFACE_TABLE not in tools:
+        return None
+    table: dict[str, Any] = tools[SURFACE_TABLE]
+    return (_path_list(table, SURFACE_KEYS[0]), _path_list(table, SURFACE_KEYS[1]))
+
+
+def _path_list(table: dict[str, Any], key: str) -> list[str]:
+    # Raises rather than coercing: iterating a bare string yields characters, so every letter would
+    # become a path and the filter would match nothing while looking configured.
+    value: object = table.get(key, [])
+    if not isinstance(value, list):
+        raise TypeError(
+            f"[tool.{SURFACE_TABLE}] {key} must be a list of paths, not {type(value).__name__}"
+        )
+    entries = cast(list[object], value)
+    wrong = [entry for entry in entries if not isinstance(entry, str)]
+    if wrong:
+        raise TypeError(f"[tool.{SURFACE_TABLE}] {key} holds non-string entries: {wrong}")
+    return [str(entry) for entry in entries]
+
+
+def unusable_paths(paths: Iterable[str]) -> list[str]:
+    # A list rather than a bool, so the refusal can name what it found. Whitespace because the flags
+    # travel as one line split with `read -ra`, so such a path would silently become two, each matching
+    # nothing; a leading `-` because it would reach git-cliff as a flag rather than a path.
     return [
-        *(arg for path in SURFACE_INCLUDE for arg in ("--include-path", path)),
-        *(arg for path in SURFACE_EXCLUDE for arg in ("--exclude-path", path)),
+        path
+        for path in paths
+        if not path or any(char.isspace() for char in path) or path.startswith("-")
+    ]
+
+
+def surface_args(include: Iterable[str], exclude: Iterable[str]) -> list[str]:
+    # Two empty lists render no flags at all, which is git-cliff's unfiltered range — so "nothing
+    # declared" needs no special value and no branch in any workflow.
+    return [
+        *(arg for path in include for arg in ("--include-path", path)),
+        *(arg for path in exclude for arg in ("--exclude-path", path)),
     ]
 
 
@@ -184,10 +216,36 @@ def _declared_version() -> None:
 
 
 def _surface_args() -> None:
-    args = surface_args()
+    path = Path(_env("PYPROJECT", "pyproject.toml"))
+    try:
+        declared = surface_config(path.read_bytes())
+    except TypeError as bad_shape:
+        _stop("error", str(bad_shape))
+
+    if declared is None:
+        # Never this repository's list: it would be right only by coincidence, and wrong in both
+        # directions — a caller's own source invisible, its own workflows counted.
+        _say(
+            "notice",
+            f"{path} declares no [tool.{SURFACE_TABLE}] surface, so every path in the range counts as "
+            f"consumer-facing and a breaking change under a non-major will be refused. Declare "
+            f"{SURFACE_KEYS[0]} to narrow it — see this workflow's README section.",
+        )
+    include, exclude = declared or ([], [])
+
+    unusable = unusable_paths([*include, *exclude])
+    if unusable:
+        _stop(
+            "error",
+            f"[tool.{SURFACE_TABLE}] declares unusable paths {unusable}: a path may not be empty, hold "
+            f"whitespace, or begin with '-'. The flags reach the renderer as one whitespace-split line, "
+            f"so such a path would be split or read as a flag rather than matched.",
+        )
+
+    args = surface_args(include, exclude)
     print("\n".join(args))
-    # One line, safe because no argument holds a space — asserted by
-    # tests/test_release_decisions.py, which is what lets a caller read it back with `read -ra`.
+    # One line, safe because unusable_paths has just refused anything holding whitespace, which is what
+    # lets a caller read it back with `read -ra`.
     _out("args", " ".join(args))
 
 
