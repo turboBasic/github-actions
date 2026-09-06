@@ -260,7 +260,7 @@ ship the action complete. Priority orders value, not execution.
 - [X] T053 Revert `github-actions-test`'s `release` job to `@v4`
 - [X] T054 Confirm every FR-017 gate now asserts the new form or is gone with its reason recorded, and none
       is left failing (SC-011)
-- [ ] T055 Merge stage 2 and watch `ci.yml` cut the first release under the new `release.yml`
+- [X] T055 Merge stage 2 and watch `ci.yml` cut the first release under the new `release.yml`
       (quickstart rung 6). Recovery from a bad release is a bump to the next patch, never a re-run
 
 ---
