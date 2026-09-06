@@ -567,6 +567,28 @@ def test_allowed_types_match_the_commitizen_builtin_set() -> None:
     )
 
 
+def test_every_job_name_is_lowercase_kebab() -> None:
+    # v4 renamed every check name this repository composes to one scheme, and nothing kept it that
+    # way — `REQUIRED_CHECKS` pins three names, not the shape of a fourth. `name: Build docs` passed
+    # every gate here the day after the rename landed.
+    #
+    # Casing only. Whether a callee's name says what the job is rather than repeating its caller is
+    # judgement, and docs/ai-instructions.md owns it; this is the half a regex can hold.
+    offenders = [
+        f"{path.name}:{number}: {line.strip()}"
+        for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml"))
+        for number, line in enumerate(path.read_text().splitlines(), start=1)
+        # `(.+)` rather than `(\S+)`: a name containing a space is the main thing being ruled out, and
+        # a non-space pattern skips those lines entirely instead of failing them.
+        if (found := re.match(r"^    name: (.+)$", line))
+        if not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", found.group(1).strip())
+    ]
+    assert not offenders, (
+        f"job names are lowercase-kebab-case, and these are not: {offenders}. A job name is half of "
+        f"a check context consumers type into a ruleset by hand."
+    )
+
+
 def test_python_ci_requests_no_pull_request_permission() -> None:
     # A called workflow's job permissions are validated when the run starts, before any
     # `if:` can skip the job, so a `pull-requests: write` anywhere here would force every
