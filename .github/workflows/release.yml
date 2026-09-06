@@ -184,11 +184,27 @@ jobs:
             exit 1
           fi
 
+          # The refusal reads the *consumer surface*, while the notes above read the whole range —
+          # deliberately different questions. A `!` on a commit touching only `tests/` or this
+          # repository's own CI breaks no contract, so refusing it would force a major nothing
+          # justifies, while the notes still have to describe everything that landed. Same list as
+          # release-proposal.yml's increment, which is what makes the two halves agree on what
+          # "breaking" means; tests/test_release_notes.py holds both to OWN_CI.
+          surface=(
+            --include-path '.github/workflows/**'
+            --include-path 'actions/**'
+            --exclude-path '.github/workflows/ci.yml'
+            --exclude-path '.github/workflows/commit-messages.yml'
+            --exclude-path '.github/workflows/dependabot-automerge.yml'
+            --exclude-path '.github/workflows/release.yml'
+            --exclude-path '.github/workflows/release-proposal.yml'
+          )
+
           # `== true` rather than truthiness: `--context` omits `breaking` entirely on a commit
           # matching no Conventional Commit, so the naive form tests a null and answers wrongly.
-          breaking=$(git-cliff --unreleased --context | jq 'any(.[].commits[]; .breaking == true)')
+          breaking=$(git-cliff --unreleased --context "${surface[@]}" | jq 'any(.[].commits[]; .breaking == true)')
           if [[ ${breaking} == true && -n ${HIGHEST_MAJOR} && ${VERSION%%.*} == "${HIGHEST_MAJOR}" ]]; then
-            echo "::error::the range contains a breaking change but ${VERSION} is not a new major, so publishing it would move v${HIGHEST_MAJOR} onto a broken contract. No tag was created."
+            echo "::error::the range breaks the consumer surface but ${VERSION} is not a new major, so publishing it would move v${HIGHEST_MAJOR} onto a broken contract. No tag was created."
             exit 1
           fi
 

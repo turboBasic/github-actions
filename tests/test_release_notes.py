@@ -1,3 +1,4 @@
+import json
 import re
 import subprocess
 import tomllib
@@ -169,6 +170,77 @@ def test_the_surface_filter_agrees_with_own_ci() -> None:
         f"release-proposal.yml excludes {sorted(excluded)} from the surface, but OWN_CI is "
         f"{sorted(OWN_CI)}. A workflow in one list and not the other either proposes a minor for a "
         f"change nothing resolves, or a patch for one consumers do."
+    )
+
+
+def _surface_flags(workflow: str) -> list[str]:
+    # Read back out of the workflow rather than restated here, so the assertion below exercises the
+    # flags a release actually passes. A copy would pass while release.yml carried a broken list.
+    text = (REPO_ROOT / ".github" / "workflows" / workflow).read_text()
+    return [
+        flag
+        for kind, path in re.findall(r"--(include|exclude)-path '([^']+)'", text)
+        for flag in (f"--{kind}-path", path)
+    ]
+
+
+def _breaking(repo: Path, *flags: str) -> bool:
+    context = subprocess.run(
+        ["git-cliff", "--config", str(CLIFF), "--unreleased", "--context", *flags],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    return any(
+        commit.get("breaking") is True
+        for release in json.loads(context)
+        for commit in release["commits"]
+    )
+
+
+def test_only_a_breaking_change_to_the_surface_refuses_a_release(tmp_path: Path) -> None:
+    # release.yml refuses a non-major version over a breaking range. Which range it reads is the
+    # whole behaviour: unfiltered, a `!` on a commit touching nothing consumers resolve deadlocks a
+    # release the proposal correctly numbered a patch, and the only ways out are a major nothing
+    # justifies or rewriting the commit.
+    def git(*args: str) -> None:
+        subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q", "-b", "main", ".")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "technical-debt.md").write_text("1")
+    git("add", ".")
+    git("commit", "-qm", "chore!: a breaking change off the consumer surface")
+
+    flags = _surface_flags("release.yml")
+    # The control. Without it a filter excluding everything satisfies the assertion below, which is
+    # the way this test could pass while the refusal it guards never fires at all.
+    assert _breaking(tmp_path), (
+        "an unfiltered --context does not see a `!` commit as breaking, so this test proves nothing "
+        "about the filtered one. Either .cliff.toml stopped setting `breaking` or the probe commit "
+        "is not shaped like one."
+    )
+    assert not _breaking(tmp_path, *flags), (
+        f"release.yml's surface filter {flags} still reports a breaking change for a commit touching "
+        f"only docs/. That refuses a release the proposal numbered a patch, with a new major and "
+        f"history rewriting as the only ways forward (#62)."
+    )
+
+    surface = tmp_path / ".github" / "workflows"
+    surface.mkdir(parents=True)
+    (surface / "python-ci.yml").write_text("1")
+    git("add", ".")
+    git("commit", "-qm", "feat!: a breaking change to a reusable workflow")
+    assert _breaking(tmp_path, *flags), (
+        f"release.yml's surface filter {flags} does not see a breaking change to a reusable workflow "
+        f"consumers call, so the FR-012a refusal no longer fires where it must: the major tag would "
+        f"move onto a broken contract."
     )
 
 
