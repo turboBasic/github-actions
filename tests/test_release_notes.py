@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from decisions import surface_args
+from decisions import surface_args, surface_config
 
 from test_action_pins import REPO_ROOT, block_of_words
 
@@ -195,8 +195,8 @@ def test_only_a_breaking_change_to_the_surface_refuses_a_release(tmp_path: Path)
     # release the proposal correctly numbered a patch, and the only ways out are a major nothing
     # justifies or rewriting the commit.
     #
-    # The flags come from `surface_args()`, which is the one definition both range reads now take
-    # them from — no workflow spells them, so there is no text left to scrape.
+    # The temp repository mirrors *our* layout, so the flags come from our own declaration in
+    # pyproject.toml — the one definition both range reads take them from, and no workflow spells them.
     def git(*args: str) -> None:
         subprocess.run(
             ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
@@ -211,7 +211,9 @@ def test_only_a_breaking_change_to_the_surface_refuses_a_release(tmp_path: Path)
     git("add", ".")
     git("commit", "-qm", "chore!: a breaking change off the consumer surface")
 
-    flags = surface_args()
+    declared = surface_config((REPO_ROOT / "pyproject.toml").read_bytes())
+    assert declared is not None, "pyproject.toml declares no consumer surface for this repository"
+    flags = surface_args(*declared)
     # The control. Without it a filter excluding everything satisfies the assertion below, which is
     # the way this test could pass while the refusal it guards never fires at all.
     assert _breaking(tmp_path), (
@@ -220,7 +222,7 @@ def test_only_a_breaking_change_to_the_surface_refuses_a_release(tmp_path: Path)
         "is not shaped like one."
     )
     assert not _breaking(tmp_path, *flags), (
-        f"surface_args() {flags} still reports a breaking change for a commit touching only docs/. "
+        f"the declared surface {flags} still reports a breaking change for a commit touching only docs/. "
         f"That refuses a release the proposal numbered a patch, with a new major and history "
         f"rewriting as the only ways forward (#62)."
     )
@@ -231,7 +233,7 @@ def test_only_a_breaking_change_to_the_surface_refuses_a_release(tmp_path: Path)
     git("add", ".")
     git("commit", "-qm", "feat!: a breaking change to a reusable workflow")
     assert _breaking(tmp_path, *flags), (
-        f"surface_args() {flags} does not see a breaking change to a reusable workflow consumers "
+        f"the declared surface {flags} does not see a breaking change to a reusable workflow consumers "
         f"call, so the FR-012a refusal no longer fires where it must: the major tag would move onto "
         f"a broken contract."
     )

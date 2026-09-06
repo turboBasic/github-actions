@@ -1,11 +1,12 @@
 import ast
 import json
 import sys
+import tomllib
+from typing import Any
 
 import pytest
 from decisions import (
-    SURFACE_EXCLUDE,
-    SURFACE_INCLUDE,
+    SURFACE_TABLE,
     breaks_under_non_major,
     declared_version,
     highest_version,
@@ -16,12 +17,50 @@ from decisions import (
     parse_version,
     release_verdict,
     surface_args,
+    surface_config,
+    unusable_paths,
     verdicts,
 )
 
 from test_action_pins import OWN_CI, REPO_ROOT
 
 MODULE = REPO_ROOT / "actions" / "release-decisions" / "decisions.py"
+PYPROJECT = REPO_ROOT / "pyproject.toml"
+
+# The filter this repository rendered before the surface moved out of the module, captured from the file
+# rather than retyped. Byte-for-byte, so the move is provably a relocation and not a rewrite.
+OUR_FILTER = [
+    "--include-path",
+    ".github/workflows/**",
+    "--include-path",
+    "actions/**",
+    "--exclude-path",
+    ".github/workflows/ci.yml",
+    "--exclude-path",
+    ".github/workflows/commit-messages.yml",
+    "--exclude-path",
+    ".github/workflows/dependabot-automerge.yml",
+    "--exclude-path",
+    ".github/workflows/drift.yml",
+    "--exclude-path",
+    ".github/workflows/release.yml",
+    "--exclude-path",
+    ".github/workflows/release-proposal.yml",
+]
+
+
+def _our_surface() -> tuple[list[str], list[str]]:
+    declared = surface_config(PYPROJECT.read_bytes())
+    assert declared is not None, (
+        f"pyproject.toml declares no [tool.{SURFACE_TABLE}] table, so this repository's own release "
+        f"would treat every path as consumer-facing and refuse over changes to its own CI. The table "
+        f"is not optional here — it is where OWN_CI's counterpart lives."
+    )
+    return declared
+
+
+def _toml(body: str) -> bytes:
+    return f'[project]\nversion = "1.0.0"\n{body}'.encode()
 
 
 def _context(*commits: dict[str, object]) -> str:
@@ -214,23 +253,135 @@ def test_a_version_that_is_ahead_proceeds_whoever_asked(event_name: str, dry_run
 
 
 def test_the_surface_exclusions_are_own_ci_as_workflow_paths() -> None:
-    assert set(SURFACE_EXCLUDE) == {f".github/workflows/{name}" for name in OWN_CI}, (
-        f"decisions.py excludes {sorted(SURFACE_EXCLUDE)} from the consumer surface, but OWN_CI in "
+    # Relocated, not relaxed: the same equality, read from the table that now holds our surface instead
+    # of from a module constant. `OWN_WORKFLOWS` in decisions.py was a second copy of OWN_CI and is gone,
+    # so the number of places this set is written went down rather than up.
+    _, exclude = _our_surface()
+    assert set(exclude) == {f".github/workflows/{name}" for name in OWN_CI}, (
+        f"pyproject.toml excludes {sorted(exclude)} from the consumer surface, but OWN_CI in "
         f"test_action_pins.py is {sorted(OWN_CI)}. A workflow in one list and not the other either "
         f"proposes a minor for a change nothing resolves, or refuses a release over a file nobody "
         f"reads."
     )
 
 
+def test_our_own_declaration_renders_the_filter_it_always_did() -> None:
+    # The whole claim that this change is invisible to this repository, as a byte comparison rather than
+    # an equivalence argument. A drift here means our release is being judged against a different surface.
+    include, exclude = _our_surface()
+    assert surface_args(include, exclude) == OUR_FILTER
+
+
 def test_the_surface_arguments_pair_every_path_with_its_flag() -> None:
-    args = surface_args()
-    assert args == [
-        *(arg for path in SURFACE_INCLUDE for arg in ("--include-path", path)),
-        *(arg for path in SURFACE_EXCLUDE for arg in ("--exclude-path", path)),
+    assert surface_args(["a/**", "b/**"], ["c.yml"]) == [
+        "--include-path",
+        "a/**",
+        "--include-path",
+        "b/**",
+        "--exclude-path",
+        "c.yml",
     ]
-    assert not [arg for arg in args if " " in arg], (
-        f"a surface argument contains a space, so the single line the workflows read it back from "
-        f"splits it in two: {args}"
+
+
+def test_a_caller_declaring_nothing_is_not_given_our_layout() -> None:
+    # The defect #110 is about. Our list is right for us by construction and for anyone else by
+    # coincidence, so an undeclared caller gets an unfiltered range — which over-refuses, never under.
+    assert surface_config(_toml("")) is None
+    assert surface_args([], []) == []
+
+
+def test_a_declared_but_empty_surface_is_not_the_same_as_no_table() -> None:
+    # Same filter, different states. Only the second is worth telling a caller about, which is the whole
+    # value of reading structured data instead of a string that cannot tell unset from empty.
+    declared = surface_config(_toml(f"[tool.{SURFACE_TABLE}]\n"))
+    assert declared == ([], [])
+    assert surface_config(_toml("")) is None
+
+
+def test_a_declared_surface_is_read_whole() -> None:
+    declared = surface_config(
+        _toml(
+            f'[tool.{SURFACE_TABLE}]\nsurface-include = ["src/**"]\n'
+            f'surface-exclude = ["src/_generated/**"]\n'
+        )
+    )
+    assert declared == (["src/**"], ["src/_generated/**"])
+
+
+@pytest.mark.parametrize("key", ["surface-include", "surface-exclude"])
+def test_either_key_may_be_declared_alone(key: str) -> None:
+    declared = surface_config(_toml(f'[tool.{SURFACE_TABLE}]\n{key} = ["src/**"]\n'))
+    assert declared is not None
+    assert list(declared[0] + declared[1]) == ["src/**"]
+
+
+def test_a_callers_surface_is_used_alone() -> None:
+    # No path of ours may be added to it. Under the old behaviour a caller's own `ci.yml` was dropped
+    # from the check because our exclusions happened to name that filename — which of a caller's
+    # plumbing files counted turned on coincidence.
+    declared = surface_config(_toml(f'[tool.{SURFACE_TABLE}]\nsurface-include = ["src/**"]\n'))
+    assert declared is not None
+    args = surface_args(*declared)
+    assert args == ["--include-path", "src/**"]
+    assert not [arg for arg in args if arg in OUR_FILTER[1::2]], (
+        f"a path of this repository's leaked into a caller's declared surface: {args}"
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'surface-include = "src/**"',
+        "surface-include = 3",
+        'surface-include = ["src/**", 3]',
+        'surface-exclude = { path = "src/**" }',
+    ],
+)
+def test_a_mis_shaped_declaration_raises_naming_the_key(body: str) -> None:
+    # Never coerced: iterating a bare string yields characters, so every letter would become a path and
+    # the filter would match nothing while looking configured.
+    with pytest.raises(TypeError, match="surface-"):
+        surface_config(_toml(f"[tool.{SURFACE_TABLE}]\n{body}\n"))
+
+
+@pytest.mark.parametrize("path", ["", " ", "my src/**", "src\t/**", "-x", "--include-path"])
+def test_a_path_that_cannot_survive_the_carrier_is_caught(path: str) -> None:
+    # The flags reach release.yml as one line split with `read -ra`, so a path holding whitespace becomes
+    # two paths matching nothing, and one starting with `-` arrives as a flag.
+    assert unusable_paths([path]) == [path]
+
+
+@pytest.mark.parametrize("path", ["src/**", ".github/workflows/*.yml", "a/b-c_d.py", "!src/x"])
+def test_an_ordinary_glob_is_not_refused(path: str) -> None:
+    assert unusable_paths([path]) == []
+
+
+def test_every_unusable_path_is_named_not_just_the_first() -> None:
+    assert unusable_paths(["ok/**", "a b", "-x", "fine/**"]) == ["a b", "-x"]
+
+
+def test_the_table_is_the_only_place_our_surface_is_written() -> None:
+    # FR-010: there is deliberately no input, so nothing in a workflow can supply a surface. A `with:`
+    # key or an env override appearing here would be a route around the OWN_CI comparison above.
+    for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+        text = path.read_text()
+        for token in ("surface-include", "surface-exclude", "SURFACE_INCLUDE", "SURFACE_EXCLUDE"):
+            assert token not in text, (
+                f"{path.name} mentions `{token}`, so a workflow can now supply a consumer surface. That "
+                f"is a second definition the OWN_CI comparison cannot see — the surface belongs to the "
+                f"released repository's pyproject.toml and nowhere else (FR-010)."
+            )
+
+
+def test_the_declared_table_is_valid_toml_this_repository_can_read() -> None:
+    # Guards the one thing a hand-edited table gets wrong that the tests above would report confusingly:
+    # the keys living under the wrong parent.
+    manifest: dict[str, Any] = tomllib.loads(PYPROJECT.read_text())
+    tools: dict[str, Any] = manifest["tool"]
+    assert SURFACE_TABLE in tools, f"pyproject.toml has no [tool.{SURFACE_TABLE}] table"
+    assert set(tools[SURFACE_TABLE]) == {"surface-include", "surface-exclude"}, (
+        f"[tool.{SURFACE_TABLE}] declares {sorted(tools[SURFACE_TABLE])}; a misspelled key is read as "
+        f"an absent one, which silently widens the surface to every path."
     )
 
 

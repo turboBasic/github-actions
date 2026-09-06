@@ -67,3 +67,22 @@ name = "cz_conventional_commits"
 tag_format = "v$version"
 version_scheme = "semver"
 version_provider = "pep621"
+
+# What a consumer of *this* repository resolves, and the only place it is written. Read by
+# actions/release-decisions from whichever repository is being released, so a caller declares its own
+# layout here rather than inheriting ours — release.yml checks out the caller's tree, so this file is
+# the caller's. A repository that declares nothing gets an unfiltered range and is told so.
+#
+# The exclusions are OWN_CI as workflow paths; tests/test_release_decisions.py holds them equal to it.
+# Deleting this table would put this repository's own release on the unfiltered path, so a test
+# asserts it exists at all.
+[tool.turbobasic-release]
+surface-include = [".github/workflows/**", "actions/**"]
+surface-exclude = [
+  ".github/workflows/ci.yml",
+  ".github/workflows/commit-messages.yml",
+  ".github/workflows/dependabot-automerge.yml",
+  ".github/workflows/drift.yml",
+  ".github/workflows/release.yml",
+  ".github/workflows/release-proposal.yml",
+]
