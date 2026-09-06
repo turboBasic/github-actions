@@ -18,14 +18,23 @@ line (FR-011, Principle IV).
 
 | Input | Required | Applies to | Meaning |
 | --- | --- | --- | --- |
-| `decision` | yes | all | `verify-version`, `check-notes`, or `next-version` |
-| `pyproject` | no | `verify-version`, `next-version` | Path to the `pyproject.toml` to read `[project].version` from. Defaults to `pyproject.toml` in the workspace |
+| `decision` | yes | all | `verify-version`, `check-notes`, `next-version`, `declared-version` or `surface-args` |
+| `pyproject` | no | `verify-version`, `next-version`, `declared-version` | Path to the `pyproject.toml` to read `[project].version` from. Defaults to `pyproject.toml` in the workspace |
 | `tag-refs` | no | `verify-version` | Newline-separated `refs/tags/…` list, as `gh api` produced it. The action does no network I/O of its own |
-| `event-name` | no | `verify-version` | Selects the three-way severity. `push` or `workflow_dispatch` |
+| `event-name` | no | `verify-version` | Selects the three-way severity. `push` or `workflow_dispatch`; defaults to the run's own event |
 | `dry-run` | no | `verify-version` | `true` softens the not-ahead refusal to a notice |
 | `notes-file` | no | `check-notes` | Path to the rendered notes, tested for content rather than size |
-| `context-file` | no | `check-notes`, `next-version` | Path to `git-cliff --context` JSON over the **surface-filtered** range |
-| `current-version` | no | `next-version` | The version to increment from. Defaults to `pyproject`'s |
+| `context-file` | no | `check-notes`, `next-version` | Path to `git-cliff --context` JSON over the **surface-filtered** range. Absent on `check-notes` asks about emptiness only |
+| `current-version` | no | `check-notes`, `next-version` | The version to increment from, or to report. Defaults to `pyproject`'s |
+| `highest-major` | no | `check-notes` | Major of the highest existing release, as `verify-version` reported it. Empty means no tag exists to be moved onto a broken contract |
+| `severity` | no | `check-notes` | `notice` reports an empty range as a decline rather than refusing, for a caller that runs on every push and must not redden its default branch. Defaults to `error` |
+
+**Two of the five `decision` values are reads rather than decisions**, and are here because a workflow
+cannot get at a module constant any other way. `declared-version` prints `[project].version`;
+`surface-args` prints the consumer-surface path list as git-cliff flags. Both write their answer to
+`GITHUB_OUTPUT` *and* to stdout, so a caller invoking the module by in-repo path inside a larger step
+can capture it — which is what `release-proposal.yml` does, and what keeps FR-006's one definition from
+needing a second copy in shell.
 
 ## Outputs
 
@@ -38,12 +47,17 @@ line (FR-011, Principle IV).
 | `feature` | `next-version` | The feature verdict over the filtered range |
 | `next-version` | `next-version` | The proposed version |
 | `reason` | `next-version` | The one-line why, as a maintainer reads it |
+| `version` | `declared-version` | `[project].version`, also printed to stdout |
+| `args` | `surface-args` | The path list as one line of git-cliff flags, also printed one per line to stdout |
 
 ## Behaviour the contract fixes
 
 - **Exit non-zero only to refuse.** A refusal that must stop the release exits non-zero after emitting
   `::error::`. The not-ahead case on a `push` exits **zero** with `proceed=false`, because `ci.yml` calls
   release after every merge and most merges are not releases.
+- **The exit status is the answer**, so no caller compares a string in shell. A `notice`-severity
+  decline also exits non-zero — a workflow that declines rather than refuses swallows it with `if !`,
+  which is how `release-proposal.yml` keeps a dead range off `main`'s red list.
 - **Every refusal happens before any tag exists.** The action never creates a tag, a ref, or a release;
   that is `release.yml`'s remaining shell (FR-007).
 - **No network.** The action reads files and environment variables. `gh api` and `git-cliff` stay in the

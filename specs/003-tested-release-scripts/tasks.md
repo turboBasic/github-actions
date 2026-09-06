@@ -149,47 +149,47 @@ ship the action complete. Priority orders value, not execution.
 
 **Depends on US1 and US3.** Not independently orderable.
 
-- [ ] T024 [US2] Add the `__main__` dispatch to `actions/release-decisions/decisions.py`: read every
+- [X] T024 [US2] Add the `__main__` dispatch to `actions/release-decisions/decisions.py`: read every
       argument from the environment, branch on `decision` across **all three** values, write results to
       `GITHUB_OUTPUT`, emit `::notice::`/`::error::`, exit non-zero only to refuse, per
       [contracts/action.md](./contracts/action.md). Every argument arrives through `env`; no `${{ }}`
       reaches a script argument or a shell line (FR-011, Principle IV)
-- [ ] T025 [US2] Complete `actions/release-decisions/action.yml`: declare every input from the contract
+- [X] T025 [US2] Complete `actions/release-decisions/action.yml`: declare every input from the contract
       with a `description` and explicit `default`, map each to `env`, declare the outputs. Ships
       `verify-version` and `check-notes` too, though only stage 2 calls them — otherwise stage 2's branch
       and `@v4` would hold different code
-- [ ] T026 [US2] Replace `release-proposal.yml`'s "Decide whether a proposal is wanted" and "Decide the
+- [X] T026 [US2] Replace `release-proposal.yml`'s "Decide whether a proposal is wanted" and "Decide the
       version" logic with `python3` invocations of `actions/release-decisions/decisions.py` by in-repo
       path, keeping `gh api`, `gh pr` and `uv version` as shell (FR-007). **No `uses:`** — that is what
       keeps stage 1 free of the deadlock
-- [ ] T027 [US2] Remove the surface argument array from `.github/workflows/release-proposal.yml`, taking
+- [X] T027 [US2] Remove the surface argument array from `.github/workflows/release-proposal.yml`, taking
       it from `surface_args()` instead (FR-006)
-- [ ] T028 [US2] Rewrite `test_the_surface_filter_agrees_with_own_ci` in `tests/test_release_notes.py` to
+- [X] T028 [US2] Rewrite `test_the_surface_filter_agrees_with_own_ci` in `tests/test_release_notes.py` to
       import `SURFACE_EXCLUDE` and compare it to `OWN_CI` directly, and retire the `SURFACE_FILTERED`
       parametrization — it breaks here for `release-proposal.yml` and again in stage 2 (FR-017, D6)
-- [ ] T029 [US2] Cut the comments in `release-proposal.yml` that narrate an incident, keeping those that
+- [X] T029 [US2] Cut the comments in `release-proposal.yml` that narrate an incident, keeping those that
       state a rule; move any rule a test can hold into a test name instead
-- [ ] T030 [US2] Diff every `release-proposal.yml` refusal and notice against its pre-change wording and
+- [X] T030 [US2] Diff every `release-proposal.yml` refusal and notice against its pre-change wording and
       confirm each says the same thing (FR-010)
 
 ---
 
 ### Phase 6: Stage-1 verification, documentation and release
 
-- [ ] T031 Run quickstart rung 1 against `mise run ci`, including
+- [X] T031 Run quickstart rung 1 against `mise run ci`, including
       `uv run pytest tests/test_release_decisions.py -k "one_byte or absent_breaking" -v` and a check that
       `test_first_party_actions_use_the_major_tag` is unmodified and green (SC-001, SC-002, SC-005, SC-010)
-- [ ] T032 Confirm no gate from
+- [X] T032 Confirm no gate from
       [contracts/decisions.md](./contracts/decisions.md#existing-tests-this-change-breaks) is left failing
       or silently deleted — at this stage only `test_the_surface_filter_agrees_with_own_ci` should have
       moved (FR-017, SC-011)
 - [ ] T033 Run quickstart rung 2: dispatch `.github/workflows/release-proposal.yml` from the stage-1
       branch, confirm the increment matches what the old shell proposed for the same range, then **tear
       down** the `release-proposal` branch and its pull request
-- [ ] T034 Correct `docs/ai-instructions.md`'s "This repo ships no application code — the Python here
+- [X] T034 Correct `docs/ai-instructions.md`'s "This repo ships no application code — the Python here
       exists to test the YAML", which this change falsifies (FR-016)
-- [ ] T035 [P] Add `release-decisions` to `README.md`'s composite actions list
-- [ ] T036 [P] Confirm `docs/consumers.md` still reads true — `github-actions-test` calls `release` at
+- [X] T035 [P] Add `release-decisions` to `README.md`'s composite actions list
+- [X] T036 [P] Confirm `docs/consumers.md` still reads true — `github-actions-test` calls `release` at
       `@v4`, unchanged by stage 1
 - [ ] T037 Merge stage 1 and let `ci.yml` cut its release. `release.yml` is untouched here, so the old
       shell cuts it — which is what makes this safe (quickstart rung 3)

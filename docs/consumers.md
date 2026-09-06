@@ -48,6 +48,11 @@ depends on.
 `repo-factory` keeps its own workflows and calls only the `populate-pr-description` composite action.
 It and `github-actions-test` are that action's only callers, so a change to its inputs reaches two.
 
+`release-decisions` has **no** external caller and is not meant to gain one: it holds the decisions
+`release.yml` and `release-proposal.yml` used to make in shell, so their blast radius is its blast
+radius. `release-proposal.yml` invokes it by in-repo path rather than through `uses:`, having no
+`workflow_call` trigger and so no way to run anywhere else.
+
 `opus-magnum` defines no `typecheck` or `test` mise task — its `[tasks.*]` are all `make` wrappers —
 so it needs `run-typecheck: false` and `run-tests: false` alongside the lint inputs.
 

@@ -4,8 +4,9 @@ Source of truth for all AI coding tools (Claude Code, GitHub Copilot) working in
 `CLAUDE.md` and `.github/copilot-instructions.md` both point here.
 
 Scope: reusable GitHub Actions workflows and composite actions consumed by other
-`turboBasic` repositories. This repo ships no application code — the Python here exists to test
-the YAML.
+`turboBasic` repositories. This repo ships no application. Its Python is of two kinds: the suite under
+`tests/`, which asserts properties of the YAML, and the modules a composite action runs — where a
+decision the YAML used to make in shell now lives, so that it can be tested at all.
 
 Committed configuration is authoritative for settings it already declares — read `mise.toml`,
 `pyproject.toml`, `.pre-commit-config.yaml` (prek reads this same file), and `.cspell.config.yaml`
@@ -149,6 +150,12 @@ Python 3.14. The only Python here supports the actions and their tests.
 - Full type hints on every signature, tests included.
 - A script invoked by a composite action reads its arguments from the environment, declared in
   `action.yml`. It never parses `${{ }}` interpolations inline.
+- **A module a composite action runs is standard-library-only, and keeps to syntax older
+  interpreters parse.** `mise.toml` pins 3.14 here, but a caller whose own config pins no `python`
+  falls back to the runner's, and `python3` is what runs the file — there is no resolution step to
+  fail loudly. Its imports are asserted against `sys.stdlib_module_names` by test.
+- **A module a composite action runs is importable by the suite**, through a `pythonpath` entry in
+  `pyproject.toml` and a matching `extraPaths` for pyright. Both are needed; neither is a relaxation.
 
 ### Comments and docs
 
@@ -176,8 +183,9 @@ Python 3.14. The only Python here supports the actions and their tests.
   `main` ref, and zizmor rejects an unknown field in its own config anyway. `.github/actionlint.yaml`
   does get one, because actionlint accepts an unknown key there silently.
 - pyright strict. Never a blanket `# type: ignore` or a loosened mode to clear an error.
-- pytest. Never `unittest.TestCase`. `tests/` asserts properties of the YAML, since there is no
-  application to test.
+- pytest. Never `unittest.TestCase`. `tests/` asserts properties of the YAML where there is nothing
+  to call, and calls the action modules where there is — the second is always the better test, and
+  moving a decision out of a `run:` block so it can be called is the reason those modules exist.
 - **The suite is offline; `mise run ci` must never need the network.** The exceptions are marked
   `@pytest.mark.drift` and deselected by default, run by `mise run test-drift` from `drift.yml`,
   which is scheduled as well as run on a pull request because the state it reads changes with no

@@ -1,8 +1,10 @@
 import json
+import os
 import re
 import tomllib
-from collections.abc import Iterable
-from typing import Any, Literal, NamedTuple
+from collections.abc import Callable, Iterable
+from pathlib import Path
+from typing import Any, Literal, NamedTuple, NoReturn
 
 # A plain alias rather than a `type` statement: a caller whose mise.toml pins no python falls back
 # to the runner's own interpreter, so this module keeps to syntax every maintained version parses.
@@ -132,3 +134,159 @@ def surface_args() -> list[str]:
         *(arg for path in SURFACE_INCLUDE for arg in ("--include-path", path)),
         *(arg for path in SURFACE_EXCLUDE for arg in ("--exclude-path", path)),
     ]
+
+
+# Everything below is the I/O the pure functions above are kept clear of: environment in, GITHUB_OUTPUT
+# and workflow commands out. Every value arrives through `env`, declared in action.yml, so no `${{ }}`
+# reaches an argument list or a shell line.
+
+
+def _env(name: str, default: str = "") -> str:
+    return os.environ.get(name, "") or default
+
+
+def _out(name: str, value: str) -> None:
+    path = _env("GITHUB_OUTPUT")
+    if path:
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(f"{name}={value}\n")
+
+
+def _say(severity: Severity, message: str) -> None:
+    print(f"::{severity}::{message}")
+
+
+def _stop(severity: Severity, message: str) -> NoReturn:
+    # Non-zero is how a caller learns the answer without comparing a string in shell. An `error`
+    # fails the job; a `notice` is a workflow that declines to act, which its caller swallows.
+    _say(severity, message)
+    raise SystemExit(1)
+
+
+def _pyproject_version() -> str:
+    return declared_version(Path(_env("PYPROJECT", "pyproject.toml")).read_bytes())
+
+
+def _render(version: Version) -> str:
+    return ".".join(str(part) for part in version)
+
+
+def _flag(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def _declared_version() -> None:
+    version = _pyproject_version()
+    # Both channels: stdout for a caller invoking this by in-repo path inside a larger step, the
+    # output for one reaching it through `uses:`.
+    print(version)
+    _out("version", version)
+
+
+def _surface_args() -> None:
+    args = surface_args()
+    print("\n".join(args))
+    # One line, safe because no argument holds a space — asserted by
+    # tests/test_release_decisions.py, which is what lets a caller read it back with `read -ra`.
+    _out("args", " ".join(args))
+
+
+def _verify_version() -> None:
+    dry_run = _env("DRY_RUN") == "true"
+    ref = _env("GITHUB_REF")
+    if ref != "refs/heads/main" and not dry_run:
+        _stop(
+            "error",
+            f"releases are cut from main; this run is on {ref}. Dispatch with dry-run to exercise "
+            f"this workflow from a branch.",
+        )
+
+    version = _pyproject_version()
+    parsed = parse_version(version)
+    if parsed is None:
+        _stop("error", f"pyproject.toml declares no plain semantic version: '{version}'")
+
+    highest = highest_version(_env("TAG_REFS").split())
+    verdict = release_verdict(
+        version=version,
+        highest=_render(highest) if highest else "",
+        ahead=is_ahead(parsed, highest),
+        event_name=_env("EVENT_NAME", _env("GITHUB_EVENT_NAME")),
+        dry_run=dry_run,
+    )
+    if verdict.message:
+        _say(verdict.severity, verdict.message)
+    if verdict.severity == "error":
+        raise SystemExit(1)
+
+    _out("proceed", _flag(verdict.proceed))
+    _out("version", version)
+    _out("highest-major", str(highest[0]) if highest else "")
+
+
+def _check_notes() -> None:
+    current = _env("CURRENT_VERSION")
+    if notes_are_empty(Path(_env("NOTES_FILE")).read_text(encoding="utf-8")):
+        if _env("SEVERITY") == "notice":
+            _stop(
+                "notice",
+                f"nothing has landed since v{current} that the notes would describe, so no release "
+                f"is due.",
+            )
+        _stop(
+            "error",
+            "the range since the previous version tag renders no notes, so there is nothing to "
+            "release. No tag was created.",
+        )
+
+    # Absent for a caller that only asks about emptiness. The refusal below reads the
+    # surface-filtered range, while the notes it just tested read the whole one.
+    context_file = _env("CONTEXT_FILE")
+    if not context_file:
+        return
+
+    breaking, _ = verdicts(Path(context_file).read_text(encoding="utf-8"))
+    _out("breaking", _flag(breaking))
+    highest_major = _env("HIGHEST_MAJOR")
+    parsed = parse_version(current)
+    if parsed and breaks_under_non_major(
+        parsed, int(highest_major) if highest_major else None, breaking=breaking
+    ):
+        _stop(
+            "error",
+            f"the range breaks the consumer surface but {current} is not a new major, so publishing "
+            f"it would move v{highest_major} onto a broken contract. No tag was created.",
+        )
+
+
+def _next_version() -> None:
+    current = _env("CURRENT_VERSION", _pyproject_version())
+    parsed = parse_version(current)
+    if parsed is None:
+        _stop("error", f"pyproject.toml declares no plain semantic version: '{current}'")
+
+    breaking, feature = verdicts(Path(_env("CONTEXT_FILE")).read_text(encoding="utf-8"))
+    proposed = _render(next_version(parsed, breaking=breaking, feature=feature))
+    why = increment_reason(breaking=breaking, feature=feature)
+
+    _say("notice", f"proposing {proposed}: {why}.")
+    _out("next-version", proposed)
+    _out("reason", why)
+    _out("breaking", _flag(breaking))
+    _out("feature", _flag(feature))
+
+
+DECISIONS: dict[str, Callable[[], None]] = {
+    "check-notes": _check_notes,
+    "declared-version": _declared_version,
+    "next-version": _next_version,
+    "surface-args": _surface_args,
+    "verify-version": _verify_version,
+}
+
+
+if __name__ == "__main__":
+    decision = _env("DECISION")
+    if decision not in DECISIONS:
+        _stop("error", f"unknown decision {decision!r}; expected one of {sorted(DECISIONS)}")
+    DECISIONS[decision]()
