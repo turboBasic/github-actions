@@ -435,8 +435,26 @@ def test_no_consumer_facing_change_is_waiting_for_a_release() -> None:
     except urllib.error.HTTPError as error:
         if error.code != 404:
             raise
-        # The state between a major bump merging and its first release: [project].version names a
-        # major nothing has tagged, so there is no ref to compare against and a release is owed.
+        # [project].version names a major nothing has tagged, so there is no ref to compare against.
+        # Two different situations, and only the event name tells them apart.
+        #
+        # On a push to main this is the release cutting itself. `ci.yml` runs `drift` with no `needs`
+        # and `release` behind `needs: [ci]`, so drift reaches this line about twenty seconds before
+        # the tag exists — measured on both releases so far: v3.0.0's drift failed at 15:15:45 with
+        # the tag created at 15:16:05, v4.0.0's at 22:33:20 against 22:33:38. Failing here reddens
+        # main after every release and both went green only from a manual re-run, which is how a
+        # check stops being read. `needs: [release]` is not the alternative: `release` is `if:`-gated
+        # to this event, and a skipped need skips its dependant, so drift would stop running on pull
+        # requests — where it is actually read.
+        #
+        # Anywhere else — a pull request, or `mise run test-drift` locally — the release is not in
+        # flight and an untagged major means one is owed. That is the case worth failing on, and it
+        # is also the backstop if the release does fail: the next pull request says so.
+        if os.environ.get("GITHUB_EVENT_NAME") == "push":
+            pytest.skip(
+                f"[project].version names major {major} and this is a push, so the release for this "
+                f"commit is still in flight. A pull request would fail here instead."
+            )
         pytest.fail(
             f"[project].version names major {major}, which has never been tagged. Run the Release "
             f"workflow to cut it."
