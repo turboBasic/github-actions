@@ -60,13 +60,30 @@ Then, on this branch:
 gh workflow run release.yml --ref 004-declared-consumer-surface -f dry-run=true
 ```
 
-What this rung is for: our release path is unchanged, and the point is to see that it is. Read the
-`Read the consumer-surface filter` step's log for the same flags rung 2 printed, and confirm the
-`Render the notes` step's `read -ra` consumed them — an empty `SURFACE` would expand to an empty array
-under `set -u`, which is the one shell behaviour no offline test covers.
+**This dispatch does not run the module under review, and no dispatch can.** `release.yml` reaches the
+decisions through `uses: turboBasic/github-actions/actions/release-decisions@v4`, so
+`${GITHUB_ACTION_PATH}` is the *tagged download* rather than the workspace — the `$/` self-repository form
+covers a called **workflow**, not an action reference inside one, and the first-party-major-tag rule
+forbids pinning that reference to a branch. Confirmed by observation: run
+[34059521759](https://github.com/turboBasic/github-actions/actions/runs/34059521759) logged
+`Run turboBasic/github-actions/actions/release-decisions@v4` and rendered the constants' filter, not the
+table's. This is the same two-stage constraint
+[`003`'s research D9](../003-tested-release-scripts/research.md) records.
 
-**This rung cannot prove the feature.** Our surface is declared, so it exercises the declared path only —
-the same path we had before. Rungs 4–6 are the feature.
+So what this rung is worth: it proves `release.yml` still works — the comment-only edit, the notes render,
+and the `read -ra` of the flag line, which is the one shell behaviour no offline test covers. It proves
+nothing about `decisions.py`.
+
+**Rung 3a is the one that exercises the new module before any tag moves.** `release-proposal.yml` invokes
+`decisions.py` by in-repo path, having no `workflow_call` trigger, so on the merge commit it runs the code
+under review for real. Watch its `Decide the version` step on the merge to `main` and confirm the flags come
+from the table.
+
+Note the ordering this forces, and do not mistake it for a defect: the first release cut after the merge is
+produced by the **old** module, because `@v4` has not moved yet. That is harmless here precisely because
+our table reproduces the deleted constants exactly (SC-001) — the old module and the new one render the
+identical filter for this repository. Once that release moves `@v4`, the new module is live for us and for
+`github-actions-test`, which is what makes rungs 4–6 possible at all.
 
 ## 4. The undeclared case, for real
 
