@@ -10,7 +10,13 @@
   "settings": {
     "files.exclude": {
       "**/.venv": true
-    }
+    },
+    "favorites.resources": [
+      {
+        "filePath": "tmp/ad-hoc-prompts.md",
+        "group": "Default"
+      }
+    ]
   },
   "extensions": {
     "recommendations": [
