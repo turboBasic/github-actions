@@ -18,6 +18,8 @@ SELF_WORKFLOW = f"{SELF_REPO}.github/workflows/"
 # carries a ref, because both resolve at the caller's own commit.
 SELF_PREFIXES = ("$/", "./")
 SHA = re.compile(r"^[0-9a-f]{40}$")
+# Column zero, so it cannot match a job's or a step's name.
+WORKFLOW_NAME = re.compile(r"^name: (.+)$", re.MULTILINE)
 TAG_COMMENT = re.compile(r"#\s*v?\d")
 
 # GitHub composes a called job's check name as `<caller job id> / <called job name>`, so both halves
@@ -592,6 +594,21 @@ def test_allowed_types_match_the_commitizen_builtin_set() -> None:
     assert declared == builtin, (
         f"{workflow} `{key}` disagrees with commitizen's built-in set: "
         f"missing {sorted(builtin - declared)}, extra {sorted(declared - builtin)}"
+    )
+
+
+def test_every_workflow_name_carries_the_moon_prefix() -> None:
+    # The Actions sidebar sorts by name by code point, so a non-Latin prefix is what keeps the
+    # workflows this repository authors together and below the ones GitHub injects and nobody can
+    # rename. Display only: no check context reads a workflow's name, only a job's.
+    offenders: list[str] = []
+    for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+        found = WORKFLOW_NAME.search(path.read_text())
+        name = found.group(1).strip() if found else "<none>"
+        if name != f"🌜 {path.stem}":
+            offenders.append(f"{path.name}: {name}")
+    assert not offenders, (
+        f"a workflow's name is `🌜 ` then its filename stem, and these are not: {offenders}."
     )
 
 

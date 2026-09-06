@@ -1,7 +1,7 @@
 # The canonical Python CI: mise tasks are the entry point, so what CI runs and what
 # `mise run ci` runs locally cannot drift apart.
 
-name: python-ci
+name: 🌜 python-ci
 
 on:
   workflow_call:
