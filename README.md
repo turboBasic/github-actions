@@ -201,16 +201,32 @@ a range that breaks the consumer surface carries a new major; renders the notes 
 ref, so a failure leaves no tag behind. The version tag is annotated, the release is published from
 those notes, and the major tag moves last.
 
-That last refusal reads *this* repository's surface — `.github/workflows/**` and `actions/**`, minus
-the workflows that are its own CI — because the paths are a constant in `actions/release-decisions`
-rather than an input a caller passes. It is the one refusal here that does not travel: a caller gets the other two in full, and
-this one measured against our layout, which misses in both directions. A consumer's breaking change to
-its own source refuses nothing. One touching its own `.github/workflows/**` still refuses under a patch
-even where nothing consumes it — unless it lands in a file our exclusions happen to name, its own
-`ci.yml` or its own `release.yml`, which drops it from the check by coincidence of naming. That is
-narrower than the unfiltered range this replaced, which refused over any path at all, but it is not
-gone: cut a release whose contract moved as a major deliberately rather than relying on this to notice.
-[#110](https://github.com/turboBasic/github-actions/issues/110) is where the paths become an input.
+**Declare your consumer surface** so that last refusal is measured against your layout. It goes in the
+`pyproject.toml` of the repository being released — the same file whose `[project].version` decides which
+version that is — and both keys are optional:
+
+```toml
+[tool.turbobasic-release]
+surface-include = ["src/**"]
+surface-exclude = ["src/**/_generated/**"]
+```
+
+Entries are `git-cliff` path globs. They narrow only the breaking-change refusal: the notes always
+describe the whole range, and the other two refusals never looked at paths.
+
+| Your `pyproject.toml` | The refusal considers | The run says |
+| --- | --- | --- |
+| no `[tool.turbobasic-release]` table | every path in the range | a notice naming the omission |
+| a table declaring paths | only what you declared | nothing |
+| a table with both lists empty | every path in the range | nothing — you decided |
+
+Declaring nothing is safe in the direction that matters: the refusal fires more often, never less, so it
+cannot let a breaking change through under a patch. The cost is a release refused over a change nothing of
+yours resolves. There is deliberately **no input** to override this — an input would have to default to
+something, and one repository's layout is right for another only by coincidence.
+
+A path is rejected, before any tag exists, if it is empty, holds whitespace, or begins with `-`: the flags
+reach the renderer as one whitespace-split line, so such a path would be split in two or read as a flag.
 
 ```yaml
 jobs:
@@ -236,6 +252,7 @@ deliberate: the release cannot start unless CI passed on this exact commit, so t
 query and no race to lose. Point `needs:` at whichever job reports your required context.
 
 Requires a `.cliff.toml` — the notes come from commit types, never from a pull request label — and a
+`pyproject.toml` declaring `[project].version`, which is what decides the version being cut. Also a
 checkout with full history and tags, which the workflow does itself. `mise run release-notes` renders
 them locally, offline, creating nothing.
 
@@ -282,6 +299,8 @@ Python or `uv` setup. `template-path` overrides the default `.github/PULL_REQUES
 Answers one release question — `verify-version`, `check-notes`, `next-version`, `declared-version` or
 `surface-args` — from files and environment variables, writing its answers to `GITHUB_OUTPUT` and its
 verdicts as `::notice::` / `::error::`. It exits non-zero to say the caller should not proceed.
+`surface-args` reads `[tool.turbobasic-release]` from the `pyproject` it is given, which is the released
+repository's — see `release.yml` above.
 
 ```yaml
 - uses: turboBasic/github-actions/actions/release-decisions@v4

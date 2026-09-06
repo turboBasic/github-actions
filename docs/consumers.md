@@ -9,7 +9,7 @@ workflow. `opus-magnum` is the only migration still intended.
 | Repository | Visibility | Pinned at | Calls | Notable inputs |
 | --- | --- | --- | --- | --- |
 | `github-actions` (this one) | public | self-calls | `python-ci`, `conventional-commits`, `dependency-review`, `release`, all **as self-calls** | defaults throughout |
-| `github-actions-test` | public | `@v4` | everything: `python-ci` twice, `conventional-commits`, `prek-advisory`, `release`, `populate-pr-description` | one call at defaults, one with `lint-changed-only: true`, `hook-stage: pre-push`, `run-typecheck: false`, `cache-prek: true` — the only caller of that input anywhere, and `python-ci.yml` gates its cache step on `cache-prek && lint-changed-only`, so that step runs there and nowhere else |
+| `github-actions-test` | public | `@v4` | everything: `python-ci` twice, `conventional-commits`, `prek-advisory`, `release`, `populate-pr-description` | one call at defaults, one with `lint-changed-only: true`, `hook-stage: pre-push`, `run-typecheck: false`, `cache-prek: true` — the only caller of that input anywhere, and `python-ci.yml` gates its cache step on `cache-prek && lint-changed-only`, so that step runs there and nowhere else. Also the only repository declaring a `[tool.turbobasic-release]` surface besides this one |
 | `python-app-baseline` | public | `@v4` | `python-ci`, `conventional-commits` | defaults throughout |
 | `repo-factory` | public | `@v2` | `populate-pr-description` action only | — |
 | `opus-magnum` | private, **resolves nothing here yet** | — | `python-ci`, `prek-advisory`, `conventional-commits` | `lint-changed-only: true`, `hook-stage: pre-push` on both, `run-typecheck: false`, `run-tests: false`, `mise-version` pinned |
@@ -52,6 +52,15 @@ It and `github-actions-test` are that action's only callers, so a change to its 
 `release.yml` and `release-proposal.yml` used to make in shell, so their blast radius is its blast
 radius. `release-proposal.yml` invokes it by in-repo path rather than through `uses:`, having no
 `workflow_call` trigger and so no way to run anywhere else.
+
+**Every `release.yml` caller declares its own consumer surface** in its own `pyproject.toml`, under
+`[tool.turbobasic-release]`. `release.yml` checks out the caller's tree, so that file is the caller's —
+which is why the surface is configuration there rather than an input here, and why there is no input at
+all: a default would be this repository's layout, right for anyone else only by coincidence. A caller
+declaring nothing gets an unfiltered range and a notice, so the breaking-change refusal over-refuses
+rather than under-refuses. `github-actions-test` is the only caller and so the only place this is
+exercised; ours lives beside `[tool.commitizen]`, and its exclusions are `OWN_CI` as workflow paths, held
+equal to it by `tests/test_release_decisions.py`.
 
 `opus-magnum` defines no `typecheck` or `test` mise task — its `[tasks.*]` are all `make` wrappers —
 so it needs `run-typecheck: false` and `run-tests: false` alongside the lint inputs.
