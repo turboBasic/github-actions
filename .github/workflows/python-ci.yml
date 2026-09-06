@@ -133,3 +133,5 @@ jobs:
         env:
           TASK: ${{ inputs.test-task }}
         run: mise run "${TASK}"
+
+# Probe for #62: a breaking change to a workflow consumers call. Never merged.
