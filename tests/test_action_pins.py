@@ -597,18 +597,24 @@ def test_allowed_types_match_the_commitizen_builtin_set() -> None:
     )
 
 
-def test_every_workflow_name_carries_the_moon_prefix() -> None:
+def test_every_workflow_name_carries_its_prefix() -> None:
     # The Actions sidebar sorts by name by code point, so a non-Latin prefix is what keeps the
     # workflows this repository authors together and below the ones GitHub injects and nobody can
-    # rename. Display only: no check context reads a workflow's name, only a job's.
+    # rename. 🧩 marks the ones a consumer resolves, which is why the split reads OWN_CI rather than
+    # restating it: the same boundary that decides whether a change is a version increment decides
+    # which block a workflow sits in, so adding one forces the question in a single place. A
+    # `workflow_call` trigger is not the test — `release.yml` has one and is still plumbing.
+    #
+    # Display only: no check context reads a workflow's name, only a job's.
     offenders: list[str] = []
     for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
         found = WORKFLOW_NAME.search(path.read_text())
         name = found.group(1).strip() if found else "<none>"
-        if name != f"🌜 {path.stem}":
-            offenders.append(f"{path.name}: {name}")
+        want = f"{'🌜' if path.name in OWN_CI else '🧩'} {path.stem}"
+        if name != want:
+            offenders.append(f"{path.name}: {name!r}, want {want!r}")
     assert not offenders, (
-        f"a workflow's name is `🌜 ` then its filename stem, and these are not: {offenders}."
+        f"a workflow's name is 🌜 or 🧩, a space, then its filename stem: {offenders}."
     )
 
 
