@@ -139,7 +139,7 @@ jobs:
 
       # The consumer surface has one definition, in the action's module, and no workflow spells the
       # flags. The paths are *this* repository's, and deliberately not an input: that would be new
-      # contract surface on a reusable workflow nobody has asked for. #61 owns making them one. What
+      # contract surface on a reusable workflow nobody has asked for. #110 owns making them one. What
       # writing them in costs a caller under `workflow_call`, in both directions, is README's
       # release.yml section — where a caller reads.
       - name: Read the consumer-surface filter
