@@ -3,6 +3,7 @@
 Reusable GitHub Actions workflows and composite actions shared across `turboBasic` repositories.
 
 [![CI][ci-badge]][ci-workflow]
+[![Drift][drift-badge]][drift-workflow]
 [![License: MIT][license-badge]][license]
 
 Conventions live in [`docs/ai-instructions.md`][ai-instructions]; how to send a change is
@@ -329,6 +330,8 @@ validates those against their published JSON schemas.
 
 [ci-badge]: https://github.com/turboBasic/github-actions/actions/workflows/ci.yml/badge.svg?branch=main
 [ci-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/ci.yml?query=branch%3Amain
+[drift-badge]: https://github.com/turboBasic/github-actions/actions/workflows/drift.yml/badge.svg?branch=main
+[drift-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/drift.yml?query=branch%3Amain
 [license-badge]: https://img.shields.io/badge/licence-MIT-blue.svg
 [license]: LICENSE
 [ai-instructions]: docs/ai-instructions.md

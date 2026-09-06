@@ -148,6 +148,7 @@ jobs:
             --exclude-path '.github/workflows/ci.yml'
             --exclude-path '.github/workflows/commit-messages.yml'
             --exclude-path '.github/workflows/dependabot-automerge.yml'
+            --exclude-path '.github/workflows/drift.yml'
             --exclude-path '.github/workflows/release.yml'
             --exclude-path '.github/workflows/release-proposal.yml'
           )

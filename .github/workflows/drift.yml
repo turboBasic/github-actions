@@ -1,0 +1,38 @@
+---
+# Split from ci.yml so a red badge there means the code broke, not that GitHub's own state moved.
+# Scheduled because the things asserted here — the `main` ruleset, the label set, this repository's
+# public visibility — change with no commit at all, and a check that only runs on a pull request
+# cannot see that until someone opens one.
+#
+# No `push` trigger, deliberately: sharing a run with the release means reading the major tag before
+# the release moves it, so a release in flight reads as one that is owed.
+name: 🌜 drift
+
+on:
+  pull_request:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  # Deliberately not a required context — a red check is signal enough here.
+  drift:
+    name: drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - run: uv sync --locked
+      - env:
+          GH_TOKEN: ${{ github.token }} # only to lift the unauthenticated rate limit
+        run: mise run test-drift

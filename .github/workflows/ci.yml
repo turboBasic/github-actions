@@ -35,8 +35,8 @@ jobs:
   # read out of an event payload. zizmor rates `workflow_run` a high-severity dangerous trigger, and
   # this needs no trigger at all.
   #
-  # Deliberately not `needs: [ci, drift]`. `drift` is red precisely when a release is owed, so
-  # waiting on it would mean a release can only be cut when none is needed.
+  # `drift` is not among its needs and cannot be: it lives in drift.yml, and it is red precisely when
+  # a release is owed, so waiting on it would mean a release can only be cut when none is needed.
   #
   # It refuses by itself on every ordinary merge — the declared version is already tagged — and says
   # so with a notice rather than a failure, so this does not redden main for doing nothing wrong.
@@ -46,19 +46,3 @@ jobs:
     uses: $/.github/workflows/release.yml
     permissions:
       contents: write # creates the version tag, publishes the release, moves the major tag
-
-  # Separate: needs a token and network, which python-ci.yml gives `mise run test` neither of.
-  # Deliberately not a required context — a red check is signal enough here.
-  drift:
-    name: drift
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-      - run: uv sync --locked
-      - env:
-          GH_TOKEN: ${{ github.token }} # only to lift the unauthenticated rate limit
-        run: mise run test-drift
