@@ -202,8 +202,8 @@ ref, so a failure leaves no tag behind. The version tag is annotated, the releas
 those notes, and the major tag moves last.
 
 That last refusal reads *this* repository's surface — `.github/workflows/**` and `actions/**`, minus
-the workflows that are its own CI — because the paths are written into the workflow rather than taken
-as an input. It is the one refusal here that does not travel: a caller gets the other two in full, and
+the workflows that are its own CI — because the paths are a constant in `actions/release-decisions`
+rather than an input a caller passes. It is the one refusal here that does not travel: a caller gets the other two in full, and
 this one measured against our layout, which misses in both directions. A consumer's breaking change to
 its own source refuses nothing. One touching its own `.github/workflows/**` still refuses under a patch
 even where nothing consumes it — unless it lands in a file our exclusions happen to name, its own

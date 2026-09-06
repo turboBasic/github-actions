@@ -5,6 +5,15 @@
 # The notes are shaped from commit types by `.cliff.toml`, and rendered *before* any tag exists —
 # so a failure to produce them leaves no tag behind, and nothing reads a pull request label.
 #
+# Every decision here is a `uses:` of actions/release-decisions, which answers one release question
+# from files and environment variables and exits non-zero to say the caller should not proceed. No
+# step compares a version or reads a commit payload. `gh api` and `git-cliff` stay in this file: the
+# action does no network I/O, so their results reach it as an input path or a string.
+#
+# The logic is a composite action rather than a script in this repository because `actions/checkout`
+# inside a reusable workflow checks out the *caller's* tree — `github-actions-test` calls this — so
+# nothing of ours is on disk. An action's own files arrive with the action download instead.
+#
 # The version bump is not done here. `main`'s ruleset requires a pull request and bypasses only for
 # the Repository admin role, which `GITHUB_TOKEN` does not hold, so a bump commit pushed from here
 # would be rejected. It arrives the same way every other change does — reviewed, CI-green — which
@@ -59,8 +68,9 @@ jobs:
       GH_REPO: ${{ github.repository }}
       DRY_RUN: ${{ inputs.dry-run }}
       # `runner.temp` is not available in a job-level env, so the workspace's parent — which
-      # exists and is writable — keeps the notes file out of the checked-out tree.
+      # exists and is writable — keeps these out of the checked-out tree.
       NOTES: ${{ github.workspace }}/../release-notes.md
+      CONTEXT: ${{ github.workspace }}/../release-context.json
     steps:
       # Full history and every tag: `--unreleased` measures from the newest tag matching
       # `.cliff.toml`'s `tag_pattern`, and a shallow checkout renders an empty range without
@@ -73,89 +83,78 @@ jobs:
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
 
+      # Every major, unfiltered: a frozen major is never backported, only left where it is, so the
+      # version being released has to be ahead of the highest release across all of them. Which ref
+      # is the highest, and whether the declared version beats it, is the next step's.
+      - name: Read the existing version tags
+        id: tags
+        run: |
+          set -euo pipefail
+
+          {
+            echo 'refs<<TAG_REFS'
+            gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/v" --jq '.[].ref'
+            echo 'TAG_REFS'
+          } >> "${GITHUB_OUTPUT}"
+
+      # Refuses a run off `main` that is not a dry run, a declared version that is not a plain
+      # `N.N.N`, and one that is not ahead of the highest release. That last has three severities
+      # keyed on who asked, which is why it can answer `proceed=false` without failing: ci.yml calls
+      # this after every merge and most merges are not releases.
+      - name: Verify the release
+        id: verify
+        uses: turboBasic/github-actions/actions/release-decisions@v4
+        with:
+          decision: verify-version
+          tag-refs: ${{ steps.tags.outputs.refs }}
+          dry-run: ${{ inputs.dry-run }}
+
       # `ci / python-ci` is the context the `main` ruleset requires, so on a merged commit it is the
       # verdict that covers this tree. Releasing past it would move the major tag — the ref every
       # consumer resolves — onto code nothing has run. `filter=latest` is the endpoint's default, so
       # a re-run supersedes the run it replaced.
       #
+      # Only on the dispatched path. When ci.yml calls this, `needs: [ci]` already *is* the verdict —
+      # the job could not have started otherwise — and querying the API for it again would race the
+      # check run's own bookkeeping: a conclusion not yet visible would read as `missing` and
+      # silently cancel a legitimate release.
+      #
       # `drift` is deliberately not consulted, and must not be: it is red precisely when a
       # release is owed, because that is what its drift test asserts. Gating on it would mean a
       # release can only be cut when none is needed.
-      - name: Verify the release
-        id: verify
+      #
+      # A `gh api` call, so it stays here rather than moving into the action, which does no network
+      # I/O. tests/test_action_pins.py asserts the context name is still in this file.
+      - name: Verify CI passed on this commit
+        if: github.event_name == 'workflow_dispatch' && steps.verify.outputs.proceed == 'true'
         run: |
           set -euo pipefail
 
-          if [[ ${GITHUB_REF} != refs/heads/main && ${DRY_RUN} != true ]]; then
-            echo "::error::releases are cut from main; this run is on ${GITHUB_REF}. Dispatch with dry-run to exercise this workflow from a branch."
+          conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs" \
+            --jq '[.check_runs[] | select(.name == "ci / python-ci") | .conclusion] | first // "missing"')
+          if [[ ${conclusion} != success ]]; then
+            echo "::error::ci / python-ci on ${GITHUB_SHA} is '${conclusion}', not success — the major tag would move onto unverified code"
             exit 1
           fi
 
-          # From the checkout, which is at the commit being released. Read as TOML, not as the
-          # first `version = ` line: this is a one-shot write path, and positional parsing would
-          # take a version from whichever table happened to come first.
-          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+      # The consumer surface has one definition, in the action's module, and no workflow spells the
+      # flags. The paths are *this* repository's, and deliberately not an input: that would be new
+      # contract surface on a reusable workflow nobody has asked for. #61 owns making them one. What
+      # writing them in costs a caller under `workflow_call`, in both directions, is README's
+      # release.yml section — where a caller reads.
+      - name: Read the consumer-surface filter
+        id: surface
+        if: steps.verify.outputs.proceed == 'true'
+        uses: turboBasic/github-actions/actions/release-decisions@v4
+        with:
+          decision: surface-args
 
-          if [[ ! ${version} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::pyproject.toml declares no plain semantic version: '${version}'"
-            exit 1
-          fi
-
-          # Must be ahead of every existing release, not merely untagged. A version *below* the
-          # current one is untagged too, and tagging it would publish it as latest and move the
-          # major tag onto a number consumers read as older than what they already have. Compared
-          # across all majors because a frozen major is never backported, only left where it is.
-          highest=$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/v" --jq '.[].ref' |
-            sed 's|^refs/tags/v||' | { grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' || true; } | sort -V | tail -1)
-          if [[ -n ${highest} ]]; then
-            newest=$(printf '%s\n%s\n' "${version}" "${highest}" | sort -V | tail -1)
-            if [[ ${version} == "${highest}" || ${newest} != "${version}" ]]; then
-              # Three verdicts for one condition, because what it means depends on who asked.
-              #
-              # On a push to main it is the ordinary case: ci.yml calls this after *every* merge,
-              # and most merges are not releases. Erroring would redden main for doing nothing wrong.
-              #
-              # Under a dry run it is unavoidable: on a feature branch the declared version is the
-              # released one by definition, so erroring would stop every dry run before it rendered
-              # anything. Reported, so the rest of the path still runs.
-              #
-              # Under a real dispatch a human asked for a release, and doing nothing is not what
-              # they asked for.
-              if [[ ${GITHUB_EVENT_NAME} == push ]]; then
-                echo "::notice::v${version} is already released, so this merge cuts nothing. Bump [project].version to release again."
-                echo "proceed=false" >> "${GITHUB_OUTPUT}"
-                exit 0
-              elif [[ ${DRY_RUN} == true ]]; then
-                echo "::notice::would refuse: pyproject.toml declares ${version}, which is not ahead of the highest release v${highest}"
-              else
-                echo "::error::pyproject.toml declares ${version}, which is not ahead of the highest release v${highest}. Bump [project].version in a pull request — that is what decides the next version."
-                exit 1
-              fi
-            fi
-          fi
-
-          # Only on the dispatched path. When ci.yml calls this, `needs: [ci]` already *is* the
-          # verdict — the job could not have started otherwise — and querying the API for it again
-          # would race the check run's own bookkeeping: a conclusion not yet visible would read as
-          # `missing` and silently cancel a legitimate release.
-          if [[ ${GITHUB_EVENT_NAME} == workflow_dispatch ]]; then
-            conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs" \
-              --jq '[.check_runs[] | select(.name == "ci / python-ci") | .conclusion] | first // "missing"')
-            if [[ ${conclusion} != success ]]; then
-              echo "::error::ci / python-ci on ${GITHUB_SHA} is '${conclusion}', not success — the major tag would move onto unverified code"
-              exit 1
-            fi
-          fi
-
-          {
-            echo "proceed=true"
-            echo "version=${version}"
-            echo "highest-major=${highest%%.*}"
-          } >> "${GITHUB_OUTPUT}"
-
-      # Before any tag exists, so a failure here leaves nothing to clean up. That ordering is why
-      # this is its own step: today's workflow tagged first and generated notes second, so a notes
-      # failure left a tag with no release attached.
+      # Two reads of one range, and they ask different questions. The notes have to describe
+      # everything that landed, so they are unfiltered. The refusal in the next step reads the
+      # consumer surface only: a `!` on a commit touching nothing consumers resolve breaks no
+      # contract, so refusing it would force a major nothing justifies. Same definition as
+      # release-proposal.yml's increment, which is what makes the two halves agree on what
+      # "breaking" means.
       #
       # No commit text passes through `${{ }}` into a shell line: git-cliff reads git and writes a
       # file, and `gh release create --notes-file` reads that file. A commit subject is a merged
@@ -163,56 +162,38 @@ jobs:
       - name: Render the notes
         if: steps.verify.outputs.proceed == 'true'
         env:
-          VERSION: ${{ steps.verify.outputs.version }}
-          HIGHEST_MAJOR: ${{ steps.verify.outputs.highest-major }}
+          SURFACE: ${{ steps.surface.outputs.args }}
         run: |
           set -euo pipefail
 
           # A non-zero exit is a bad range or a bad config, and is fatal. It is a different failure
-          # from the empty render below, which exits 0 — conflating the two would either publish an
-          # empty body or refuse a legitimate release because a tag lookup misfired.
+          # from a render holding nothing, which exits 0 — conflating the two would either publish
+          # an empty body or refuse a legitimate release because a tag lookup misfired.
           git-cliff --unreleased > "${NOTES}"
 
-          # git-cliff exits 0 for a range holding only a `bump` and for a range holding nothing at
-          # all, indistinguishably and with no warning, so the exit code cannot be trusted here.
-          # Nor can the file's size: an empty render is one byte, not zero, because git-cliff still
-          # emits a trailing newline — measured on a probe branch whose whole range was one `bump`,
-          # after this was written as `[[ ! -s ]]` on the assumption of zero bytes. That version
-          # would have published a release body containing a blank line.
-          if ! grep -q '[^[:space:]]' "${NOTES}"; then
-            echo "::error::the range since the previous version tag renders no notes, so there is nothing to release. No tag was created."
-            exit 1
-          fi
+          # One line of flags, split on whitespace because no path in the list holds one.
+          read -ra surface <<< "${SURFACE}"
+          git-cliff --unreleased --context "${surface[@]}" > "${CONTEXT}"
 
-          # The refusal reads the *consumer surface*, while the notes above read the whole range —
-          # deliberately different questions. A `!` on a commit touching only `tests/` or this
-          # repository's own CI breaks no contract, so refusing it would force a major nothing
-          # justifies, while the notes still have to describe everything that landed. Same list as
-          # release-proposal.yml's increment, which is what makes the two halves agree on what
-          # "breaking" means; tests/test_release_notes.py holds both to OWN_CI.
-          #
-          # The paths are *this* repository's, and deliberately not an input: that would be new
-          # contract surface on a reusable workflow nobody has asked for. #61 owns making them one,
-          # alongside removing the copies. What writing them in costs a caller under `workflow_call`,
-          # in both directions, is README's release.yml section — where a caller reads.
-          surface=(
-            --include-path '.github/workflows/**'
-            --include-path 'actions/**'
-            --exclude-path '.github/workflows/ci.yml'
-            --exclude-path '.github/workflows/commit-messages.yml'
-            --exclude-path '.github/workflows/dependabot-automerge.yml'
-            --exclude-path '.github/workflows/drift.yml'
-            --exclude-path '.github/workflows/release.yml'
-            --exclude-path '.github/workflows/release-proposal.yml'
-          )
+      # Before any tag exists, so a refusal leaves nothing to clean up. Two refusals, both the
+      # action's: notes holding no content at all, and a range that breaks the consumer surface under
+      # a version that is not a new major.
+      - name: Check the notes
+        if: steps.verify.outputs.proceed == 'true'
+        uses: turboBasic/github-actions/actions/release-decisions@v4
+        with:
+          decision: check-notes
+          notes-file: ${{ env.NOTES }}
+          context-file: ${{ env.CONTEXT }}
+          current-version: ${{ steps.verify.outputs.version }}
+          highest-major: ${{ steps.verify.outputs.highest-major }}
 
-          # `== true` rather than truthiness: `--context` omits `breaking` entirely on a commit
-          # matching no Conventional Commit, so the naive form tests a null and answers wrongly.
-          breaking=$(git-cliff --unreleased --context "${surface[@]}" | jq 'any(.[].commits[]; .breaking == true)')
-          if [[ ${breaking} == true && -n ${HIGHEST_MAJOR} && ${VERSION%%.*} == "${HIGHEST_MAJOR}" ]]; then
-            echo "::error::the range breaks the consumer surface but ${VERSION} is not a new major, so publishing it would move v${HIGHEST_MAJOR} onto a broken contract. No tag was created."
-            exit 1
-          fi
+      - name: Show the notes in the run summary
+        if: steps.verify.outputs.proceed == 'true'
+        env:
+          VERSION: ${{ steps.verify.outputs.version }}
+        run: |
+          set -euo pipefail
 
           {
             printf '## Notes for v%s\n\n' "${VERSION}"
