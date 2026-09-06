@@ -93,8 +93,9 @@ groups by, and a rule regenerates it without a table of hex codes to keep curren
 
 `area:workflows` and `area:actions` are the consumer-facing surface; `area:release` and
 `area:tooling` are not. That split is the one the version bump turns on — a change confined to the
-second pair is a patch however it is titled. `breaking` means shipping it needs a new major tag, and
-those issues go in the `v3.0` milestone.
+second pair is a patch however it is titled. `breaking` means shipping it needs a new major tag —
+which one is whatever [README][readme-versioning]'s Versioning section will name next, so a breaking
+issue waits for the milestone that cuts it rather than naming one here.
 
 Do not label a closure. GitHub's own close reason — *not planned*, *duplicate* — already records it
 and is queryable.

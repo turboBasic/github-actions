@@ -192,6 +192,44 @@ if you want the summary posted as a PR comment too — that needs `pull-requests
 workflow does not request, for the same reason `python-ci.yml` does not: a caller wanting write
 access should have to ask for it in a workflow that says so.
 
+### `release.yml`
+
+Cuts this repository's own releases, and callable so that a consumer can cut its own the same way.
+Refuses unless `[project].version` is ahead of every existing release, the notes render something, and
+a breaking range carries a new major; renders the notes before creating any ref, so a failure leaves no
+tag behind. The version tag is annotated, the release is published from those notes, and the major tag
+moves last.
+
+```yaml
+jobs:
+  ci:
+    uses: turboBasic/github-actions/.github/workflows/python-ci.yml@v4
+    permissions:
+      contents: read
+
+  release:
+    needs: [ci]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: turboBasic/github-actions/.github/workflows/release.yml@v4
+    permissions:
+      contents: write # creates the version tag, publishes the release, moves the major tag
+```
+
+| Input | Default | Purpose |
+| --- | --- | --- |
+| `dry-run` | `false` | Run every refusal and render the real notes, then stop before creating any tag. |
+
+**`needs: [ci]` is the CI verdict**, and gating on a job rather than on a `workflow_run` trigger is
+deliberate: the release cannot start unless CI passed on this exact commit, so there is no check run to
+query and no race to lose. Point `needs:` at whichever job reports your required context.
+
+Requires a `.cliff.toml` — the notes come from commit types, never from a pull request label — and a
+checkout with full history and tags, which the workflow does itself. `mise run release-notes` renders
+them locally, offline, creating nothing.
+
+On an ordinary merge, where the declared version is already tagged, it says so with a notice and
+stops rather than failing, so it does not redden `main` for doing nothing wrong.
+
 ## Composite actions
 
 ### `actions/prek-advisory-pr`

@@ -118,6 +118,17 @@ Composite actions live in `actions/`, not `.github/actions/`. The latter is the 
   not hypothetical: CVE-2025-30066 did exactly that to `tj-actions/changed-files`. Enforced by
   `tests/test_action_pins.py`.
 - **First-party references use the moving major tag** (`@vN`), never a SHA. See **Versioning**.
+- **A job's `name:` is lowercase-kebab-case, and a called job's name says what the job is rather than
+  repeating its caller.** GitHub composes a check as `<caller job id> / <called job name>`, so the
+  callee owns half of an identifier consumers type into their own rulesets. The name takes its
+  workflow's name — `python-ci`, `dependency-review` — unless the workflow has sibling jobs, where the
+  deed distinguishes them (`pr-title`, `commit-messages`), or unless it would double a common caller
+  id, where the deed wins again (`tag-and-publish`, not `release`). Never name it after behaviour a
+  caller can switch off: `python-ci.yml` ran as `lint-typecheck-test` for one commit, and two consumers
+  pass `run-typecheck: false`. `tests/test_action_pins.py` enforces the casing; the rest is judgement.
+- **Renaming a job that composes a required context is a major bump**, because a required check that
+  stops reporting blocks every pull request until each consumer edits its own ruleset, and no ref can
+  do that for them. `v4` was this and nothing else.
 - **Every input needs a `description` and an explicit `default`** unless genuinely required. A
   consumer reads the input list as the contract.
 - **Declare the narrowest `permissions`** the workflow needs. Permissions can only be reduced down
