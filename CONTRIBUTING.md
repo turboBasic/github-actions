@@ -162,8 +162,8 @@ consumers stay on the previous release until the rest has succeeded.
 ### The App behind the proposal
 
 The proposal is opened by a GitHub App, `turbobasic-release-proposal`, installed on this repository
-with `Contents` and `Pull requests` write and nothing else. Its id and private key live in the
-`RELEASE_APP_ID` and `RELEASE_APP_PRIVATE_KEY` Actions secrets, and the token each run mints is
+with `Contents` and `Pull requests` write and nothing else. Its client id and private key live in the
+`RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY` Actions secrets, and the token each run mints is
 narrowed to those two permissions and expires in an hour.
 
 `GITHUB_TOKEN` cannot do this job: opening a pull request from Actions requires *Allow GitHub Actions
