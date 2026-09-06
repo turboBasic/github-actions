@@ -303,9 +303,9 @@ a `uses:`. A consumer pinned to `@v4.0.1` therefore still gets the *current* `v4
 in that one job. Pin the action directly in your own workflow if you need it frozen.
 
 This is a deliberate exception to the rule that actions are pinned to a full SHA. That rule exists
-because a third party can retroactively repoint a tag — CVE-2025-30066 did precisely that to
-`tj-actions/changed-files`. This repo shares its owner with every consumer, so the threat model
-differs, and SHA-pinning it would mean one dependency PR per consumer for every one-line fix.
+because a third party can retroactively repoint a tag. This repo shares its owner with every
+consumer, so the threat model differs, and SHA-pinning it would mean one dependency PR per consumer
+for every one-line fix.
 
 Third-party actions *inside* this repo are pinned to full SHAs with no exception, enforced by
 `tests/test_action_pins.py`.
