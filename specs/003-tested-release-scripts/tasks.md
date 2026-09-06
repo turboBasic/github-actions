@@ -183,7 +183,7 @@ ship the action complete. Priority orders value, not execution.
       [contracts/decisions.md](./contracts/decisions.md#existing-tests-this-change-breaks) is left failing
       or silently deleted — at this stage only `test_the_surface_filter_agrees_with_own_ci` should have
       moved (FR-017, SC-011)
-- [ ] T033 Run quickstart rung 2: dispatch `.github/workflows/release-proposal.yml` from the stage-1
+- [X] T033 Run quickstart rung 2: dispatch `.github/workflows/release-proposal.yml` from the stage-1
       branch, confirm the increment matches what the old shell proposed for the same range, then **tear
       down** the `release-proposal` branch and its pull request
 - [X] T034 Correct `docs/ai-instructions.md`'s "This repo ships no application code — the Python here
