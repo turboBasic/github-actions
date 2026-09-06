@@ -4,7 +4,7 @@
 # anywhere forces every caller to grant it — and a caller that does not gets
 # `startup_failure` with no job, no log and no diagnostic.
 
-name: prek-advisory
+name: 🌜 prek-advisory
 
 on:
   workflow_call:

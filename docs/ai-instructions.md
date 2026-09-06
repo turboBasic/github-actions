@@ -118,10 +118,16 @@ Composite actions live in `actions/`, not `.github/actions/`. The latter is the 
   not hypothetical: CVE-2025-30066 did exactly that to `tj-actions/changed-files`. Enforced by
   `tests/test_action_pins.py`.
 - **First-party references use the moving major tag** (`@vN`), never a SHA. See **Versioning**.
+- **A workflow's own `name:` is 🌜 then a space then its filename stem** (`🌜 python-ci`). The
+  Actions sidebar sorts by name by code point, so the emoji is what groups every workflow this
+  repository authors together and below the ones GitHub injects and nobody can rename
+  (`Dependency Graph`). It is display only: no check context reads a workflow's name, only a job's,
+  so this is not consumer-facing surface and not a version increment.
+  `tests/test_action_pins.py` enforces it.
 - **A job's `name:` is lowercase-kebab-case, and a called job's name says what the job is rather than
   repeating its caller.** GitHub composes a check as `<caller job id> / <called job name>`, so the
   callee owns half of an identifier consumers type into their own rulesets. The name takes its
-  workflow's name — `python-ci`, `dependency-review` — unless the workflow has sibling jobs, where the
+  workflow's name without the prefix — `python-ci`, `dependency-review` — unless the workflow has sibling jobs, where the
   deed distinguishes them (`pr-title`, `commit-messages`), or unless it would double a common caller
   id, where the deed wins again (`tag-and-publish`, not `release`). Never name it after behaviour a
   caller can switch off: `python-ci.yml` ran as `lint-typecheck-test` for one commit, and two consumers
