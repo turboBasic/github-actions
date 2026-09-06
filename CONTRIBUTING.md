@@ -145,8 +145,10 @@ A major bump is a new tag rather than a move: the old major stays where it is, a
 
 The release renders the notes *before* it creates any ref, so a failure leaves no tag behind. It
 refuses when the version is not ahead of every existing release, when the notes render nothing, and
-when the range holds a breaking change under a version that is not a new major — publishing that would
-move the existing major tag onto a broken contract.
+when the range breaks the consumer surface under a version that is not a new major — publishing that
+would move the existing major tag onto a broken contract. A breaking change that touches nothing
+consumers resolve is not that: it reads the same reusable workflows and composite actions the version
+itself describes, so a `!` over `tests/` or this repository's own CI refuses nothing.
 
 On an ordinary merge, where the declared version is already tagged, it says so with a notice and stops.
 It does not redden `main` for doing nothing wrong.

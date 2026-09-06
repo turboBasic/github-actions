@@ -196,8 +196,8 @@ access should have to ask for it in a workflow that says so.
 
 Cuts this repository's own releases, and callable so that a consumer can cut its own the same way.
 Refuses unless `[project].version` is ahead of every existing release, the notes render something, and
-a breaking range carries a new major; renders the notes before creating any ref, so a failure leaves no
-tag behind. The version tag is annotated, the release is published from those notes, and the major tag
+a range that breaks the consumer surface carries a new major; renders the notes before creating any
+ref, so a failure leaves no tag behind. The version tag is annotated, the release is published from those notes, and the major tag
 moves last.
 
 ```yaml
