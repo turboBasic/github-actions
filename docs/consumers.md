@@ -9,10 +9,10 @@ workflow. `opus-magnum` is the only migration still intended.
 | Repository | Visibility | Pinned at | Calls | Notable inputs |
 | --- | --- | --- | --- | --- |
 | `github-actions` (this one) | public | self-calls | `python-ci`, `conventional-commits`, `dependency-review`, `release`, all **as self-calls** | defaults throughout |
-| `github-actions-test` | public | `@v4` | everything: `python-ci` twice, `conventional-commits`, `prek-advisory`, `release`, `populate-pr-description` | one call at defaults, one with `lint-changed-only: true`, `hook-stage: pre-push`, `run-typecheck: false` |
+| `github-actions-test` | public | `@v4` | everything: `python-ci` twice, `conventional-commits`, `prek-advisory`, `release`, `populate-pr-description` | one call at defaults, one with `lint-changed-only: true`, `hook-stage: pre-push`, `run-typecheck: false`, `cache-prek: true` — the only caller of that input anywhere, and `python-ci.yml` gates its cache step on `cache-prek && lint-changed-only`, so that step runs there and nowhere else |
 | `python-app-baseline` | public | `@v4` | `python-ci`, `conventional-commits` | defaults throughout |
 | `repo-factory` | public | `@v2` | `populate-pr-description` action only | — |
-| `opus-magnum` | private, **not yet migrated** | — | `python-ci`, `prek-advisory`, `conventional-commits` | `lint-changed-only: true`, `hook-stage: pre-push` on both, `run-typecheck: false`, `run-tests: false`, `mise-version` pinned |
+| `opus-magnum` | private, **resolves nothing here yet** | — | `python-ci`, `prek-advisory`, `conventional-commits` | `lint-changed-only: true`, `hook-stage: pre-push` on both, `run-typecheck: false`, `run-tests: false`, `mise-version` pinned |
 
 `v3` renamed `precommit-advisory.yml` to `prek-advisory.yml` and `actions/precommit-advisory-pr` to
 `actions/prek-advisory-pr`, so anything still on `@v2` changes those paths when it moves — a call left
@@ -21,9 +21,8 @@ frozen where they are and still resolve the names of their day, so nothing break
 repins.
 
 `v4` renamed every check name these workflows compose, so a repin has to carry the consumer's own
-required status checks with it — no ref can edit a ruleset. The three contexts are now
-`ci / python-ci`, `commits / pr-title` and `commits / commit-messages`; leaving the retired ones
-required blocks every pull request on a check nothing will ever report.
+required status checks with it — no ref can edit a ruleset. The contexts and why a stale one blocks
+everything are below, under the paragraph about call sites changing check names.
 
 **The `v4` rollout, in the order it ran, because the next major's will want the same shape.**
 `github-actions-test` went first: it is the only caller of `prek-advisory` and `release`, so it is the
@@ -53,18 +52,18 @@ It and `github-actions-test` are that action's only callers, so a change to its 
 so it needs `run-typecheck: false` and `run-tests: false` alongside the lint inputs.
 
 `opus-magnum` needs `hook-stage: pre-push`: it reserves mypy for that stage, and without the input
-those hooks silently stop running on PRs. It and `github-actions-test` are the only repos calling
-`prek-advisory.yml`, so the only two granting `pull-requests: write` — pass `hook-stage` to both
-calls, or the blocking run and the advisory run check different hooks. No other consumer needs
-`write` on anything. Callers of
+those hooks silently stop running on PRs. Once it migrates it will be the second repository calling
+`prek-advisory.yml` — today `github-actions-test` is the only one, and so the only one granting
+`pull-requests: write`. Pass `hook-stage` to both its calls, or the blocking run and the advisory run
+check different hooks. No other consumer needs `write` on anything. Callers of
 `conventional-commits.yml` all grant `pull-requests: read` — see the README for why it is not
 optional.
 
 `conventional-commits.yml` installs `uv` directly rather than through `mise-action` so that a repo
 with no mise config can still have its commit messages checked.
 
-`opus-magnum` is private and can still call these workflows because this repository is public. Were
-it ever made private, every consumer would need
+`opus-magnum` is private, and will be able to call these workflows when it migrates only because this
+repository is public. Were this one ever made private, every consumer would need
 Settings → Actions → General → Access → "Accessible from repositories owned by 'turboBasic'".
 
 That policy cannot be guarded directly: `GET /repos/{owner}/{repo}/actions/permissions/access`
