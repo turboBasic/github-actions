@@ -1,8 +1,6 @@
 import ast
 import json
 import sys
-import tomllib
-from typing import Any
 
 import pytest
 from decisions import (
@@ -373,16 +371,24 @@ def test_the_table_is_the_only_place_our_surface_is_written() -> None:
             )
 
 
-def test_the_declared_table_is_valid_toml_this_repository_can_read() -> None:
-    # Guards the one thing a hand-edited table gets wrong that the tests above would report confusingly:
-    # the keys living under the wrong parent.
-    manifest: dict[str, Any] = tomllib.loads(PYPROJECT.read_text())
-    tools: dict[str, Any] = manifest["tool"]
-    assert SURFACE_TABLE in tools, f"pyproject.toml has no [tool.{SURFACE_TABLE}] table"
-    assert set(tools[SURFACE_TABLE]) == {"surface-include", "surface-exclude"}, (
-        f"[tool.{SURFACE_TABLE}] declares {sorted(tools[SURFACE_TABLE])}; a misspelled key is read as "
-        f"an absent one, which silently widens the surface to every path."
-    )
+@pytest.mark.parametrize(
+    "body", ["surface_include", "surface-includes", "include", "surface-include-paths"]
+)
+def test_a_misspelled_key_is_refused_rather_than_read_as_absent(body: str) -> None:
+    # The gap this closes: `table.get(key, [])` reads a typo as an absent key, which is the *declared
+    # but empty* state — unfiltered, and deliberately silent, because having decided is different from
+    # never having been asked. So a caller who wrote `surface_include` would get none of the narrowing
+    # they asked for and be told nothing at all. The notice that covers a missing table cannot cover
+    # this, so it is an error.
+    with pytest.raises(ValueError, match="unknown keys"):
+        surface_config(_toml(f'[tool.{SURFACE_TABLE}]\n{body} = ["src/**"]\n'))
+
+
+def test_a_correctly_spelled_declaration_is_still_accepted() -> None:
+    # The control: the rejection above must not be a blanket refusal of every table.
+    assert surface_config(
+        _toml(f'[tool.{SURFACE_TABLE}]\nsurface-include = ["src/**"]\nsurface-exclude = ["a"]\n')
+    ) == (["src/**"], ["a"])
 
 
 def test_the_decisions_module_imports_only_the_standard_library() -> None:

@@ -227,6 +227,8 @@ something, and one repository's layout is right for another only by coincidence.
 
 A path is rejected, before any tag exists, if it is empty, holds whitespace, or begins with `-`: the flags
 reach the renderer as one whitespace-split line, so such a path would be split in two or read as a flag.
+So is a key other than those two — a misspelled `surface_include` would otherwise read as an absent key,
+leaving you with the unfiltered range and nothing said about it.
 
 ```yaml
 jobs:
