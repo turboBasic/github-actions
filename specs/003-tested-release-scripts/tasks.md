@@ -40,10 +40,10 @@ Adds no `uses:`, so nothing resolves `@v4` and nothing can deadlock.
 
 ### Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Add `pythonpath = ["actions/release-decisions"]` under `[tool.pytest.ini_options]` and
+- [X] T001 Add `pythonpath = ["actions/release-decisions"]` under `[tool.pytest.ini_options]` and
       `extraPaths = ["actions/release-decisions"]` under `[tool.pyright]` in `pyproject.toml` — the two
       lines that make the module importable by the suite with no path shim in a test file (FR-012)
-- [ ] T002 [P] Create `actions/release-decisions/action.yml` declaring only the required `decision`
+- [X] T002 [P] Create `actions/release-decisions/action.yml` declaring only the required `decision`
       input and a `python3` run step, per [contracts/action.md](./contracts/action.md) — no logic yet
 
 **Verified in [research.md D2](./research.md#d2)**: nothing else in `pyproject.toml` changes.
@@ -56,14 +56,14 @@ already globs `actions/*/action.yml` for `check-jsonschema` and passes `actions`
 
 **⚠️ CRITICAL**: no user story work begins until T005 passes.
 
-- [ ] T003 Create `actions/release-decisions/decisions.py` holding only the `ReleaseVerdict` result type
+- [X] T003 Create `actions/release-decisions/decisions.py` holding only the `ReleaseVerdict` result type
       (`proceed`, `severity`, `message`) per [data-model.md](./data-model.md#releaseverdict) — full type
       hints, no docstring
-- [ ] T004 [P] Add `test_the_release_job_names_are_pinned` to `tests/test_action_pins.py` asserting
+- [X] T004 [P] Add `test_the_release_job_names_are_pinned` to `tests/test_action_pins.py` asserting
       `release.yml`'s job name is `tag-and-publish` and `release-proposal.yml`'s is `propose` — passes
       immediately, and fails the moment a rename retires the required check `github-actions-test` reports
       (FR-009a, SC-008)
-- [ ] T005 Run `mise run lint` and `mise run typecheck` to confirm the empty module and `action.yml` are
+- [X] T005 Run `mise run lint` and `mise run typecheck` to confirm the empty module and `action.yml` are
       picked up clean by the existing gates, pyright strict, no suppression (FR-013)
 
 ---
@@ -81,47 +81,47 @@ invariant in [contracts/decisions.md](./contracts/decisions.md). Shippable on it
 > Write these first and confirm they fail. All land in one file, so none carries `[P]` — same-file tasks
 > are ordered even when logically independent.
 
-- [ ] T006 [US1] Create `tests/test_release_decisions.py` with tests for `next_version` and
+- [X] T006 [US1] Create `tests/test_release_decisions.py` with tests for `next_version` and
       `increment_reason`: breaking → next major zeroed, feature → next minor zeroed, neither → next
       patch, and breaking winning when both verdicts are true (AS-1, AS-2, AS-3, FR-001)
-- [ ] T007 [US1] Add tests for `notes_are_empty` in `tests/test_release_decisions.py`. **One test name
+- [X] T007 [US1] Add tests for `notes_are_empty` in `tests/test_release_decisions.py`. **One test name
       must contain `one_byte`** — `quickstart.md` rung 1 filters on it — covering the lone-newline render,
       plus `""` and a body with a word being non-empty (AS-4, SC-002, FR-002)
-- [ ] T008 [US1] Add tests for `verdicts` in `tests/test_release_decisions.py`. **One test name must
+- [X] T008 [US1] Add tests for `verdicts` in `tests/test_release_decisions.py`. **One test name must
       contain `absent_breaking`**, asserting a payload whose commits carry no `breaking` key yields
       `False`, plus one proving the key is read as identity against `true` rather than truthiness
       (AS-5, SC-002, FR-005)
-- [ ] T009 [US1] Add tests for `parse_version`, `highest_version` and `is_ahead` in
+- [X] T009 [US1] Add tests for `parse_version`, `highest_version` and `is_ahead` in
       `tests/test_release_decisions.py`: `4.0`, `v4.0.3`, `4.0.3rc1` and `4.0.3+1` are rejected; an empty
       tag set gives `None` and `is_ahead(v, None)` is `True`; ordering is component-wise so `4.10.0` beats
       `4.9.0`; the highest spans majors (FR-004(a), FR-004(b), spec Edge Cases)
-- [ ] T010 [US1] Add tests for `breaks_under_non_major` in `tests/test_release_decisions.py` — FR-004's
+- [X] T010 [US1] Add tests for `breaks_under_non_major` in `tests/test_release_decisions.py` — FR-004's
       **third** comparison, which had no function before this: same major plus breaking is `True`, a new
       major is `False`, a `None` highest major is `False`, and a non-breaking range is always `False`
       (FR-004(c), SC-001)
-- [ ] T011 [US1] Add tests for `declared_version` in `tests/test_release_decisions.py` proving it reads
+- [X] T011 [US1] Add tests for `declared_version` in `tests/test_release_decisions.py` proving it reads
       the `[project]` table rather than the first `version =` line, using a fixture whose earlier table
       also carries a `version` key (FR-003)
-- [ ] T012 [US1] Add tests for `release_verdict` in `tests/test_release_decisions.py` covering all three
+- [X] T012 [US1] Add tests for `release_verdict` in `tests/test_release_decisions.py` covering all three
       severities: notice with `proceed=false` on `push`, notice-and-continue on a dry run, error on a real
       dispatch (FR-010, [data-model.md](./data-model.md#releaseverdict) state table)
-- [ ] T013 [US1] Add `test_the_decisions_module_imports_only_the_standard_library` to
+- [X] T013 [US1] Add `test_the_decisions_module_imports_only_the_standard_library` to
       `tests/test_release_decisions.py`, walking `decisions.py`'s module-level imports — this is what keeps
       `mise run ci` offline (FR-014)
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Implement `parse_version`, `highest_version` and `is_ahead` in
+- [X] T014 [US1] Implement `parse_version`, `highest_version` and `is_ahead` in
       `actions/release-decisions/decisions.py`
-- [ ] T015 [US1] Implement `next_version` and `increment_reason` in
+- [X] T015 [US1] Implement `next_version` and `increment_reason` in
       `actions/release-decisions/decisions.py`
-- [ ] T016 [US1] Implement `notes_are_empty` in `actions/release-decisions/decisions.py` — content test,
+- [X] T016 [US1] Implement `notes_are_empty` in `actions/release-decisions/decisions.py` — content test,
       never size, never exit code
-- [ ] T017 [US1] Implement `verdicts` in `actions/release-decisions/decisions.py` using `json`
-- [ ] T018 [US1] Implement `breaks_under_non_major` in `actions/release-decisions/decisions.py`
-- [ ] T019 [US1] Implement `declared_version` in `actions/release-decisions/decisions.py` using `tomllib`
-- [ ] T020 [US1] Implement `release_verdict` in `actions/release-decisions/decisions.py`
-- [ ] T021 [US1] Run `mise run ci` and confirm green, offline, pyright strict clean, no suppression added
+- [X] T017 [US1] Implement `verdicts` in `actions/release-decisions/decisions.py` using `json`
+- [X] T018 [US1] Implement `breaks_under_non_major` in `actions/release-decisions/decisions.py`
+- [X] T019 [US1] Implement `declared_version` in `actions/release-decisions/decisions.py` using `tomllib`
+- [X] T020 [US1] Implement `release_verdict` in `actions/release-decisions/decisions.py`
+- [X] T021 [US1] Run `mise run ci` and confirm green, offline, pyright strict clean, no suppression added
       (SC-001, SC-005)
 
 **Checkpoint**: US1 complete and shippable. Both workflows still run their original shell.
@@ -135,10 +135,10 @@ ship the action complete. Priority orders value, not execution.
 
 **Independent Test**: a disagreement between the constant and `OWN_CI` fails a test naming both lists.
 
-- [ ] T022 [US3] Add `SURFACE_INCLUDE`, `SURFACE_EXCLUDE` and `surface_args()` to
+- [X] T022 [US3] Add `SURFACE_INCLUDE`, `SURFACE_EXCLUDE` and `surface_args()` to
       `actions/release-decisions/decisions.py`, deriving the exclusions from the workflow names rather
       than restating them (FR-006)
-- [ ] T023 [US3] Add a test to `tests/test_release_decisions.py` asserting `SURFACE_EXCLUDE` equals
+- [X] T023 [US3] Add a test to `tests/test_release_decisions.py` asserting `SURFACE_EXCLUDE` equals
       `OWN_CI` mapped to workflow paths, with a failure message naming both lists (SC-004, US3 AS-2)
 
 ---
