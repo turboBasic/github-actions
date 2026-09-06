@@ -9,8 +9,7 @@ the YAML.
 
 Committed configuration is authoritative for settings it already declares — read `mise.toml`,
 `pyproject.toml`, `.pre-commit-config.yaml` (prek reads this same file), and `.cspell.config.yaml`
-rather than assuming. Extend
-those files; never regenerate them.
+rather than assuming. Extend those files; never regenerate them.
 
 ## Working style
 
@@ -46,8 +45,7 @@ Read those, not a summary here.
 `.specify/memory/constitution.md` is ours to edit — it states the non-negotiables above as gates a
 spec fails against. Everything else under `.specify/` and `.claude/skills/speckit-*/` is vendored
 and version-locked to the `pipx:specify-cli` pin in `mise.toml`: bump the pin and run
-`mise run spec-kit-upgrade`, never `specify self upgrade`, which replaces the binary outside mise
-and leaves `.specify/integrations/*.manifest.json` describing a version nothing here pins.
+`mise run spec-kit-upgrade`, never `specify self upgrade`, which replaces the binary outside mise.
 
 A spec is not the default path. Size decides:
 
@@ -61,13 +59,9 @@ Specs, plans and task lists live only where Spec Kit puts them. Scratch — note
 anything not meant to be reviewed — goes in `tmp/`, which is gitignored. `docs/` is for documentation
 that ships.
 
-A completed feature directory stays under `specs/` permanently and is never edited again — Spec Kit
-calls this *flow-forward*, one of the three persistence models it names and declines to choose
-between. A changed requirement gets a new numbered directory that cross-links the one it supersedes,
-rather than a revision of a shipped one. So `specs/` is a record of how this repository got here, not
-documentation: nothing in it is authoritative for current behaviour, which is `README.md`, `docs/`,
-and the workflows themselves. Read a ticked `tasks.md` or a passed checklist as a work log of the
-change that shipped it.
+A completed feature directory under `specs/` is never edited again; a changed requirement gets a new
+numbered directory cross-linking the one it supersedes. Nothing there is authoritative for current
+behaviour — `README.md`, `docs/` and the workflows are. Read a ticked `tasks.md` as a work log.
 
 ## Environment
 
@@ -114,32 +108,26 @@ Composite actions live in `actions/`, not `.github/actions/`. The latter is the 
 *repo-local* actions and would read as private-by-convention here.
 
 - **Pin every third-party action to a full 40-character commit SHA**, with the version as a
-  trailing `# vX.Y.Z` comment. A tag can be retroactively repointed at malicious code — this is
-  not hypothetical: CVE-2025-30066 did exactly that to `tj-actions/changed-files`. Enforced by
+  trailing `# vX.Y.Z` comment. A tag can be retroactively repointed at malicious code. Enforced by
   `tests/test_action_pins.py`.
 - **First-party references use the moving major tag** (`@vN`), never a SHA. See **Versioning**.
 - **A workflow's own `name:` is an emoji, a space, then its filename stem** — 🧩 for the ones a
   consumer resolves (`🧩 python-ci`), 🌜 for this repository's own plumbing (`🌜 ci`). The Actions
-  sidebar sorts by name by code point, so the emoji groups both blocks below the entries GitHub
-  injects and nobody can rename (`Dependency Graph`), and keeps the library apart from the
-  plumbing — which matters because a `workflow_call`-only workflow can never accumulate a run of
-  its own: a run belongs to its entry point, so a called one appears under its caller, in the
-  caller's repository. The split is `tests/test_action_pins.py`'s `OWN_CI`, the same boundary that
-  decides whether a change is a version increment, so a new workflow forces the question once. A
-  `workflow_call` trigger is not the test: `release.yml` has one and is still plumbing. Display
-  only: no check context reads a workflow's name, only a job's, so this is neither consumer-facing
-  surface nor a version increment. `tests/test_action_pins.py` enforces it.
-- **A job's `name:` is lowercase-kebab-case, and a called job's name says what the job is rather than
-  repeating its caller.** GitHub composes a check as `<caller job id> / <called job name>`, so the
-  callee owns half of an identifier consumers type into their own rulesets. The name takes its
-  workflow's name without the prefix — `python-ci`, `dependency-review` — unless the workflow has sibling jobs, where the
-  deed distinguishes them (`pr-title`, `commit-messages`), or unless it would double a common caller
-  id, where the deed wins again (`tag-and-publish`, not `release`). Never name it after behaviour a
-  caller can switch off: `python-ci.yml` ran as `lint-typecheck-test` for one commit, and two consumers
-  pass `run-typecheck: false`. `tests/test_action_pins.py` enforces the casing; the rest is judgement.
+  sidebar sorts by name by code point, so both blocks sit below the entries GitHub injects and
+  nobody can rename. The split is `OWN_CI` in `tests/test_action_pins.py`, which enforces it. No
+  check context reads a workflow's name, so renaming one retires no context — but the file is still
+  consumer-facing, so `drift` asks for a release like any other change to it.
+- **A job's `name:` is lowercase-kebab-case, and a called job's name says what the job is rather
+  than repeating its caller.** GitHub composes a check as `<caller job id> / <called job name>`, so
+  the callee owns half of an identifier consumers type into their own rulesets. The name takes its
+  workflow's name without the prefix — `python-ci`, `dependency-review` — unless the workflow has
+  sibling jobs, where the deed distinguishes them (`pr-title`, `commit-messages`), or unless it
+  would double a common caller id, where the deed wins again (`tag-and-publish`, not `release`).
+  Never name it after behaviour a caller can switch off. `tests/test_action_pins.py` enforces the
+  casing; the rest is judgement.
 - **Renaming a job that composes a required context is a major bump**, because a required check that
   stops reporting blocks every pull request until each consumer edits its own ruleset, and no ref can
-  do that for them. `v4` was this and nothing else.
+  do that for them.
 - **Every input needs a `description` and an explicit `default`** unless genuinely required. A
   consumer reads the input list as the contract.
 - **Declare the narrowest `permissions`** the workflow needs. Permissions can only be reduced down
@@ -166,6 +154,8 @@ Python 3.14. The only Python here supports the actions and their tests.
 
 - No docstrings. No multi-line comment blocks.
 - Comments only where the WHY is non-obvious, never restating what the code does.
+- State the rule, not the incident that taught it. No war stories, no version archaeology, no
+  reasoning left in prose where a test can hold it.
 - `README.md` is the consumer-facing contract: what each workflow does, its inputs, and a call site
   that can be copied as-is. A new input or a changed default updates it in the same change.
 - `docs/consumers.md` records which repository calls what. Keep it current — it is the blast-radius
@@ -191,21 +181,18 @@ Python 3.14. The only Python here supports the actions and their tests.
 - **The suite is offline; `mise run ci` must never need the network.** The exceptions are marked
   `@pytest.mark.drift` and deselected by default, run by `mise run test-drift` from its own `ci.yml`
   job where a token exists. Reach for one only where the thing being asserted is repository state no
-  file can express: the required status checks on the `main` ruleset, the label set against the table
-  in `CONTRIBUTING.md` that declares it,
-  this repository still being public, which is what lets a private consumer resolve these workflows at
-  all, and whether the major tag still predates a change consumers resolve.
+  file can express: the required status checks on the `main` ruleset, the label set against
+  `CONTRIBUTING.md`'s table, this repository still being public, and whether the major tag still
+  predates a change consumers resolve.
 - **Lint does not verify a workflow. Run it.** Exercise every changed workflow before tagging: a
   reusable one from a real PR, anything else from a dispatch. Every linter here passes on a workflow
-  that fails on its first run, because the file is correct and its environment is not: the caller
+  that fails on its first run, because the file is correct and its environment is not — the caller
   cannot know to grant a permission, an input resolves to nothing, or a CLI needs a context the
-  runner lacks — `gh release create` reads the repository from a git remote and `release.yml` clones
-  nothing, so the first dispatch died on that line with every gate green. A relative self-call
-  exercises a reusable workflow (principle VI). Where behaviour turns on caller-side
-  configuration — `python-ci.yml`'s `hook-stage`, `run-typecheck`, a consumer with no mise config —
-  it does not, so a consumer exercises it at the ref it pins.
-- **Pre-flight the line out of the file, never a retyping of it.** Retype it and you test your
-  typing: that pre-flight typed the missing `--repo` and passed.
+  runner lacks. A relative self-call exercises a reusable workflow (principle VI). Where behaviour
+  turns on caller-side configuration — `python-ci.yml`'s `hook-stage`, `run-typecheck`, a consumer
+  with no mise config — it does not, so a consumer exercises it at the ref it pins.
+- **Pre-flight the line out of the file, never a retyping of it**, or you test your typing rather
+  than the file.
 - **The allowed commit types are declared once**, as `conventional-commits.yml`'s `types` default,
   and asserted equal to commitizen's built-in set by `tests/test_action_pins.py`. Both the title and
   the commit-message check read it from there. It may not fall back to a tool's own default:
@@ -216,13 +203,12 @@ Python 3.14. The only Python here supports the actions and their tests.
 ### Versioning
 
 Consumers pin a moving major tag rather than a SHA. This is a deliberate exception to the
-SHA-pinning rule above, and the distinction matters: that rule exists because a *third party* can
-repoint a tag. This repo shares its owner with every consumer, and SHA-pinning first-party
-workflows would mean one Dependabot PR per consumer for every one-line fix.
+SHA-pinning rule above: that rule exists because a *third party* can repoint a tag. This repo shares
+its owner with every consumer, and SHA-pinning first-party workflows would mean one Dependabot PR
+per consumer for every one-line fix.
 
 A major bump — a new major tag, with the old one left where it is, not a move of the current one — is
-owed by any change a consumer cannot absorb by resolving the new ref alone. Three shapes have come up,
-and only the first is about inputs:
+owed by any change a consumer cannot absorb by resolving the new ref alone:
 
 - **The call site stops working.** A removed or renamed input, a `uses:` path that no longer exists.
 - **A status check the consumer requires stops reporting.** Renaming a job whose name composes a check
@@ -233,7 +219,7 @@ and only the first is about inputs:
 
 **The version describes the consumer-facing surface, not this repository's commit history.** Judge a
 bump by what changed under `.github/workflows/` and `actions/`; a `feat:` touching only our own
-linting or editor config is a patch. So the number is a human decision recorded as a one-line diff to
+linting or editor config is a patch. The number is a human decision recorded as a one-line diff to
 `pyproject.toml`'s `[project].version`, merged like any other change, and never computed unattended.
 
 `release-proposal.yml` proposes that diff, and **proposing is not deciding**: a reviewer may change the
@@ -242,9 +228,8 @@ exists, so it cannot disagree with the reviewed decision. Notes are rendered bef
 from commit types in `.cliff.toml` — never from a pull request label. `CONTRIBUTING.md`'s Releasing
 section is the procedure.
 
-Which major is current and which tags are immutable live in `README.md`'s
-Versioning section. Read the value from there; never restate it here, or it goes stale at the next
-bump and this file is what every AI tool loads.
+Which major is current and which tags are immutable live in `README.md`'s Versioning section. Read
+the value from there; never restate it here.
 
 ### Git
 
@@ -268,12 +253,12 @@ resolves at the tag and would validate it against the last good release. `commit
 
 **Never write the older `./.github/workflows/<name>.yml`.** It resolves at the same commit, but
 reaches the file through the runner's filesystem, so a step running earlier can substitute what gets
-called; zizmor's `self-repository` audit rejects it. `$/` is unavailable on GitHub Enterprise Server —
-nothing here targets it, and that is not a reason to reach for `./`.
+called; zizmor's `self-repository` audit rejects it. `$/` is unavailable on GitHub Enterprise Server,
+which nothing here targets.
 
-actionlint 1.7.12 has not learned `$/` yet (rhysd/actionlint#711) and reports it as a malformed
-call, so `.github/actionlint.yaml` ignores that one message — anchored on the `$/` prefix, so a
-genuinely malformed ref still fails. This is the one silenced rule in the repo, and it silences a
-false positive rather than a finding. It cannot outlive the bug: `test_the_actionlint_ignore_is_still_needed`
-asserts actionlint still rejects `$/`, so the day #711 ships the suite says to delete the file. Do not
-treat it as precedent — a second ignore needs the same two things, a false positive and an expiry.
+actionlint has not learned `$/` yet (rhysd/actionlint#711) and reports it as a malformed call, so
+`.github/actionlint.yaml` ignores that one message, anchored on the `$/` prefix so a genuinely
+malformed ref still fails. It is the one silenced rule in the repo, and it silences a false positive
+rather than a finding. `test_the_actionlint_ignore_is_still_needed` asserts actionlint still rejects
+`$/`, so the day #711 ships the suite says to delete the file. A second ignore needs the same two
+things, a false positive and an expiry.
