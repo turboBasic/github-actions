@@ -118,12 +118,17 @@ Composite actions live in `actions/`, not `.github/actions/`. The latter is the 
   not hypothetical: CVE-2025-30066 did exactly that to `tj-actions/changed-files`. Enforced by
   `tests/test_action_pins.py`.
 - **First-party references use the moving major tag** (`@vN`), never a SHA. See **Versioning**.
-- **A workflow's own `name:` is 🌜 then a space then its filename stem** (`🌜 python-ci`). The
-  Actions sidebar sorts by name by code point, so the emoji is what groups every workflow this
-  repository authors together and below the ones GitHub injects and nobody can rename
-  (`Dependency Graph`). It is display only: no check context reads a workflow's name, only a job's,
-  so this is not consumer-facing surface and not a version increment.
-  `tests/test_action_pins.py` enforces it.
+- **A workflow's own `name:` is an emoji, a space, then its filename stem** — 🧩 for the ones a
+  consumer resolves (`🧩 python-ci`), 🌜 for this repository's own plumbing (`🌜 ci`). The Actions
+  sidebar sorts by name by code point, so the emoji groups both blocks below the entries GitHub
+  injects and nobody can rename (`Dependency Graph`), and keeps the library apart from the
+  plumbing — which matters because a `workflow_call`-only workflow can never accumulate a run of
+  its own: a run belongs to its entry point, so a called one appears under its caller, in the
+  caller's repository. The split is `tests/test_action_pins.py`'s `OWN_CI`, the same boundary that
+  decides whether a change is a version increment, so a new workflow forces the question once. A
+  `workflow_call` trigger is not the test: `release.yml` has one and is still plumbing. Display
+  only: no check context reads a workflow's name, only a job's, so this is neither consumer-facing
+  surface nor a version increment. `tests/test_action_pins.py` enforces it.
 - **A job's `name:` is lowercase-kebab-case, and a called job's name says what the job is rather than
   repeating its caller.** GitHub composes a check as `<caller job id> / <called job name>`, so the
   callee owns half of an identifier consumers type into their own rulesets. The name takes its
