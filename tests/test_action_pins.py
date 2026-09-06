@@ -12,7 +12,8 @@ import pytest
 
 REPO_ROOT = Path(__file__).parent.parent
 FIRST_PARTY = "turboBasic/"
-SELF_WORKFLOW = "turboBasic/github-actions/.github/workflows/"
+SELF_REPO = "turboBasic/github-actions/"
+SELF_WORKFLOW = f"{SELF_REPO}.github/workflows/"
 # `$/` is GitHub's self-repository form and `./` its older workspace-relative spelling; neither
 # carries a ref, because both resolve at the caller's own commit.
 SELF_PREFIXES = ("$/", "./")
@@ -134,6 +135,57 @@ def test_first_party_actions_use_the_major_tag(path: Path) -> None:
             f"{path.name}:{number} references first-party {target}; these track the "
             f"moving major tag, not a SHA — see README."
         )
+        # Shape alone is not enough: a ref left on the *previous* major keeps matching `^v\d+$`
+        # forever while pointing at a tag README has since declared frozen, so no later fix to the
+        # target ever reaches a consumer. The v4 branch carried `@v3` until review caught it — v4.0.0
+        # itself shipped correct, but nothing in the suite was what caught it.
+        #
+        # Scoped to this repository rather than to FIRST_PARTY: [project].version describes this
+        # repository's surface, so forcing its major onto a ref to a *different* turboBasic repo
+        # would fail a gate that has no business judging it. The SHA exemption above is owner-wide
+        # for a different reason — shared ownership changes the threat model, not the currency.
+        if not target.startswith(SELF_REPO):
+            continue
+        current = f"v{_declared_version().split('.')[0]}"
+        assert version == current, (
+            f"{path.name}:{number} references {target}, but [project].version declares {current}. A "
+            f"ref on a frozen major stops moving, so nothing done to the target after that major was "
+            f"frozen reaches anyone resolving this line."
+        )
+
+
+def test_readme_names_the_declared_major() -> None:
+    # README is the only place a concrete major is written literally, which makes it both the copy a
+    # consumer pastes and the authority for which major is current — and the one file nothing checked
+    # against pyproject.toml.
+    #
+    # Two shapes, because restricting to `uses:` lines missed the more authoritative one: the
+    # Versioning section's opening sentence, which carries no `uses:` and is what every other document
+    # is told to read the value from. Its later paragraphs must stay free to name a frozen major, so
+    # this reads the first line of the section rather than the whole of it.
+    readme = (REPO_ROOT / "README.md").read_text()
+    current = f"v{_declared_version().split('.')[0]}"
+
+    stale = [
+        f"{number}: {line.strip()}"
+        for number, line in enumerate(readme.splitlines(), start=1)
+        if "uses:" in line and (found := re.search(rf"{re.escape(FIRST_PARTY)}\S+@(v\d+)", line))
+        if found.group(1) != current
+    ]
+    assert not stale, (
+        f"README names a major other than {current}, which [project].version declares, on a call "
+        f"site a consumer copies: {stale}."
+    )
+
+    section = readme.split("\n## Versioning\n", 1)
+    assert len(section) == 2, "README.md has no `## Versioning` section"
+    opening = section[1].strip().split("\n\n", 1)[0]
+    named = set(re.findall(r"@?(v\d+)", opening))
+    assert named == {current}, (
+        f"README's Versioning section opens naming {sorted(named)}; [project].version declares "
+        f"{current}, and this sentence is what every other document is told to read the current "
+        f"major from. A frozen major belongs in a later paragraph."
+    )
 
 
 def _mise_tool_versions() -> dict[str, str]:

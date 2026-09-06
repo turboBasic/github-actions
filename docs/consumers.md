@@ -21,8 +21,10 @@ where it is and still resolves the old names, so nothing breaks until a repo rep
 
 Repin order for `v4`, and the reason for it: `github-actions-test` first, because it is the only
 caller of `prek-advisory` and `release` and so the only place their renamed checks report at all.
-`python-app-baseline` second — it never pinned `v3`, so it moves from `v2` to `v4` in one hop and
-changes the `prek-*` paths at the same time. `opus-magnum` has never migrated and goes straight to
+`python-app-baseline` second — it never pinned `v3`, so it moves from `v2` to `v4` in one hop. The
+`prek-*` path rename does not reach it: it calls `python-ci` and `conventional-commits` only, both at
+defaults, so `v3` costs it nothing but the ref. Its `main` ruleset requires one approving review,
+unlike the other two, so its repin cannot be merged unattended. `opus-magnum` has never migrated and goes straight to
 `v4` whenever it does. `repo-factory` needs nothing: a composite action reports no check of its own.
 Each repin updates that repository's own required status checks in the same change, or its next pull
 request blocks on three contexts nothing will report.

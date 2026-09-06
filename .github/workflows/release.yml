@@ -206,8 +206,9 @@ jobs:
       #
       # The major tag moves last, after the release exists. It is the only ref consumers resolve,
       # so a failure earlier leaves them on the previous release rather than half-way into this
-      # one — recover by re-running once the cause is fixed, deleting the version tag first if it
-      # was already created.
+      # one — recover by bumping to the next patch version and merging that, not by re-running: the
+      # `immutable release tags` ruleset covers `refs/tags/v*.*.*` with `bypass_actors: []`, so a
+      # version tag this step already created cannot be deleted by anyone, admin included.
       - name: Tag and publish
         if: steps.verify.outputs.proceed == 'true' && !inputs.dry-run
         env:
