@@ -210,7 +210,7 @@ even where nothing consumes it — unless it lands in a file our exclusions happ
 `ci.yml` or its own `release.yml`, which drops it from the check by coincidence of naming. That is
 narrower than the unfiltered range this replaced, which refused over any path at all, but it is not
 gone: cut a release whose contract moved as a major deliberately rather than relying on this to notice.
-[#61](https://github.com/turboBasic/github-actions/issues/61) is where the paths become an input.
+[#110](https://github.com/turboBasic/github-actions/issues/110) is where the paths become an input.
 
 ```yaml
 jobs:
