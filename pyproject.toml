@@ -44,6 +44,9 @@ ignore = ["E501"] # line length is the formatter's job
 
 [tool.pyright]
 include = ["actions", "tests"]
+# An action's directory is not a package, so `include` alone leaves its module unresolvable and
+# every symbol imported from it typed as unknown.
+extraPaths = ["actions/release-decisions"]
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
 venvPath = "."
@@ -51,6 +54,9 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The counterpart of pyright's extraPaths: without it collection fails on the import, and with a
+# sys.path shim in the test file pyright would still need its own entry.
+pythonpath = ["actions/release-decisions"]
 # `drift` is deselected by default so the suite stays offline: `mise run ci` must not depend on
 # api.github.com being reachable. `mise run test-drift` opts in, and CI runs it as its own job.
 addopts = ["-ra", "-m", "not drift"]

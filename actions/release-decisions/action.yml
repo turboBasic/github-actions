@@ -1,0 +1,21 @@
+name: Release Decisions
+description: >
+  Answers one release question — verify-version, check-notes or next-version — from files and
+  environment variables, writing its answers to GITHUB_OUTPUT. Does no network I/O: gh api and
+  git-cliff stay in the calling workflow.
+
+inputs:
+  decision:
+    description: Which question to answer — verify-version, check-notes or next-version.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # `python3`, not `uv run`: the logic is standard-library-only, so there is nothing to resolve,
+    # and every caller of this action already runs python3 in the same job.
+    - name: Decide
+      env:
+        DECISION: ${{ inputs.decision }}
+      shell: bash
+      run: python3 "${GITHUB_ACTION_PATH}/decisions.py"
