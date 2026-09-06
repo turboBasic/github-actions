@@ -130,6 +130,17 @@ def surface_config(raw: bytes) -> tuple[list[str], list[str]] | None:
     if SURFACE_TABLE not in tools:
         return None
     table: dict[str, Any] = tools[SURFACE_TABLE]
+    # A misspelled key would otherwise read as an absent one, which is the *declared but empty* state:
+    # unfiltered, and silent about it. So a caller who wrote `surface_include` would be told nothing and
+    # get none of the narrowing they asked for. Refused instead, because the notice that covers a
+    # missing table cannot cover this.
+    unknown = sorted(set(table) - set(SURFACE_KEYS))
+    if unknown:
+        raise ValueError(
+            f"[tool.{SURFACE_TABLE}] declares unknown keys {unknown}; expected "
+            f"{list(SURFACE_KEYS)}. A misspelled key reads as an absent one, which silently widens "
+            f"the surface to every path."
+        )
     return (_path_list(table, SURFACE_KEYS[0]), _path_list(table, SURFACE_KEYS[1]))
 
 
@@ -219,8 +230,8 @@ def _surface_args() -> None:
     path = Path(_env("PYPROJECT", "pyproject.toml"))
     try:
         declared = surface_config(path.read_bytes())
-    except TypeError as bad_shape:
-        _stop("error", str(bad_shape))
+    except (TypeError, ValueError) as malformed:
+        _stop("error", str(malformed))
 
     if declared is None:
         # Never this repository's list: it would be right only by coincidence, and wrong in both
