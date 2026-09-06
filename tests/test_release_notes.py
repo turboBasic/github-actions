@@ -13,7 +13,7 @@ CLIFF = REPO_ROOT / ".cliff.toml"
 TYPES_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "conventional-commits.yml"
 # Every workflow whose git-cliff call is scoped to the consumer surface: the proposal's increment and
 # the release's breaking-change refusal. They have to answer the same question the same way, or a
-# version one half proposes is a release the other half refuses (#62).
+# version one half proposes is a release the other half refuses.
 SURFACE_FILTERED = ("release-proposal.yml", "release.yml")
 
 # data-model.md's Section table, which FR-002 fixes in both title and position. Order 1 is

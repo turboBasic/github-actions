@@ -18,7 +18,7 @@ immutable.
 ### II. Supply-Chain Pinning
 
 Every third-party action is pinned to a full 40-character commit SHA with the version as a trailing
-comment. A tag can be retroactively repointed at malicious code — CVE-2025-30066 did exactly that.
+comment. A tag can be retroactively repointed at malicious code.
 First-party references use the moving major tag, and only because this repo shares its owner with
 every consumer.
 

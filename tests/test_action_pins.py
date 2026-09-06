@@ -149,13 +149,11 @@ def test_first_party_actions_use_the_major_tag(path: Path) -> None:
         )
         # Shape alone is not enough: a ref left on the *previous* major keeps matching `^v\d+$`
         # forever while pointing at a tag README has since declared frozen, so no later fix to the
-        # target ever reaches a consumer. The v4 branch carried `@v3` until review caught it — v4.0.0
-        # itself shipped correct, but nothing in the suite was what caught it.
+        # target ever reaches a consumer.
         #
         # Scoped to this repository rather than to FIRST_PARTY: [project].version describes this
         # repository's surface, so forcing its major onto a ref to a *different* turboBasic repo
-        # would fail a gate that has no business judging it. The SHA exemption above is owner-wide
-        # for a different reason — shared ownership changes the threat model, not the currency.
+        # would fail a gate that has no business judging it.
         if not target.startswith(SELF_REPO):
             continue
         current = f"v{_declared_version().split('.')[0]}"
@@ -168,13 +166,11 @@ def test_first_party_actions_use_the_major_tag(path: Path) -> None:
 
 def test_readme_names_the_declared_major() -> None:
     # README is the only place a concrete major is written literally, which makes it both the copy a
-    # consumer pastes and the authority for which major is current — and the one file nothing checked
-    # against pyproject.toml.
+    # consumer pastes and the authority for which major is current.
     #
-    # Two shapes, because restricting to `uses:` lines missed the more authoritative one: the
-    # Versioning section's opening sentence, which carries no `uses:` and is what every other document
-    # is told to read the value from. Its later paragraphs must stay free to name a frozen major, so
-    # this reads the first line of the section rather than the whole of it.
+    # Two shapes: a `uses:` call site, and the Versioning section's opening sentence, which carries
+    # no `uses:` and is what every other document reads the value from. Its later paragraphs must
+    # stay free to name a frozen major, so this reads the first line of the section only.
     readme = (REPO_ROOT / "README.md").read_text()
     current = f"v{_declared_version().split('.')[0]}"
 
@@ -208,9 +204,8 @@ def _mise_tool_versions() -> dict[str, str]:
 
 def test_no_mise_tool_version_floats() -> None:
     # A `latest` resolves at install time, so one commit runs different linters on different
-    # machines: zizmor 1.30.0 shipped a new audit and reddened a pull request that had passed
-    # `mise run ci` locally minutes earlier. The digit rule admits a partial pin like `3.14` and
-    # rejects every form that leaves the choice to whoever runs `mise install`.
+    # machines. The digit rule admits a partial pin like `3.14` and rejects every form that leaves
+    # the choice to whoever runs `mise install`.
     floating = sorted(
         f"{name} = {version!r}"
         for name, version in _mise_tool_versions().items()
@@ -289,9 +284,8 @@ def test_the_required_check_names_are_intact(
         f"{caller_name}'s calling job must keep the id `{job_id}`; it is the first half of the "
         f"required check `{context}`."
     )
-    # Anchored on the four-space job indent: a workflow-level `name:` sits at column 0, and since
-    # v4 the job names are lowercase-kebab, so an unanchored match could pass off the wrong line —
-    # `name: python-ci` at python-ci.yml:4 would satisfy a job named `python-ci`.
+    # Anchored on the four-space job indent, because a workflow-level `name:` sits at column 0 and
+    # an unanchored match would accept it in place of the job's.
     assert f"\n    name: {job_name}\n" in called.read_text(), (
         f"{called_name} must keep `name: {job_name}`; it is the second half of the required "
         f"check `{context}`."
@@ -313,10 +307,9 @@ def test_the_release_gates_on_a_required_context() -> None:
 
 def test_the_release_workflow_gives_gh_a_repository() -> None:
     # Nothing is cloned there, so a `gh` subcommand other than `gh api` — which carries the full
-    # path — has no remote to infer the repository from and dies with `not a git repository`. That
-    # is how the first dispatch failed, after the version tag had already been created. Every other
-    # gate passed on that file: the shell is valid, the call is well-formed, and the flag it needs
-    # is only discoverable by running it somewhere without a checkout.
+    # path — has no remote to infer the repository from and dies with `not a git repository`. No
+    # linter sees it: the shell is valid and the call well-formed, so the missing flag is only
+    # discoverable by running it somewhere without a checkout.
     workflow = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text()
     without_repo = [
         line
@@ -362,10 +355,7 @@ def test_the_release_waits_for_the_ci_verdict() -> None:
 def test_the_release_refuses_notes_with_no_content() -> None:
     # Neither the exit code nor the file's size can answer this. git-cliff exits 0 for a range
     # holding only a `bump` and for a range holding nothing, indistinguishably; and an empty render
-    # is *one* byte, not zero, because a trailing newline is still emitted. Measured on a probe
-    # branch whose entire range was one `bump`, after this gate had been written as `-s` on the
-    # assumption of zero bytes — that version passed on the newline and would have published a
-    # release body containing a blank line, with every other gate green.
+    # is *one* byte, not zero, because a trailing newline is still emitted.
     workflow = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text()
     assert "[^[:space:]]" in workflow, (
         "release.yml does not test the rendered notes for non-whitespace content, so a range that "
@@ -375,11 +365,10 @@ def test_the_release_refuses_notes_with_no_content() -> None:
 
 
 def test_the_release_publishes_the_rendered_notes() -> None:
-    # `--generate-notes` asks GitHub to build the body from pull request labels, which is the
-    # failure this whole feature exists to remove: nine merged PRs carry no label at all, and the
-    # only breaking change ever shipped here was published under "Other changes". Reinstating it
-    # would quietly route the notes back through labels with `.cliff.toml` still sitting there.
-    # Comments stripped: the line explaining why `--generate-notes` is gone contains it.
+    # `--generate-notes` asks GitHub to build the body from pull request labels, and nothing here
+    # labels a pull request — reinstating it would route the notes back through labels with
+    # `.cliff.toml` still sitting there. Comments stripped: the line explaining why
+    # `--generate-notes` is gone contains it.
     workflow = "\n".join(
         line
         for raw in (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text().splitlines()
@@ -436,8 +425,7 @@ def test_this_repository_is_still_public() -> None:
 @pytest.mark.drift
 def test_no_consumer_facing_change_is_waiting_for_a_release() -> None:
     # The major tag is force-moved by hand-initiated dispatch, so nothing stops it sitting behind
-    # main: it once did for 19 days and 29 commits, stranding four changes consumers resolve. No
-    # file can show that — the state is a ref on GitHub — which is why this is live.
+    # main. No file can show that — the state is a ref on GitHub — which is why this is live.
     #
     # Scoped to what a consumer resolves rather than to `main` being ahead at all. A docs or test
     # commit owes nobody a release, and a check that reddens after every merge is one nobody reads.
@@ -450,18 +438,15 @@ def test_no_consumer_facing_change_is_waiting_for_a_release() -> None:
         # [project].version names a major nothing has tagged, so there is no ref to compare against.
         # Two different situations, and only the event name tells them apart.
         #
-        # On a push to main this is the release cutting itself. `ci.yml` runs `drift` with no `needs`
-        # and `release` behind `needs: [ci]`, so drift reaches this line about twenty seconds before
-        # the tag exists — measured on both releases so far: v3.0.0's drift failed at 15:15:45 with
-        # the tag created at 15:16:05, v4.0.0's at 22:33:20 against 22:33:38. Failing here reddens
-        # main after every release and both went green only from a manual re-run, which is how a
-        # check stops being read. `needs: [release]` is not the alternative: `release` is `if:`-gated
-        # to this event, and a skipped need skips its dependant, so drift would stop running on pull
-        # requests — where it is actually read.
+        # On a push to main this is the release cutting itself: `ci.yml` runs `drift` with no
+        # `needs` and `release` behind `needs: [ci]`, so drift reaches this line seconds before the
+        # tag exists, and failing here would redden main after every release. `needs: [release]` is
+        # not the alternative: `release` is `if:`-gated to this event, and a skipped need skips its
+        # dependant, so drift would stop running on pull requests — where it is actually read.
         #
         # Anywhere else — a pull request, or `mise run test-drift` locally — the release is not in
-        # flight and an untagged major means one is owed. That is the case worth failing on, and it
-        # is also the backstop if the release does fail: the next pull request says so.
+        # flight and an untagged major means one is owed. That is the case worth failing on, and the
+        # backstop if the release does fail: the next pull request says so.
         if os.environ.get("GITHUB_EVENT_NAME") == "push":
             pytest.skip(
                 f"[project].version names major {major} and this is a push, so the release for this "
@@ -559,9 +544,9 @@ def _commitizen_types() -> set[str]:
 
 
 def block_of_words(path: Path, key: str) -> set[str]:
-    # Found by dedent, not by matching what an entry ought to look like: the old
-    # `[ ]+[\w-]+` pattern ended the block at the first malformed line and hid everything
-    # after it, so an appended `foo|bar` widened the accepted types unseen by this test.
+    # Found by dedent, not by matching what an entry ought to look like: a pattern that matches
+    # entries ends the block at the first malformed line and hides everything after it, so an
+    # appended `foo|bar` would widen the accepted types unseen.
     lines = path.read_text().splitlines()
     start = next((i for i, line in enumerate(lines) if line.strip() == f"{key}: |"), None)
     assert start is not None, f"could not find a `{key}: |` block in {path.name}"
@@ -598,14 +583,11 @@ def test_allowed_types_match_the_commitizen_builtin_set() -> None:
 
 
 def test_every_workflow_name_carries_its_prefix() -> None:
-    # The Actions sidebar sorts by name by code point, so a non-Latin prefix is what keeps the
-    # workflows this repository authors together and below the ones GitHub injects and nobody can
-    # rename. 🧩 marks the ones a consumer resolves, which is why the split reads OWN_CI rather than
-    # restating it: the same boundary that decides whether a change is a version increment decides
-    # which block a workflow sits in, so adding one forces the question in a single place. A
-    # `workflow_call` trigger is not the test — `release.yml` has one and is still plumbing.
-    #
-    # Display only: no check context reads a workflow's name, only a job's.
+    # The Actions sidebar sorts by name by code point, so the prefix is what keeps these together
+    # and below the entries GitHub injects and nobody can rename. 🧩 marks the ones a consumer
+    # resolves; the split reads OWN_CI rather than restating it, so adding a workflow forces the
+    # question in one place. A `workflow_call` trigger is not the test — `release.yml` has one and
+    # is still plumbing.
     offenders: list[str] = []
     for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
         found = WORKFLOW_NAME.search(path.read_text())
@@ -619,9 +601,8 @@ def test_every_workflow_name_carries_its_prefix() -> None:
 
 
 def test_every_job_name_is_lowercase_kebab() -> None:
-    # v4 renamed every check name this repository composes to one scheme, and nothing kept it that
-    # way — `REQUIRED_CHECKS` pins three names, not the shape of a fourth. `name: Build docs` passed
-    # every gate here the day after the rename landed.
+    # `REQUIRED_CHECKS` pins three names, not the shape of a fourth, so nothing else holds a new job
+    # to the scheme every check context here follows.
     #
     # Casing only. Whether a callee's name says what the job is rather than repeating its caller is
     # judgement, and docs/ai-instructions.md owns it; this is the half a regex can hold.
