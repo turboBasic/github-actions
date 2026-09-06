@@ -422,6 +422,21 @@ def test_this_repository_is_still_public() -> None:
     assert repo["private"] is False, WENT_PRIVATE
 
 
+def _release_in_flight() -> bool:
+    # On a push to main the release is cutting itself: `ci.yml` runs `drift` with no `needs` and
+    # `release` behind `needs: [ci]`, so drift reads the tag seconds before the release moves it —
+    # both as a major nothing has tagged yet, and as one still sitting behind the commits being
+    # released. Failing on either reddens main after every release, which is how a check stops being
+    # read. `needs: [release]` is not the alternative: `release` is `if:`-gated to this event, and a
+    # skipped need skips its dependant, so drift would stop running on pull requests — where it is
+    # actually read.
+    #
+    # Anywhere else — a pull request, or `mise run test-drift` locally — no release is in flight and
+    # the state is owed. That is the case worth failing on, and the backstop if the release does
+    # fail: the next pull request says so.
+    return os.environ.get("GITHUB_EVENT_NAME") == "push"
+
+
 @pytest.mark.drift
 def test_no_consumer_facing_change_is_waiting_for_a_release() -> None:
     # The major tag is force-moved by hand-initiated dispatch, so nothing stops it sitting behind
@@ -436,18 +451,8 @@ def test_no_consumer_facing_change_is_waiting_for_a_release() -> None:
         if error.code != 404:
             raise
         # [project].version names a major nothing has tagged, so there is no ref to compare against.
-        # Two different situations, and only the event name tells them apart.
-        #
-        # On a push to main this is the release cutting itself: `ci.yml` runs `drift` with no
-        # `needs` and `release` behind `needs: [ci]`, so drift reaches this line seconds before the
-        # tag exists, and failing here would redden main after every release. `needs: [release]` is
-        # not the alternative: `release` is `if:`-gated to this event, and a skipped need skips its
-        # dependant, so drift would stop running on pull requests — where it is actually read.
-        #
-        # Anywhere else — a pull request, or `mise run test-drift` locally — the release is not in
-        # flight and an untagged major means one is owed. That is the case worth failing on, and the
-        # backstop if the release does fail: the next pull request says so.
-        if os.environ.get("GITHUB_EVENT_NAME") == "push":
+        # Two different situations, and only the event name tells them apart — see _release_in_flight.
+        if _release_in_flight():
             pytest.skip(
                 f"[project].version names major {major} and this is a push, so the release for this "
                 f"commit is still in flight. A pull request would fail here instead."
@@ -466,6 +471,11 @@ def test_no_consumer_facing_change_is_waiting_for_a_release() -> None:
             and Path(name).name not in OWN_CI
         }
     )
+    if stranded and _release_in_flight():
+        pytest.skip(
+            f"{major} predates {stranded} and this is a push, so the release that moves it is still "
+            f"in flight. A pull request would fail here instead."
+        )
     assert not stranded, (
         f"{major} predates changes to {stranded}, so every consumer pinned to @{major} still runs "
         f"the previous version of them. Bump [project].version in a pull request — that decides "
