@@ -60,6 +60,12 @@ CONSUMER_FACING = (".github/workflows/", "actions/")
 # Applied rules for a branch, unlike the rulesets API, need no `administration` scope — it answers
 # unauthenticated on a public repo, so the default GITHUB_TOKEN is enough.
 BRANCH_RULES_URL = f"{REPO_URL}/rules/branches/main"
+# Applied rules are ruleset-derived only, so a context set through legacy branch protection would be
+# enforced and invisible. This endpoint carries the legacy view and needs no `administration:read`,
+# which GITHUB_TOKEN cannot be granted — `branches/main/protection`, which does, would cost an admin
+# PAT to close a blind spot. That `protection.required_status_checks.contexts` reads empty here while
+# the ruleset requires three checks is what shows it answers for legacy protection alone.
+BRANCH_URL = f"{REPO_URL}/branches/main"
 WENT_PRIVATE = (
     "this repository is no longer public, so every consumer's call to these workflows stops "
     'resolving until Settings → Actions → General → Access is set to "Accessible from '
@@ -80,12 +86,16 @@ def _api_json(url: str) -> Any:
 
 def _live_required_contexts() -> set[str]:
     rules: list[dict[str, Any]] = _api_json(BRANCH_RULES_URL)
-    return {
+    from_rulesets = {
         str(check["context"])
         for rule in rules
         if rule.get("type") == "required_status_checks"
         for check in rule["parameters"]["required_status_checks"]
     }
+    branch: dict[str, Any] = _api_json(BRANCH_URL)
+    protection: dict[str, Any] = branch.get("protection") or {}
+    legacy: dict[str, Any] = protection.get("required_status_checks") or {}
+    return from_rulesets | {str(context) for context in legacy.get("contexts", [])}
 
 
 def _yaml_files() -> list[Path]:
