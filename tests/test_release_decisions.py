@@ -5,11 +5,13 @@ import sys
 import pytest
 from decisions import (
     SURFACE_TABLE,
-    breaks_under_non_major,
+    compatibility_line,
     declared_version,
     highest_version,
     increment_reason,
     is_ahead,
+    moves_a_ref_onto_a_break,
+    moving_tag,
     next_version,
     notes_are_empty,
     parse_version,
@@ -82,6 +84,37 @@ def test_the_increment_zeroes_every_component_below_it(
     # The last row is the one worth having: breaking outranks feature, so a range carrying both is a
     # major. Reversed, a breaking change would ship under a minor and move the major tag onto it.
     assert next_version((4, 0, 3), breaking=breaking, feature=feature) == expected
+
+
+@pytest.mark.parametrize(
+    ("breaking", "feature", "expected"),
+    [
+        (True, False, (0, 2, 0)),  # was (1, 0, 0): a break must not graduate the project unasked
+        (
+            False,
+            True,
+            (0, 1, 1),
+        ),  # a feat may not advance the minor — that would leave the v0.1 line
+        (False, False, (0, 1, 1)),
+        (True, True, (0, 2, 0)),  # breaking wins, as it does above 0.x
+    ],
+)
+def test_a_breaking_0_x_range_starts_the_next_minor_not_the_next_major(
+    breaking: bool, feature: bool, expected: tuple[int, int, int]
+) -> None:
+    assert next_version((0, 1, 0), breaking=breaking, feature=feature) == expected
+
+
+def test_under_0_x_a_feat_and_a_fix_agree_on_the_number_but_not_the_reason() -> None:
+    # A consequence of the line consuming two components: only the patch is left to advance, so the
+    # version cannot distinguish them. Deliberate, and pinned here so it is not "fixed" by accident —
+    # the notice a maintainer reads still says which it was.
+    feat = next_version((0, 1, 0), breaking=False, feature=True)
+    fix = next_version((0, 1, 0), breaking=False, feature=False)
+    assert feat == fix == (0, 1, 1)
+    assert increment_reason(breaking=False, feature=True) != increment_reason(
+        breaking=False, feature=False
+    )
 
 
 def test_each_increment_carries_a_different_reason() -> None:
@@ -175,21 +208,84 @@ def test_a_version_must_be_strictly_ahead() -> None:
     assert is_ahead((4, 0, 2), (4, 0, 3)) is False
 
 
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [
+        ((0, 0, 3), (0, 0)),
+        ((0, 1, 0), (0, 1)),
+        ((0, 2, 0), (0, 2)),
+        ((1, 0, 0), (1,)),
+        ((4, 1, 1), (4,)),
+    ],
+)
+def test_the_line_is_the_minor_under_0_x_and_the_major_above_it(
+    version: tuple[int, int, int], expected: tuple[int, ...]
+) -> None:
+    # SemVer §4: a 0.y.z carries no stability guarantee, and the component that signals a break is the
+    # minor. Above 0.x it is the major, unchanged.
+    assert compatibility_line(version) == expected
+
+
+def test_the_zero_x_rule_is_stated_exactly_once() -> None:
+    # The refusal, the increment and the moving tag all read `compatibility_line`. Spelled in each of
+    # them instead, the three would have to agree forever — and a fourth reader could quietly disagree.
+    stated = MODULE.read_text().count("major == 0")
+    assert stated == 1, (
+        f"`major == 0` appears {stated} times in {MODULE.name}; the 0.x boundary belongs to "
+        f"compatibility_line alone, so every decision that needs it reads the same answer."
+    )
+
+
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [((0, 0, 3), "v0.0"), ((0, 1, 0), "v0.1"), ((1, 0, 0), "v1"), ((4, 1, 1), "v4")],
+)
+def test_the_moving_tag_names_the_line(version: tuple[int, int, int], expected: str) -> None:
+    assert moving_tag(version) == expected
+
+
+@pytest.mark.parametrize("minor", range(4))
+def test_no_version_ever_moves_a_bare_v0(minor: int) -> None:
+    # `v0` would span every 0.x break, which is the one thing a moving ref exists not to do. It is what
+    # `v${VERSION%%.*}` produced, and the reason the name became a decision.
+    assert moving_tag((0, minor, 0)) != "v0"
+
+
 def test_a_breaking_range_under_the_same_major_would_move_a_tag_onto_it() -> None:
-    assert breaks_under_non_major((4, 1, 0), 4, breaking=True) is True
+    # Kept verbatim from before the 0.x rule existed: this and the three below are the evidence that
+    # nothing at or above 1.0.0 moved (FR-007).
+    assert moves_a_ref_onto_a_break((4, 1, 0), (4, 0, 3), breaking=True) is True
 
 
 def test_a_new_major_may_break_the_surface() -> None:
-    assert breaks_under_non_major((5, 0, 0), 4, breaking=True) is False
+    assert moves_a_ref_onto_a_break((5, 0, 0), (4, 0, 3), breaking=True) is False
 
 
 def test_with_nothing_released_there_is_no_tag_to_move_onto_a_broken_contract() -> None:
-    assert breaks_under_non_major((4, 1, 0), None, breaking=True) is False
+    assert moves_a_ref_onto_a_break((4, 1, 0), None, breaking=True) is False
 
 
-@pytest.mark.parametrize("highest_major", [None, 3, 4, 5])
-def test_a_non_breaking_range_never_refuses(highest_major: int | None) -> None:
-    assert breaks_under_non_major((4, 1, 0), highest_major, breaking=False) is False
+@pytest.mark.parametrize("highest", [None, (3, 0, 0), (4, 0, 3), (5, 0, 0)])
+def test_a_non_breaking_range_never_refuses(highest: tuple[int, int, int] | None) -> None:
+    assert moves_a_ref_onto_a_break((4, 1, 0), highest, breaking=False) is False
+
+
+@pytest.mark.parametrize(
+    ("version", "highest", "refused"),
+    [
+        # The table in #107, plus the row it does not mention.
+        ((0, 1, 1), (0, 1, 0), True),  # a patch may not carry a break
+        ((0, 2, 0), (0, 1, 0), False),  # the defect: SemVer's signal for a 0.x break
+        ((1, 0, 0), (0, 1, 0), False),  # graduating is always allowed
+        ((0, 2, 1), (0, 2, 0), True),  # the line is 0.2, not the major
+        ((0, 0, 2), (0, 0, 1), True),  # 0.0.z has a line too, with no special case
+        ((0, 1, 0), (0, 0, 1), False),  # ...and leaving it is allowed
+    ],
+)
+def test_the_refusal_reads_the_line_not_the_major(
+    version: tuple[int, int, int], highest: tuple[int, int, int], refused: bool
+) -> None:
+    assert moves_a_ref_onto_a_break(version, highest, breaking=True) is refused
 
 
 def test_the_declared_version_comes_from_the_project_table() -> None:
@@ -356,6 +452,24 @@ def test_an_ordinary_glob_is_not_refused(path: str) -> None:
 
 def test_every_unusable_path_is_named_not_just_the_first() -> None:
     assert unusable_paths(["ok/**", "a b", "-x", "fine/**"]) == ["a b", "-x"]
+
+
+def test_no_workflow_composes_a_moving_tag_itself() -> None:
+    # `major="v${VERSION%%.*}"` is what produced `v0` for a 0.x release — right for every major and wrong
+    # for the one régime where the minor is the boundary. The name comes from the module now, and a shell
+    # expansion that truncates a version here would silently take it back.
+    for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
+        offenders = [
+            f"{path.name}:{number}: {line.strip()}"
+            for number, raw in enumerate(path.read_text().splitlines(), start=1)
+            if not (line := raw.strip()).startswith("#")
+            if "%%." in line
+        ]
+        assert not offenders, (
+            f"a workflow truncates a version with a shell expansion: {offenders}. The moving ref's name "
+            f"is a decision — take it from the `moving-tag` output, which knows that a 0.x line is "
+            f"`v0.1` and not `v0`."
+        )
 
 
 def test_the_table_is_the_only_place_our_surface_is_written() -> None:

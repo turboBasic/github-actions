@@ -167,7 +167,9 @@ def test_tag_pattern_excludes_the_moving_major_tags() -> None:
         f"tag_pattern {pattern!r} does not match a version tag like v2.0.2, so no range has a "
         f"lower bound and every release renders the whole history."
     )
-    moving = [tag for tag in ("v1", "v2", "v2.0") if re.search(pattern, tag)]
+    # `v0.1` is the 0.x moving shape: under 0.x the ref tracks the minor line, so a two-part tag is a
+    # real moving ref now rather than a hypothetical one.
+    moving = [tag for tag in ("v1", "v2", "v2.0", "v0.1", "v0.0") if re.search(pattern, tag)]
     assert not moving, (
         f"tag_pattern {pattern!r} also matches the moving major tags {moving}, which sit on "
         f"main's tip. `--unreleased` would measure from there and render nothing."

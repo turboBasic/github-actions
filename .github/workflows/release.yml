@@ -188,6 +188,11 @@ jobs:
           notes-file: ${{ env.NOTES }}
           context-file: ${{ env.CONTEXT }}
           current-version: ${{ steps.verify.outputs.version }}
+          highest-version: ${{ steps.verify.outputs.highest-version }}
+          # Both, deliberately, and only until this repository's next release has moved the major tag.
+          # This workflow is reached as `$/` — the commit under review — while the action above is
+          # reached at the tag, so one run pairs a new workflow with the previous module. That module
+          # reads `highest-major` and nothing else, and its refusal is silently false without it.
           highest-major: ${{ steps.verify.outputs.highest-major }}
 
       - name: Show the notes in the run summary
@@ -218,11 +223,14 @@ jobs:
         if: steps.verify.outputs.proceed == 'true' && !inputs.dry-run
         env:
           VERSION: ${{ steps.verify.outputs.version }}
+          # The name is a decision, so it comes from the action beside the others rather than from a
+          # shell expansion here: under 0.x the ref that tracks a compatibility line is `v0.1`, not
+          # `v0`, and `${VERSION%%.*}` cannot know that.
+          MOVING_TAG: ${{ steps.verify.outputs.moving-tag }}
         run: |
           set -euo pipefail
 
           tag="v${VERSION}"
-          major="v${VERSION%%.*}"
 
           tag_object() {
             gh api -X POST "repos/${GITHUB_REPOSITORY}/git/tags" \
@@ -238,12 +246,12 @@ jobs:
           # than from the previous release, which is what `--generate-notes` alone would have used.
           gh release create "${tag}" --title "${tag}" --notes-file "${NOTES}" --latest --verify-tag
 
-          # PATCH moves it; the POST is for the first release of a new major, where there is no
-          # ref to move yet.
-          moved=$(tag_object "${major}" "${major} tracks ${tag}")
-          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/${major}" --silent \
+          # PATCH moves it; the POST is for the first release of a new compatibility line, where there
+          # is no ref to move yet.
+          moved=$(tag_object "${MOVING_TAG}" "${MOVING_TAG} tracks ${tag}")
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/${MOVING_TAG}" --silent \
             -f "sha=${moved}" -F force=true ||
             gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" --silent \
-              -f "ref=refs/tags/${major}" -f "sha=${moved}"
+              -f "ref=refs/tags/${MOVING_TAG}" -f "sha=${moved}"
 
-          echo "Released [${tag}](https://github.com/${GITHUB_REPOSITORY}/releases/tag/${tag}); \`${major}\` now resolves to it." >> "${GITHUB_STEP_SUMMARY}"
+          echo "Released [${tag}](https://github.com/${GITHUB_REPOSITORY}/releases/tag/${tag}); \`${MOVING_TAG}\` now resolves to it." >> "${GITHUB_STEP_SUMMARY}"

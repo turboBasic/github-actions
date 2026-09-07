@@ -324,6 +324,21 @@ next run without a PR in every consumer. Anything a consumer cannot absorb by re
 alone — a broken call site, a retired status-check context, a permission it must grant — gets a new
 major tag instead.
 
+**If your own project is at `0.x`, `release.yml` publishes a two-part moving ref and you pin that.** Under
+[SemVer §4](https://semver.org/#spec-item-4) a `0.y.z` carries no stability guarantee and the component
+signalling a break is the minor, so the minor is what a moving ref may not cross:
+
+| Your release | Immutable | Moving |
+| --- | --- | --- |
+| `0.1.0`, then `0.1.1` | `v0.1.0`, `v0.1.1` | `v0.1`, moved to each |
+| `0.2.0` | `v0.2.0` | `v0.2` is created; `v0.1` stays at `0.1.1` |
+| `1.0.0` | `v1.0.0` | `v1` |
+
+So pin `v0.1` and you get fixes and features and never a break — the same deal `v4` gives, one component
+down. **No `v0` is ever published**, because it would have to span every 0.x break. A breaking change may
+ship as `0.2.0` rather than being forced to `1.0.0`, and a `feat` under `0.x` advances the patch, since a
+minor bump would leave the line you are pinned to.
+
 `v3` is frozen where it is, and so is `v2` before it. Both resolve check names that no longer
 exist on `main`: `v4` renamed every job whose name composes one, so the three required contexts
 became `ci / python-ci`, `commits / pr-title` and `commits / commit-messages`. A required
