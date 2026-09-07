@@ -40,6 +40,12 @@ pull request in that repository, not just the one doing the repin. And between t
 that repository's `main` still resolves the old major, so any *other* pull request opened in that
 window reports the retired names and blocks. Keep the window short.
 
+**`github-actions-test` is deliberately at `0.x`**, and is kept there. `is_ahead` compares across every
+major, so a repository that has released `1.0.0` can never publish a 0.x version again — which makes this the
+only place the 0.x compatibility line can be exercised: the `v0.1`/`v0.2` moving refs, and the refusal that
+allows `0.2.0` to carry a break while `0.1.2` may not. Its releases and tags were reset for that
+(turboBasic/github-actions#107). Do not graduate it to `1.0.0` without standing up a replacement first.
+
 `github-actions-test` exists to run these at `@v4` rather than to do work of its own. It is the only
 caller of `opus-magnum`'s input combination, so it is where those inputs are known to work before
 `opus-magnum` migrates onto them. Break a workflow and it goes red there, on a repository nobody

@@ -79,21 +79,21 @@ together, because renaming a function the suite imports is not green on its own.
 **Purpose**: the pure functions are covered offline; creating and force-moving a `v0.1` ref is not. [quickstart.md](./quickstart.md) is the route.
 
 - [x] T013 Run quickstart rungs 1–2: the offline suite, then the decisions by hand out of the file.
-- [ ] T014 Cut the release here. Read the `Check the notes` step's env and confirm **both** `HIGHEST_MAJOR` and `HIGHEST_VERSION` are present and the first is not empty — that is the interim window of D5 being closed, and the one thing to check before trusting this release's own refusal.
-- [ ] T015 Reset `github-actions-test` per quickstart rung 4: delete all five releases, delete all eight tags, rewrite `main` to its functional commits — dropping the release bumps and the two `004` probes but keeping the surface table — and set `[project].version = 0.1.0`. No ruleset change is needed: it has no tag ruleset, and its `main` ruleset already bypasses for the Repository admin role.
-- [ ] T016 [US3] Rung 5a: the reset push itself releases `0.1.0`. Confirm `v0.1.0` **and `v0.1`**, and that **no `v0` exists** — this is where `v0` would appear if the tag name were still a shell expansion.
-- [ ] T017 [US3] Rung 5b: land a `fix:` and release `0.1.1`. Confirm `v0.1` now resolves to it — the moving ref moving within its line.
-- [ ] T018 [US1] Rung 5c: land a `feat!:` touching `src/` and declare `0.1.2`. Confirm it is **refused** and no tag exists. The pass condition is the job going red.
-- [ ] T019 [US1] [US2] Rung 5d: declare `0.2.0` over the same range. Confirm it **proceeds**, `v0.2` is created and `v0.1` still resolves to `0.1.1`. This is the defect #107 was filed about, and rung 5c before it is what makes it evidence rather than a coincidence.
-- [ ] T020 [US2] Rung 6: check what `release-proposal.yml` offered for 5c's breaking range — it must be `0.2.0`, not `1.0.0` — and that a non-breaking `feat` under 0.x is proposed as a patch.
-- [ ] T021 Rung 7: release `1.0.0` over a breaking range. Confirm it proceeds, `v1.0.0` and `v1` are created, and `v0.2` is left where it is — the line comparison handling a régime change rather than each régime alone.
+- [x] T014 Cut the release here. Read the `Check the notes` step's env and confirm **both** `HIGHEST_MAJOR` and `HIGHEST_VERSION` are present and the first is not empty — that is the interim window of D5 being closed, and the one thing to check before trusting this release's own refusal.
+- [x] T015 Reset `github-actions-test` per quickstart rung 4: delete all five releases, delete all eight tags, rewrite `main` to its functional commits — dropping the release bumps and the two `004` probes but keeping the surface table — and set `[project].version = 0.1.0`. No ruleset change is needed: it has no tag ruleset, and its `main` ruleset already bypasses for the Repository admin role.
+- [x] T016 [US3] Rung 5a: the reset push itself releases `0.1.0`. Confirm `v0.1.0` **and `v0.1`**, and that **no `v0` exists** — this is where `v0` would appear if the tag name were still a shell expansion.
+- [x] T017 [US3] Rung 5b: land a `fix:` and release `0.1.1`. Confirm `v0.1` now resolves to it — the moving ref moving within its line.
+- [x] T018 [US1] Rung 5c: land a `feat!:` touching `src/` and declare `0.1.2`. Confirm it is **refused** and no tag exists. The pass condition is the job going red.
+- [x] T019 [US1] [US2] Rung 5d: declare `0.2.0` over the same range. Confirm it **proceeds**, `v0.2` is created and `v0.1` still resolves to `0.1.1`. This is the defect #107 was filed about, and rung 5c before it is what makes it evidence rather than a coincidence.
+- [~] T020 **Not run, deliberately** [US2] Rung 6: check what `release-proposal.yml` offered for 5c's breaking range — it must be `0.2.0`, not `1.0.0` — and that a non-breaking `feat` under 0.x is proposed as a patch.
+- [~] T021 **Not run, deliberately** Rung 7: release `1.0.0` over a breaking range. Confirm it proceeds, `v1.0.0` and `v1` are created, and `v0.2` is left where it is — the line comparison handling a régime change rather than each régime alone.
 
 ---
 
 ## Phase 7: Close out
 
-- [ ] T022 Remove `highest-major` from `actions/release-decisions/action.yml`, from `_verify_version`'s outputs and from `release.yml`'s `check-notes` step, **only after T014 has moved `v4`**. Until then it is what keeps the old module's refusal working; after, it is a second value describing one fact, and the one that is wrong under 0.x.
-- [ ] T023 [P] Fill in quickstart's Outcome section with the run or PR each rung is evidenced by, and tick this list.
+- [x] T022 Remove `highest-major` from `actions/release-decisions/action.yml`, from `_verify_version`'s outputs and from `release.yml`'s `check-notes` step, **only after T014 has moved `v4`**. Until then it is what keeps the old module's refusal working; after, it is a second value describing one fact, and the one that is wrong under 0.x.
+- [x] T023 [P] Fill in quickstart's Outcome section with the run or PR each rung is evidenced by, and tick this list.
 
 ---
 
@@ -127,3 +127,7 @@ green and verified.
 - No behaviour at or above `1.0.0` may change. Where an existing test covers that, it is kept verbatim
   rather than rewritten, so a regression above 0.x fails an assertion that predates this change.
 - `docs/consumers.md` needs no edit: no consumer's row moves, and both consumers are `1.x`+.
+
+`[~]` marks a task deliberately not run, with the reason in [quickstart.md](./quickstart.md)'s Outcome:
+T020 because the test consumer has no `release-proposal.yml` to exercise, T021 because releasing `1.0.0`
+there would destroy the only repository able to exercise the 0.x path at all.

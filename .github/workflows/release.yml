@@ -189,11 +189,6 @@ jobs:
           context-file: ${{ env.CONTEXT }}
           current-version: ${{ steps.verify.outputs.version }}
           highest-version: ${{ steps.verify.outputs.highest-version }}
-          # Both, deliberately, and only until this repository's next release has moved the major tag.
-          # This workflow is reached as `$/` — the commit under review — while the action above is
-          # reached at the tag, so one run pairs a new workflow with the previous module. That module
-          # reads `highest-major` and nothing else, and its refusal is silently false without it.
-          highest-major: ${{ steps.verify.outputs.highest-major }}
 
       - name: Show the notes in the run summary
         if: steps.verify.outputs.proceed == 'true'
