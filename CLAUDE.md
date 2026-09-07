@@ -6,7 +6,8 @@
 
 ## The instruction layers
 
-Four layers. This one is navigation: it names every artefact and states no rule.
+Four layers. This one is navigation: it names the artefacts that carry a rule or a setting, and
+states no rule itself.
 
 | # | Layer | Purpose | Stability | Artefacts |
 | --- | --- | --- | --- | --- |
@@ -33,6 +34,6 @@ GitHub Copilot has no import mechanism and reaches both rule layers by link from
 | `mise.toml` | every tool version, and the task names |
 | `pyproject.toml` | the Python dependencies, the tool settings, the released version, and the surface it describes |
 | `.pre-commit-config.yaml` | the prek hooks |
-| `.github/actionlint.yaml`, `.github/zizmor.yml`, `.yamllint.yaml`, `.cspell.config.yaml` | each linter's own rules and exemptions |
+| `.github/actionlint.yaml`, `.github/zizmor.yml`, `.yamllint.yaml`, `.cspell.config.yaml`, `.markdownlint-cli2.jsonc`, `.taplo.toml` | each linter's own rules and exemptions |
 | `.github/renovate.json`, `.github/dependabot.yml` | which bot owns version updates, and which owns security alerts |
 | `.cliff.toml` | the commit types the release notes are rendered from |

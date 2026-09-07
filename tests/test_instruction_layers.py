@@ -31,6 +31,8 @@ LAYERS: dict[int, list[str]] = {
         ".pre-commit-config.yaml",
         ".cspell.config.yaml",
         ".yamllint.yaml",
+        ".markdownlint-cli2.jsonc",
+        ".taplo.toml",
         ".cliff.toml",
         ".github/actionlint.yaml",
         ".github/zizmor.yml",
@@ -174,7 +176,10 @@ def test_no_artefact_names_one_from_a_higher_layer() -> None:
     for layer, paths in LAYERS.items():
         for source in paths:
             path = REPO_ROOT / source
-            if not path.is_file():
+            # Prose only, as a source. A tool config names the paths it operates on — a filter list,
+            # an ignore glob — and that is an operand rather than a citation of a fact. A config stays
+            # a target, so prose naming one is still caught.
+            if not path.is_file() or path.suffix != ".md":
                 continue
             text = path.read_text(encoding="utf-8")
             for target, target_layer in owner.items():
