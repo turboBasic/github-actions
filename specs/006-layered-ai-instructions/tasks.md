@@ -131,14 +131,14 @@ in `docs/`, in `.github/` and in `.specify/memory/`. The check lives in `tests/`
 
 **Purpose**: prove the checks can fail, and close the documentation the change touched
 
-- [ ] T035 Reintroduce a copied principle sentence into `docs/ai-instructions.md`, confirm `mise run ci` fails and names the file and the anchor, then `git checkout -- docs/ai-instructions.md`.
-- [ ] T036 Reintroduce a markdown link from `.specify/memory/constitution.md` to a layer 3 file, confirm `mise run ci` fails and names the direction violated, then revert.
-- [ ] T037 Write a `def test_*` name from `tests/test_action_pins.py` into `docs/ai-instructions.md`, confirm `mise run ci` fails and names the identifier, then revert.
-- [ ] T038 Prove SC-004 by renaming two test functions in `tests/test_action_pins.py`, running `mise run ci`, and confirming no `*.md` file needs editing for it to pass. Revert both. Absence of a name today does not prove immunity tomorrow; this does.
-- [ ] T039 [P] Prove SC-007 with `wc -l CLAUDE.md docs/ai-instructions.md .specify/memory/constitution.md`: the always-loaded total is no more than the 293 lines loaded before the change, now with the invariants included.
-- [ ] T040 [P] Walk SC-008: pick a naming rule, a permission rule, a Python rule, a release rule and a spec rule, and for each read only the layer `CLAUDE.md` sends you to. Needing a second file to be sure nothing contradicts it means a boundary is in the wrong place.
-- [ ] T041 Delete the scratch from `tmp/` once the inventory has reconciled and the PR body carries its conclusion. Nothing there ships.
-- [ ] T042 Run `mise run ci` clean, and re-read `README.md`, `CONTRIBUTING.md` and `docs/technical-debt.md` for framing this change made stale — a section that describes the old two-copy arrangement is a defect in this change, not a follow-up.
+- [X] T035 Reintroduce a copied principle sentence into `docs/ai-instructions.md`, confirm `mise run ci` fails and names the file and the anchor, then `git checkout -- docs/ai-instructions.md`.
+- [X] T036 Reintroduce a markdown link from `.specify/memory/constitution.md` to a layer 3 file, confirm `mise run ci` fails and names the direction violated, then revert.
+- [X] T037 Write a `def test_*` name from `tests/test_action_pins.py` into `docs/ai-instructions.md`, confirm `mise run ci` fails and names the identifier, then revert.
+- [X] T038 Prove SC-004 by renaming two test functions in `tests/test_action_pins.py`, running `mise run ci`, and confirming no `*.md` file needs editing for it to pass. Revert both. Absence of a name today does not prove immunity tomorrow; this does.
+- [X] T039 [P] Prove SC-007 with `wc -l CLAUDE.md docs/ai-instructions.md .specify/memory/constitution.md`: the always-loaded total is no more than the 293 lines loaded before the change, now with the invariants included. **Measured 383 against 293, and the deviation is accepted rather than closed.** 38 navigation + 268 conventions + 77 invariants, against 1 + 292 + 0 before. The invariants are +77 and were previously not in context at all, which is the change's point; the budget assumed the conventions layer would fall to ~190 and it fell to 268, because each deleted restatement left a citation behind and two new owned paragraphs — precedence and the layering rule — arrived. Cutting the remaining 90 would mean un-stating rules that T015 reconciled as surviving, so the criterion is recorded as missed rather than met by deletion.
+- [X] T040 [P] Walk SC-008: pick a naming rule, a permission rule, a Python rule, a release rule and a spec rule, and for each read only the layer `CLAUDE.md` sends you to. Needing a second file to be sure nothing contradicts it means a boundary is in the wrong place.
+- [X] T041 ~~Delete the scratch from `tmp/` once the inventory has reconciled and the PR body carries its conclusion.~~ **Dropped by decision.** The precondition never came about — the PR body is still the spec-only one — and `tmp/` is gitignored, so the deletion is unrecoverable. The scratch stays. Nothing there ships regardless: `tmp/` is exempt from the layer checks and excluded from markdownlint.
+- [X] T042 Run `mise run ci` clean, and re-read `README.md`, `CONTRIBUTING.md` and `docs/technical-debt.md` for framing this change made stale — a section that describes the old two-copy arrangement is a defect in this change, not a follow-up.
 
 ---
 
