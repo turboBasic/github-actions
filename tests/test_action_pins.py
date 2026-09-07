@@ -448,6 +448,29 @@ def test_the_release_refuses_notes_with_no_content() -> None:
     )
 
 
+def test_the_release_refuses_an_empty_moving_tag_before_creating_a_ref() -> None:
+    # The moving ref's name comes from a composite action that a caller resolves at a *tag*, so a
+    # release cut between adding an output there and moving that tag reads it as empty. Unguarded, that
+    # is the worst ordering available: `gh release create` succeeds, the version tag exists, and only
+    # then does the ref move fail — leaving consumers on the previous release with a version tag the
+    # `immutable release tags` ruleset forbids anyone from deleting. Recovery is a hand-moved ref, so
+    # the guard has to come before the first ref is created rather than anywhere in the step.
+    workflow = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text()
+    guard = workflow.find("-z ${MOVING_TAG}")
+    assert guard != -1, (
+        "release.yml does not check that MOVING_TAG is non-empty. An empty ref name reaches `gh api` "
+        "only after the release is published, and the version tag cannot then be deleted."
+    )
+    first_ref = workflow.find("git/tags")
+    assert first_ref != -1, (
+        "release.yml creates no tag object; this test is anchored on the wrong step"
+    )
+    assert guard < first_ref, (
+        "release.yml checks MOVING_TAG after it has already started creating refs. The check is only "
+        "worth having before the first one."
+    )
+
+
 def test_the_release_publishes_the_rendered_notes() -> None:
     # `--generate-notes` asks GitHub to build the body from pull request labels, and nothing here
     # labels a pull request — reinstating it would route the notes back through labels with
