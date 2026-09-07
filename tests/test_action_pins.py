@@ -56,7 +56,6 @@ OWN_CI = {
     "drift.yml",
     "release.yml",
     "release-proposal.yml",
-    "dependabot-automerge.yml",
 }
 # What a consumer resolves. `.github/workflows/` minus OWN_CI, plus every composite action.
 CONSUMER_FACING = (".github/workflows/", "actions/")

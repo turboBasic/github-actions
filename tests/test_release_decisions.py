@@ -39,8 +39,6 @@ OUR_FILTER = [
     "--exclude-path",
     ".github/workflows/commit-messages.yml",
     "--exclude-path",
-    ".github/workflows/dependabot-automerge.yml",
-    "--exclude-path",
     ".github/workflows/drift.yml",
     "--exclude-path",
     ".github/workflows/release.yml",

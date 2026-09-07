@@ -87,6 +87,8 @@ unpinned.
 - Dev deps in `[dependency-groups].dev`. `[project].dependencies` stays empty — nothing is
   published from here.
 - Run `uv lock` after editing dependencies and commit the result in the same change.
+- Renovate owns version updates; Dependabot is kept for security alerts, whose PRs wait for a human.
+  `.github/dependabot.yml` owns that split and says why symmetry between the two is not a goal.
 - Introducing a new file type updates `.editorconfig`, `.gitattributes`, and `.gitignore` in the
   same change.
 
