@@ -32,6 +32,56 @@ REQUIRED_CHECKS = [
     ("commits / commit-messages", "commit-messages.yml", "conventional-commits.yml"),
 ]
 REPO_URL = "https://api.github.com/repos/turboBasic/github-actions"
+# The half of a reusable workflow a caller writes into its own file: the inputs it passes and the
+# permissions it grants. Both are validated before any job exists, so either one moving breaks the
+# caller with no job and no log — a removed or renamed input breaks the call site outright, and a
+# caller granting too little fails at startup. Every entry here is therefore a major bump to change.
+#
+# Stated as a table rather than diffed against a released ref, so it holds for every later change too
+# and needs no network. `None` inputs means the workflow must declare no `workflow_call` at all:
+# gaining one gains a contract this table does not account for.
+#
+# Defaults are deliberately not frozen. A default is behaviour rather than call-site shape, README
+# carries it as part of the documented contract, and the one default with content of its own is held
+# equal to commitizen's set by test_allowed_types_match_the_commitizen_builtin_set.
+WORKFLOW_CONTRACTS: list[tuple[str, set[str] | None, dict[str, set[str]]]] = [
+    (
+        "python-ci.yml",
+        {
+            "mise-version",
+            "run-lint",
+            "run-typecheck",
+            "run-tests",
+            "lint-task",
+            "typecheck-task",
+            "test-task",
+            "lint-changed-only",
+            "hook-stage",
+            "cache-prek",
+            "timeout-minutes",
+        },
+        {"ci": {"contents: read"}},
+    ),
+    (
+        "conventional-commits.yml",
+        {"check-title", "check-commits", "types", "timeout-minutes"},
+        # `title` grants no `contents`: its block replaces the workflow default, and the job reads the
+        # title from the event payload without checking anything out.
+        {"title": {"pull-requests: read"}, "commits": {"contents: read"}},
+    ),
+    (
+        "prek-advisory.yml",
+        {"mise-version", "hook-stage", "cache-prek", "timeout-minutes"},
+        {"advisory": {"contents: read", "pull-requests: write"}},
+    ),
+    (
+        "dependency-review.yml",
+        {"fail-on-severity", "timeout-minutes"},
+        {"review": {"contents: read"}},
+    ),
+    ("release.yml", {"dry-run"}, {"release": {"contents: write"}}),
+    ("release-proposal.yml", None, {"propose": {"contents: read"}}),
+]
 LABEL_WRITERS = (
     Path(".github/ISSUE_TEMPLATE/1-bug-report.yml"),
     Path(".github/ISSUE_TEMPLATE/2-idea.yml"),
@@ -356,30 +406,37 @@ def _triggers(path: Path) -> set[str]:
     return _entries(_under(path.read_text().splitlines(), "on:"))
 
 
-@pytest.mark.parametrize(
-    ("workflow", "job_id", "inputs", "permissions"),
-    [
-        ("release.yml", "release", {"dry-run"}, {"contents: write"}),
-        ("release-proposal.yml", "propose", set[str](), {"contents: read"}),
-    ],
-)
-def test_the_release_interface_is_frozen(
-    workflow: str, job_id: str, inputs: set[str], permissions: set[str]
-) -> None:
-    # The two halves of these workflows a caller writes into its own file, and both are validated
-    # before any job exists — so a renamed input breaks the call site outright, and a caller granting
-    # a permission that is no longer enough fails at startup with no job and no log to read. Stated
-    # here rather than diffed against a commit, so it holds for every later change too.
-    lines = (REPO_ROOT / ".github" / "workflows" / workflow).read_text().splitlines()
+def _effective_permissions(lines: list[str], job_id: str) -> set[str]:
+    # A job's own block replaces the workflow-level default rather than adding to it, so the effective
+    # grant is one or the other, never their union. It is what a caller has to give the call: a
+    # permission only narrows down a call chain, so a caller granting too little fails at startup.
     job = _under(_under(lines, "jobs:"), f"{job_id}:")
+    if any(line.strip() == "permissions:" for line in job):
+        return _entries(_under(job, "permissions:"))
+    # Sliced above `jobs:` rather than filtered by indent, which would keep the header and drop the
+    # block it introduces.
+    header = lines[: next(i for i, line in enumerate(lines) if line.strip() == "jobs:")]
+    return _entries(_under(header, "permissions:"))
 
-    assert _entries(_under(job, "permissions:")) == permissions, (
-        f"{workflow}'s `{job_id}` job no longer asks for exactly {sorted(permissions)}. Job "
-        f"permissions can only be reduced down a call chain, so a caller cannot make up a shortfall "
-        f"— widening this is a major bump (FR-009)."
-    )
 
-    if not inputs:
+@pytest.mark.parametrize(
+    ("workflow", "inputs", "permissions"),
+    WORKFLOW_CONTRACTS,
+    ids=[workflow for workflow, _, _ in WORKFLOW_CONTRACTS],
+)
+def test_the_reusable_interface_is_frozen(
+    workflow: str, inputs: set[str] | None, permissions: dict[str, set[str]]
+) -> None:
+    lines = (REPO_ROOT / ".github" / "workflows" / workflow).read_text().splitlines()
+
+    for job_id, granted in permissions.items():
+        assert _effective_permissions(lines, job_id) == granted, (
+            f"{workflow}'s `{job_id}` job no longer runs with exactly {sorted(granted)}. Permissions "
+            f"can only be reduced down a call chain, so a caller cannot make up a shortfall — "
+            f"widening this is a major bump (FR-009)."
+        )
+
+    if inputs is None:
         assert "workflow_call:" not in "\n".join(lines), (
             f"{workflow} gained a `workflow_call` trigger, so it now has an input contract and "
             f"callers this table does not account for (FR-009)."
@@ -388,7 +445,8 @@ def test_the_release_interface_is_frozen(
     assert _entries(_under(_under(lines, "workflow_call:"), "inputs:")) == inputs, (
         f"{workflow} no longer declares exactly the inputs {sorted(inputs)} under `workflow_call`. A "
         f"removed or renamed input breaks every call site that passes it, which no ref can fix for "
-        f"the caller — that is a major bump (FR-009)."
+        f"the caller — that is a major bump (FR-009). An added input is backwards-compatible, so add "
+        f"it to WORKFLOW_CONTRACTS in the same change."
     )
 
 
