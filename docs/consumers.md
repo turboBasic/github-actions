@@ -3,6 +3,17 @@
 The blast-radius list. A change to a workflow affects every repository named here, so keep this
 current in the same change that alters an input contract.
 
+**A pin is not insulation here**, which is why the list exists at all. Consumers pin `@v4`, a tag every
+release force-moves — the trade is in README's Versioning section. So a change merged here is running
+in every repository below on its next push, with no pull request and no review on their side, and the
+list is how you know who that is before the merge rather than after.
+
+Two things no ref carries, even to a consumer frozen on an old major: a required status-check context
+lives in that repository's ruleset, and a permission grant lives in its caller workflow. Each needs a
+human to edit that repository, so the change has to know which ones. And several paths run in exactly
+one place — `prek-advisory`, `release`, `cache-prek` — which makes a row here sometimes the only
+evidence a workflow works anywhere.
+
 `repo-factory` is out of scope for the workflow migration — it calls one composite action and no
 workflow. `opus-magnum` is the only migration still intended.
 
@@ -24,21 +35,16 @@ repins.
 required status checks with it — no ref can edit a ruleset. The contexts and why a stale one blocks
 everything are below, under the paragraph about call sites changing check names.
 
-**The `v4` rollout, in the order it ran, because the next major's will want the same shape.**
-`github-actions-test` went first: it is the only caller of `prek-advisory` and `release`, so it is the
-only place `advisory / prek-advisory` and `release / tag-and-publish` report at all, and until it was
-green those two renames were unverified anywhere. `python-app-baseline` followed, `v2` straight to
-`v4` in one hop — it never pinned `v3`, and the `prek-*` path rename never reached it, since it calls
-`python-ci` and `conventional-commits` only, both at defaults. Its `main` ruleset requires one
-approving review where the other two require none, so its repin was the one that could not be merged
-unattended; budget for that. `repo-factory` needed nothing, and still resolves `@v2`: a composite
-action reports no check of its own, so nothing it uses changed.
+**Repin `github-actions-test` first.** It is the only caller of `prek-advisory` and `release`, so
+`advisory / prek-advisory` and `release / tag-and-publish` report nowhere else and a rename to either
+is unverified anywhere until that repository is green.
 
-Two orderings that are not interchangeable. A consumer's ruleset flips *after* its repin branch has
-reported the new names, never before — a required context that has never reported blocks every open
-pull request in that repository, not just the one doing the repin. And between the flip and the merge,
-that repository's `main` still resolves the old major, so any *other* pull request opened in that
-window reports the retired names and blocks. Keep the window short.
+**Two orderings in a repin are not interchangeable.** A consumer's ruleset flips *after* its repin
+branch has reported the new names, never before — a required context that has never reported blocks
+every open pull request in that repository, not just the one doing the repin. And between the flip and
+the merge, that repository's `main` still resolves the old major, so any *other* pull request opened in
+that window reports the retired names and blocks. Keep the window short. A consumer whose ruleset
+requires an approving review cannot be repinned unattended; budget for that one.
 
 **`github-actions-test` is deliberately at `0.x`**, and is kept there. `is_ahead` compares across every
 major, so a repository that has released `1.0.0` can never publish a 0.x version again — which makes this the
@@ -52,7 +58,9 @@ caller of `opus-magnum`'s input combination, so it is where those inputs are kno
 depends on.
 
 `repo-factory` keeps its own workflows and calls only the `populate-pr-description` composite action.
-It and `github-actions-test` are that action's only callers, so a change to its inputs reaches two.
+It and `github-actions-test` are that action's only callers, so a change to its inputs reaches two. It
+still resolves `@v2` and a check rename never reached it: a composite action reports no check of its
+own, so only an input change to that action obliges it to move.
 
 `release-decisions` has **no** external caller and is not meant to gain one: it holds the decisions
 `release.yml` and `release-proposal.yml` used to make in shell, so their blast radius is its blast
@@ -97,10 +105,9 @@ A call site changes the names of the repo's status checks to `<caller job> / <ca
 required check named after the old job stops reporting and blocks every merge. Update the required
 checks in the same change. `v4` renamed the called half of all three, so they are now
 `ci / python-ci`, `commits / pr-title` and `commits / commit-messages` — a repin that
-leaves the old contexts required blocks every pull request on a check nothing will ever report.
-The caller half has moved before too, in this repository: its required check was named `CI` until
-`ci.yml` stopped running its checks inline and began calling `python-ci.yml` (`2596188`), which
-prefixed it with the calling job's id.
+leaves the old contexts required blocks every pull request on a check nothing will ever report. Both
+halves can move: the caller half is the calling job's id, so renaming that retires the context just as
+renaming the called job does.
 
 `REQUIRED_CHECKS` in `tests/test_action_pins.py` is the single statement of these contexts, checked
 against both the workflows and the live ruleset. A consumer wanting the same guard needs its own
