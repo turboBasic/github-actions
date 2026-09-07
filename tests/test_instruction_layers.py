@@ -61,6 +61,8 @@ ANCHORED_FACTS: list[tuple[str, str, str]] = [
     (CONSTITUTION, "Governance", "smallest alternative that meets the underlying need"),
     (CONSTITUTION, "Governance", "Conventions are not governed here"),
     (CONSTITUTION, "Governance", "expensive to reverse and cheap to commit by accident"),
+    (CONSTITUTION, "Governance", "a revert would fix is a convention"),
+    (CONVENTIONS, "Changes to these rules", "cites the owner instead of restating it"),
     ("CONTRIBUTING.md", "Labels", "This table is the label set"),
     ("CONTRIBUTING.md", "Releasing", "the only place the version is decided"),
     ("CONTRIBUTING.md", "Releasing", "approve a proposal"),
@@ -225,6 +227,18 @@ def _collapsed(text: str) -> str:
     return re.sub(r"\s+", " ", text)
 
 
+def _unquoted(text: str) -> str:
+    # A quotation attributed to its owner is a citation with the text inlined, not a second copy, so
+    # a line inside a blockquote is not one. The explanatory write-up needs this: a reader whose own
+    # repository has no rule layers yet cannot follow a rule the document only points at.
+    #
+    # It narrows the check, and deliberately. An unattributed blockquote would slip a restatement
+    # past, and only review catches that. The alternative narrows it further — with no exemption the
+    # cheapest way to clear the check is to reword until the phrase differs, which leaves the second
+    # copy in place and this gate holding neither.
+    return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(">"))
+
+
 @pytest.mark.parametrize(
     ("owner", "section", "anchor"),
     ANCHORED_FACTS,
@@ -239,7 +253,8 @@ def test_an_owned_fact_is_stated_only_by_its_owner(owner: str, section: str, anc
     elsewhere = [
         path
         for path in _prose_files()
-        if path != owner and needle in _collapsed((REPO_ROOT / path).read_text(encoding="utf-8"))
+        if path != owner
+        and needle in _collapsed(_unquoted((REPO_ROOT / path).read_text(encoding="utf-8")))
     ]
     assert not elsewhere, f"{anchor!r} is owned by {owner} {section} but is restated in {elsewhere}"
 

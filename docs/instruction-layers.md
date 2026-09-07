@@ -24,10 +24,13 @@ frequently touched, layer 3 the most concrete and the one that moves constantly.
 
 ## What belongs in each
 
-**Layer 1** is short, and deliberately expensive to change. A rule earns a place in it only when
-breaking it would cost far more to undo than to prevent, *and* when it could be broken without
-anyone noticing at the time. Anything a reviewer would catch and a revert would repair is a
-convention instead. Each entry reads as a gate: a proposal can be held against it and fail.
+**Layer 1** is short, and deliberately expensive to change. It sets its own admission bar, which here
+reads:
+
+> A new principle earns its place only if violating it is expensive to reverse and cheap to commit by
+> accident. Anything a reviewer would catch and a revert would fix is a convention.
+
+Each entry reads as a gate: a proposal can be held against it and fail.
 
 **Layer 2** is where most rules live — naming, file placement, how a test is organised, which
 library gets reached for first. These settle over time and are edited without ceremony. A request to
@@ -42,8 +45,10 @@ answers.
 
 ## The direction rule
 
-Every fact has exactly one owning layer. A layer needing a fact it does not own cites the owner
-instead of restating it, and a citation only ever runs from the concrete toward the abstract.
+The conventions layer owns the rule, and states it as:
+
+> Each fact has exactly one owning layer; a layer needing a fact it does not own cites the owner
+> instead of restating it; and a citation runs from the concrete to the abstract only.
 
 So layer 2 may cite a layer 1 principle by number. Layer 1 cites nothing at all — it names no
 artefact, because naming one would fix a filename inside the most stable document in the tree.
@@ -85,7 +90,14 @@ Four checks cover it:
   owner, and it appears nowhere else. The first assertion is what stops a row rotting into a pattern
   that matches nothing.
 
-Two details decide whether the checks are usable rather than merely present.
+Three details decide whether the checks are usable rather than merely present.
+
+**An attributed quotation is a citation, not a copy.** A document explaining the shape to a reader
+whose own repository has no rule layers yet has to state a rule verbatim, so the owned-facts check
+skips any line inside a blockquote. The attribution is what makes that safe, and it is prose
+discipline rather than a check — an unattributed quotation slips a restatement past. Without the
+exemption the incentive runs the wrong way: the cheapest way to clear the check is to reword until
+the phrase differs, which leaves two copies of the fact and no gate over either.
 
 **A phrase is matched with whitespace collapsed.** A distinctive phrase long enough to be
 distinctive is long enough to wrap, and a line-based search finds none of the ones that do.
