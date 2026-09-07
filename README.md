@@ -260,8 +260,7 @@ This repository's own caller is `release-on-merge.yml`, which does exactly that.
 
 Requires a `.cliff.toml` — the notes come from commit types, never from a pull request label — and a
 `pyproject.toml` declaring `[project].version`, which is what decides the version being cut. Also a
-checkout with full history and tags, which the workflow does itself. `mise run release-notes` renders
-them locally, offline, creating nothing.
+checkout with full history and tags, which the workflow does itself.
 
 On an ordinary merge, where the declared version is already tagged, it says so with a notice and
 stops rather than failing, so it does not redden `main` for doing nothing wrong.

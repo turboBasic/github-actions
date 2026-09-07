@@ -329,9 +329,15 @@ def _under(lines: list[str], header: str) -> list[str]:
 
 
 def _entries(lines: list[str]) -> set[str]:
-    populated = [line for line in lines if line.strip()]
+    # A comment-only line carries no entry, and counting one would both skew the depth and add `""`
+    # to the result.
+    populated = [line for line in lines if line.strip() and not line.strip().startswith("#")]
     depth = min(_indent(line) for line in populated)
     return {line.split("#")[0].strip().rstrip(":") for line in populated if _indent(line) == depth}
+
+
+def _triggers(path: Path) -> set[str]:
+    return _entries(_under(path.read_text().splitlines(), "on:"))
 
 
 @pytest.mark.parametrize(
@@ -374,11 +380,7 @@ def test_the_release_workflow_has_no_trigger_of_its_own() -> None:
     # A `needs:` edge in a caller is the whole gate: it is what makes "CI passed on the commit being
     # tagged" structurally true rather than queried. A trigger here would be a second way in that
     # nothing gates — and it would fail open, because release.yml verifies nothing about CI itself.
-    triggers = _entries(
-        _under(
-            (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text().splitlines(), "on:"
-        )
-    )
+    triggers = _triggers(REPO_ROOT / ".github" / "workflows" / "release.yml")
     assert triggers == {"workflow_call"}, (
         f"release.yml declares {sorted(triggers)}. Anything but `workflow_call` alone is a path to a "
         f"release with no verdict behind it; the manual path belongs on release-on-merge.yml, which "
@@ -685,16 +687,20 @@ def test_allowed_types_match_the_commitizen_builtin_set() -> None:
 
 
 def test_every_workflow_name_carries_its_prefix() -> None:
-    # The Actions sidebar sorts by name by code point, so the prefix is what keeps these together
-    # and below the entries GitHub injects and nobody can rename. 🧩 marks the ones a consumer
-    # resolves; the split reads OWN_CI rather than restating it, so adding a workflow forces the
-    # question in one place. A `workflow_call` trigger is not the test — `release.yml` has one and
-    # is still plumbing.
+    # The Actions sidebar sorts by name by code point, so the prefix is what keeps these together and
+    # below the entries GitHub injects and nobody can rename. Which block a workflow belongs to is its
+    # trigger: a `workflow_call`-only workflow never has a run of its own, because its jobs appear
+    # inside its caller's run, so 🧩 promises an empty page and 🌜 promises a history. Labelling by any
+    # other criterion sends a reader somewhere there is nothing to read.
+    #
+    # Deliberately not OWN_CI, which answers whether a change obliges a release. The two coincide for
+    # every file but `release.yml`, which a consumer calls while staying off the version surface — and
+    # that one file is the whole reason the questions are asked separately.
     offenders: list[str] = []
     for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
         found = WORKFLOW_NAME.search(path.read_text())
         name = found.group(1).strip() if found else "<none>"
-        want = f"{'🌜' if path.name in OWN_CI else '🧩'} {path.stem}"
+        want = f"{'🧩' if _triggers(path) == {'workflow_call'} else '🌜'} {path.stem}"
         if name != want:
             offenders.append(f"{path.name}: {name!r}, want {want!r}")
     assert not offenders, (
