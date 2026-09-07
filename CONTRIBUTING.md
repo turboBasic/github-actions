@@ -64,7 +64,7 @@ Before a change to a reusable workflow is done:
 Move the major tag only after that.
 
 A workflow only this repo runs — `ci.yml`, `commit-messages.yml`, `release.yml`,
-`release-proposal.yml` — has no consumer to call it. Dispatch it, or open a PR that
+`release-on-merge.yml`, `release-proposal.yml` — has no consumer to call it. Dispatch it, or open a PR that
 triggers it, and read the run. A brand-new one cannot be dispatched at all: GitHub offers `workflow_dispatch` only for a workflow file already on the default branch, so exercising one before
 merge means a temporary trigger scoped to your branch, removed in the same pull request.
 
@@ -123,9 +123,11 @@ proposal][release-proposal-workflow] workflow opens a pull request titled `bump:
 body is the exact notes that release will publish, and its diff is `pyproject.toml`'s
 `[project].version` and `uv.lock`'s matching line, nothing else. Read the notes, and:
 
-- **Agree with the version?** Merge it. `ci.yml` runs on the merge commit and, when `ci / python-ci` passes,
-  calls the release: it renders the notes again from the same rules, tags `vX.Y.Z`, publishes the
-  release with those notes, and force-moves `vX` last. No further human action.
+- **Agree with the version?** Merge it. The [Release on merge][release-workflow] workflow runs on the merge
+  commit and, when its `verify` job passes, calls the release: it renders the notes again from the same
+  rules, tags `vX.Y.Z`, publishes the release with those notes, and force-moves `vX` last. No further
+  human action. `ci.yml` runs on the same commit and answers for the code alone, so a refused or failed
+  release never reddens it.
 - **Disagree with the version?** Change it on the proposal branch before merging. The released version
   is the one you approved, and every later refresh leaves it alone — a commit on that branch authored
   by anyone but the bot is how the workflow knows a human has decided.
@@ -161,9 +163,10 @@ On an ordinary merge, where the declared version is already tagged, it says so w
 It does not redden `main` for doing nothing wrong.
 
 `mise run release-notes` renders the notes locally, offline, creating nothing.
-[Dispatching the Release workflow][release-workflow] with `dry-run` runs every refusal and prints the
-notes it would publish, without creating a tag. If a release fails *after* the version tag exists,
-delete that tag and re-dispatch once the cause is fixed — the major tag moves last precisely so
+[Dispatching Release on merge][release-workflow] with `dry-run` verifies the commit, runs every refusal
+and prints the notes it would publish, without creating a tag. If a release fails *after* the version tag
+exists, recover by merging the next patch version rather than by re-dispatching: the `immutable release
+tags` ruleset bypasses nobody, so that tag cannot be deleted. The major tag moves last precisely so
 consumers stay on the previous release until the rest has succeeded.
 
 ### The App behind the proposal
@@ -203,4 +206,4 @@ pull request says a release is owed rather than someone noticing by accident. Th
 [test-consumer]: https://github.com/turboBasic/github-actions-test
 [readme-versioning]: README.md#versioning
 [release-proposal-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release-proposal.yml
-[release-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release.yml
+[release-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release-on-merge.yml

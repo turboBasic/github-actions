@@ -55,6 +55,7 @@ OWN_CI = {
     "commit-messages.yml",
     "drift.yml",
     "release.yml",
+    "release-on-merge.yml",
     "release-proposal.yml",
 }
 # What a consumer resolves. `.github/workflows/` minus OWN_CI, plus every composite action.
@@ -369,16 +370,19 @@ def test_the_release_interface_is_frozen(
     )
 
 
-def test_the_release_gates_on_a_required_context() -> None:
-    # release.yml refuses to tag unless one named check passed on the commit being released. That
-    # name is composed from a job id in one file and a job name in another, so a rename would turn
-    # the gate into a permanent `missing` — it fails closed, but a release that refuses with no
-    # visible cause is its own outage. REQUIRED_CHECKS stays the single statement of the name.
-    workflow = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text()
-    gated = [context for context, _, _ in REQUIRED_CHECKS if f'"{context}"' in workflow]
-    assert gated, (
-        "release.yml gates on no context from REQUIRED_CHECKS, so it either tags unverified "
-        "code or waits on a check name nothing reports."
+def test_the_release_workflow_has_no_trigger_of_its_own() -> None:
+    # A `needs:` edge in a caller is the whole gate: it is what makes "CI passed on the commit being
+    # tagged" structurally true rather than queried. A trigger here would be a second way in that
+    # nothing gates — and it would fail open, because release.yml verifies nothing about CI itself.
+    triggers = _entries(
+        _under(
+            (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text().splitlines(), "on:"
+        )
+    )
+    assert triggers == {"workflow_call"}, (
+        f"release.yml declares {sorted(triggers)}. Anything but `workflow_call` alone is a path to a "
+        f"release with no verdict behind it; the manual path belongs on release-on-merge.yml, which "
+        f"gates it the same way a merge is gated."
     )
 
 
@@ -401,31 +405,37 @@ def test_the_release_workflow_gives_gh_a_repository() -> None:
 
 
 def test_the_release_waits_for_the_ci_verdict() -> None:
-    # The release is a job in ci.yml behind `needs: [ci]`, and that dependency *is* FR-011: it is
-    # what makes "CI passed on the commit being released" structurally true instead of something
-    # queried. Drop it and the release runs in parallel with the tests it is supposed to be gated on,
-    # tagging code nothing has verified — with every linter green, because a job without `needs` is
-    # perfectly valid YAML.
+    # release-on-merge.yml cuts the release behind `needs: [verify]`, and that dependency *is*
+    # FR-011: it is what makes "CI passed on the commit being released" structurally true instead of
+    # something queried. Drop it and the release runs in parallel with the tests it is supposed to be
+    # gated on, tagging code nothing has verified — with every linter green, because a job without
+    # `needs` is perfectly valid YAML. `verify` has to be python-ci itself for the same reason: a
+    # `needs` on a job that checks nothing is a green edge and no verdict.
     #
-    # `needs: [ci, drift]` is equally wrong in the other direction: `drift` is red precisely when
+    # `needs: [verify, drift]` is equally wrong in the other direction: `drift` is red precisely when
     # a release is owed, so the release could only ever be cut when none was needed.
-    ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text()
-    release_job = re.search(r"(?ms)^  release:\n(.*?)(?=^  \w|\Z)", ci)
+    workflow = (REPO_ROOT / ".github" / "workflows" / "release-on-merge.yml").read_text()
+    verify = re.search(r"(?ms)^  verify:\n(.*?)(?=^  \w|\Z)", workflow)
+    assert verify and "uses: $/.github/workflows/python-ci.yml" in verify.group(1), (
+        "release-on-merge.yml's `verify` job does not call python-ci.yml at this same commit, so "
+        "what the release job waits on verifies nothing (FR-011)."
+    )
+    release_job = re.search(r"(?ms)^  release:\n(.*?)(?=^  \w|\Z)", workflow)
     assert release_job, (
-        "ci.yml has no `release` job; that job is what cuts a release after a merge."
+        "release-on-merge.yml has no `release` job; that job is what cuts a release after a merge."
     )
     body = release_job.group(1)
-    assert re.search(r"needs:\s*\[\s*ci\s*\]", body), (
-        "ci.yml's release job does not declare `needs: [ci]`, so it no longer waits for the verdict "
-        "that covers the commit it would tag (FR-011)."
+    assert re.search(r"needs:\s*\[\s*verify\s*\]", body), (
+        "release-on-merge.yml's release job does not declare `needs: [verify]`, so it no longer "
+        "waits for the verdict that covers the commit it would tag (FR-011)."
     )
     assert "drift" not in body, (
-        "ci.yml's release job depends on `drift`, which is red exactly when a release is owed — so a "
-        "release could only be cut when none was needed."
+        "release-on-merge.yml's release job depends on `drift`, which is red exactly when a release "
+        "is owed — so a release could only be cut when none was needed."
     )
     assert "uses: $/.github/workflows/release.yml" in body, (
-        "ci.yml's release job must call release.yml at this same commit with the `$/` form, so a "
-        "change to it is validated by the version under review rather than by the last tag."
+        "release-on-merge.yml's release job must call release.yml at this same commit with the `$/` "
+        "form, so a change to it is validated by the version under review rather than by the last tag."
     )
 
 
