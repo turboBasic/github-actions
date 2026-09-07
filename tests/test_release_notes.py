@@ -289,6 +289,41 @@ def test_an_item_without_a_pr_number_carries_its_commit_hash(tmp_path: Path) -> 
     )
 
 
+def test_a_ref_pin_in_a_subject_does_not_mention_a_stranger(tmp_path: Path) -> None:
+    # Rendered rather than read, because a pattern that stops matching leaves valid TOML and a body
+    # that reads correctly to everyone except the person GitHub notifies.
+    def git(*args: str) -> None:
+        subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q", "-b", "main", ".")
+    (tmp_path / "f").write_text("1")
+    git("add", ".")
+    git("commit", "-qm", "ci: repin every call site to @v4 (#20)")
+    (tmp_path / "f").write_text("2")
+    git("commit", "-aqm", "fix: stop mailing t@t.example on release (#21)")
+    rendered = subprocess.run(
+        ["git-cliff", "--config", str(CLIFF), "--unreleased"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+
+    assert "- repin every call site to `@v4` (#20)" in rendered, (
+        f"a ref pin rendered as a bare `@v4`, so GitHub will credit and notify whoever holds that "
+        f"login on the next release. Rendered:\n{rendered}"
+    )
+    assert "t@t.example" in rendered and "`@t.example`" not in rendered, (
+        f"the postprocessor is not anchored on a preceding space, so it broke an address mid-word "
+        f"instead of neutralizing a mention. Rendered:\n{rendered}"
+    )
+
+
 def _shell(workflow: str) -> str:
     # Comment lines dropped, so prose naming a construct is documentation rather than a failure. What
     # is left is the shell a run executes and the `with:` blocks it passes.
