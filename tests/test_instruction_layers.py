@@ -13,9 +13,8 @@ CONVENTIONS = "docs/ai-instructions.md"
 # document has to be placed deliberately rather than drifting in unassigned.
 #
 # The tool configs and `tests/` are layer 3 by definition and are enumerated here because assignment
-# needs every path named, not a definition. `.github/PULL_REQUEST_TEMPLATE.md` is layer 3 on the same
-# reasoning as CONTRIBUTING.md: it tells a contributor what a pull request must carry. The issue
-# templates are YAML forms rather than prose and never reach this scan.
+# needs every path named, not a definition. The issue templates are YAML forms rather than prose and
+# never reach this scan.
 LAYERS: dict[int, list[str]] = {
     1: [".specify/memory/constitution.md"],
     2: ["docs/ai-instructions.md"],
@@ -26,7 +25,6 @@ LAYERS: dict[int, list[str]] = {
         "CODE_OF_CONDUCT.md",
         "docs/technical-debt.md",
         "docs/instruction-layers.md",
-        ".github/PULL_REQUEST_TEMPLATE.md",
         "tests/",
         "mise.toml",
         "pyproject.toml",
@@ -85,6 +83,10 @@ EXEMPTIONS: dict[str, str] = {
     ".claude/": "vendored with the same tool",
     "specs/": "completed feature directories are frozen work logs",
     "tmp/": "scratch, gitignored",
+    ".github/PULL_REQUEST_TEMPLATE.md": (
+        "a Jinja2 template rendered by a composite action, and the default a caller inherits — "
+        "a form, not prose stating a rule"
+    ),
 }
 
 
