@@ -63,9 +63,12 @@ Before a change to a reusable workflow is done:
 
 Move the major tag only after that.
 
-A workflow only this repo runs — `ci.yml`, `commit-messages.yml`, `release.yml`,
-`release-on-merge.yml`, `release-proposal.yml` — has no consumer to call it. Dispatch it, or open a PR that
-triggers it, and read the run. A brand-new one cannot be dispatched at all: GitHub offers `workflow_dispatch` only for a workflow file already on the default branch, so exercising one before
+A workflow only this repo runs — `ci.yml`, `commit-messages.yml`, `release-on-merge.yml`,
+`release-proposal.yml` — has no consumer to call it. Dispatch it, or open a PR that
+triggers it, and read the run. `release.yml` has no trigger of its own and cannot be dispatched: reach
+it by dispatching `release-on-merge.yml` with `dry-run`, which runs every refusal and creates nothing —
+on a commit that is already tagged it stops at the empty-range refusal, which is that refusal working. A
+brand-new workflow cannot be dispatched at all: GitHub offers `workflow_dispatch` only for a workflow file already on the default branch, so exercising one before
 merge means a temporary trigger scoped to your branch, removed in the same pull request.
 
 ## Labels
