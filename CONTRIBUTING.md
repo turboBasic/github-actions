@@ -141,6 +141,13 @@ tag *is* the artifact — which is why deciding the number in a reviewed pull re
 A major bump is a new tag rather than a move: the old major stays where it is, and the
 [README][readme]'s Versioning section is updated to name the new one in the same pull request.
 
+**Under `0.x` the minor is the boundary, so the increments differ.** A breaking range is proposed as the next
+*minor* — `0.1.0 → 0.2.0` — rather than graduating the project to `1.0.0`, which is a decision nobody should
+make by merging a proposal. A `feat` is proposed as a patch, because the moving ref a consumer pins is
+`v0.1` and a minor bump would leave it. Within a `0.x` line a `feat` and a `fix` therefore reach the same
+number; the notice says which it was. None of this applies from `1.0.0` up, where the increments are
+unchanged.
+
 ### What refuses, and why
 
 The release renders the notes *before* it creates any ref, so a failure leaves no tag behind. It

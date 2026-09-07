@@ -9,6 +9,9 @@ from typing import Any, Literal, NamedTuple, NoReturn, cast
 # A plain alias rather than a `type` statement: a caller whose mise.toml pins no python falls back
 # to the runner's own interpreter, so this module keeps to syntax every maintained version parses.
 Version = tuple[int, int, int]
+# The versions one moving ref may span. `(major,)` from 1.0.0 up; `(major, minor)` below, because
+# SemVer §4 puts the compatibility boundary of a 0.y.z at the minor.
+Line = tuple[int, ...]
 Severity = Literal["notice", "error"]
 
 # The whole string, so no pre-release, no build metadata, and no `v` — the `v` belongs to the tag.
@@ -48,11 +51,31 @@ def is_ahead(version: Version, highest: Version | None) -> bool:
     return highest is None or version > highest
 
 
+def compatibility_line(version: Version) -> Line:
+    # The one place the 0.x boundary is stated. The refusal, the increment and the moving tag all read
+    # it, so they cannot disagree about where it falls; a test asserts this is the only statement of it.
+    major, minor, _ = version
+    return (major, minor) if major == 0 else (major,)
+
+
+def moving_tag(version: Version) -> str:
+    # `v0.1` under 0.x, `v4` above it. Never `v0`: it would span breaking changes, which is the whole
+    # thing the moving ref exists not to do.
+    return "v" + ".".join(str(part) for part in compatibility_line(version))
+
+
 def next_version(current: Version, *, breaking: bool, feature: bool) -> Version:
     major, minor, patch = current
+    # A two-part line owns the minor, so which component each verdict may advance is read from the line
+    # rather than from the version — the boundary itself is compatibility_line's to know.
+    owns_the_minor = len(compatibility_line(current)) > 1
     if breaking:
-        return (major + 1, 0, 0)
-    if feature:
+        # Start the next line, zeroing everything below it.
+        return (major, minor + 1, 0) if owns_the_minor else (major + 1, 0, 0)
+    # A feature may only advance a component the line does not own: a consumer pinned to v0.1 has to be
+    # able to receive it without crossing into v0.2, exactly as v4 carries minors. Under 0.x that leaves
+    # only the patch, which is why a 0.x feat and fix agree on the number.
+    if feature and not owns_the_minor:
         return (major, minor + 1, 0)
     return (major, minor, patch + 1)
 
@@ -83,9 +106,17 @@ def verdicts(context: str) -> tuple[bool, bool]:
     return breaking, feature
 
 
-def breaks_under_non_major(version: Version, highest_major: int | None, *, breaking: bool) -> bool:
-    # False when no highest major exists: there is no tag to be moved onto a broken contract.
-    return breaking and highest_major is not None and version[0] == highest_major
+def moves_a_ref_onto_a_break(version: Version, highest: Version | None, *, breaking: bool) -> bool:
+    # Not "is this a new major" — that answer is wrong under 0.x, where 0.2.0 is the increment SemVer
+    # reserves for a break. The question is whether the ref this release would move already exists,
+    # which is true exactly when the two versions share a compatibility line.
+    #
+    # False when nothing is released: there is no ref to move onto a broken contract.
+    return (
+        breaking
+        and highest is not None
+        and compatibility_line(version) == compatibility_line(highest)
+    )
 
 
 def declared_version(raw: bytes) -> str:
@@ -290,6 +321,11 @@ def _verify_version() -> None:
 
     _out("proceed", _flag(verdict.proceed))
     _out("version", version)
+    _out("moving-tag", moving_tag(parsed))
+    _out("highest-version", _render(highest) if highest else "")
+    # Kept until the release that ships this has moved v4. `release.yml` resolves as `$/` while the
+    # action resolves at `@v4`, so one run pairs the new workflow with the *old* module — which reads
+    # only this, and whose refusal would be permanently false without it.
     _out("highest-major", str(highest[0]) if highest else "")
 
 
@@ -316,15 +352,14 @@ def _check_notes() -> None:
 
     breaking, _ = verdicts(Path(context_file).read_text(encoding="utf-8"))
     _out("breaking", _flag(breaking))
-    highest_major = _env("HIGHEST_MAJOR")
+    highest = parse_version(_env("HIGHEST_VERSION"))
     parsed = parse_version(current)
-    if parsed and breaks_under_non_major(
-        parsed, int(highest_major) if highest_major else None, breaking=breaking
-    ):
+    if parsed and moves_a_ref_onto_a_break(parsed, highest, breaking=breaking):
         _stop(
             "error",
-            f"the range breaks the consumer surface but {current} is not a new major, so publishing "
-            f"it would move v{highest_major} onto a broken contract. No tag was created.",
+            f"the range breaks the consumer surface but {current} stays on the {moving_tag(parsed)} "
+            f"line, so publishing it would move {moving_tag(parsed)} onto a broken contract. Release "
+            f"{_render(next_version(parsed, breaking=True, feature=False))} instead. No tag was created.",
         )
 
 

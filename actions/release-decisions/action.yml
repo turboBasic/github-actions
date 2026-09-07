@@ -37,10 +37,17 @@ inputs:
   current-version:
     description: The version to increment from, or to report. Defaults to `pyproject`'s.
     default: ""
+  highest-version:
+    description: >
+      The highest existing release as a plain `N.N.N`, as `verify-version` reported it. Empty means no
+      tag exists to be moved onto a broken contract. The whole version, not just its major, because
+      under 0.x the compatibility boundary is the minor.
+    default: ""
   highest-major:
     description: >
-      Major of the highest existing release, as `verify-version` reported it. Empty means no tag
-      exists to be moved onto a broken contract.
+      Deprecated, and read by nothing here. Declared until the release that ships `highest-version`
+      has moved the major tag: `release.yml` resolves as `$/` while this action resolves at `@vN`, so
+      one run pairs the new workflow with the previous version of this module, which reads only this.
     default: ""
   severity:
     description: >
@@ -55,9 +62,17 @@ outputs:
   version:
     description: The declared version.
     value: ${{ steps.decide.outputs.version }}
+  highest-version:
+    description: The highest existing release as a plain `N.N.N`; empty when none exists.
+    value: ${{ steps.decide.outputs.highest-version }}
   highest-major:
-    description: Major of the highest existing release; empty when none exists.
+    description: Deprecated; see the input of the same name. Removed once the major tag has moved.
     value: ${{ steps.decide.outputs.highest-major }}
+  moving-tag:
+    description: >
+      The ref this release publishes, named for its compatibility line — `v0.1` under 0.x, `v1` above
+      it. Never `v0`.
+    value: ${{ steps.decide.outputs.moving-tag }}
   breaking:
     description: The breaking verdict over the surface-filtered range.
     value: ${{ steps.decide.outputs.breaking }}
@@ -90,6 +105,7 @@ runs:
         NOTES_FILE: ${{ inputs.notes-file }}
         CONTEXT_FILE: ${{ inputs.context-file }}
         CURRENT_VERSION: ${{ inputs.current-version }}
+        HIGHEST_VERSION: ${{ inputs.highest-version }}
         HIGHEST_MAJOR: ${{ inputs.highest-major }}
         SEVERITY: ${{ inputs.severity }}
       shell: bash
