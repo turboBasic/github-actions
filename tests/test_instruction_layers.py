@@ -39,7 +39,7 @@ LAYERS: dict[int, list[str]] = {
         ".github/renovate.json",
         ".github/dependabot.yml",
     ],
-    4: ["CLAUDE.md", ".github/copilot-instructions.md"],
+    4: ["AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"],
 }
 
 # One row per fact with more than one plausible home. The anchor is a distinctive phrase from the
@@ -353,12 +353,27 @@ def test_a_navigation_file_carries_pointers_and_no_rule(navigation: str) -> None
 
 
 def test_navigation_glosses_every_artefact_it_places() -> None:
-    # Every layer 3 artefact that exists gets a line in CLAUDE.md saying what it answers. A path
+    # Every layer 3 artefact that exists gets a line in AGENTS.md saying what it answers. A path
     # assigned to a layer with nothing said about it is a path a reader cannot route to.
-    claude = (REPO_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+    #
+    # The map lives in AGENTS.md rather than CLAUDE.md so that one copy serves both tools: Claude Code
+    # reads only CLAUDE.md, which imports it, and Copilot reads AGENTS.md but cannot follow an import.
+    agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
     missing_gloss = [
-        path for path in LAYERS[3] if (REPO_ROOT / path).exists() and path.rstrip("/") not in claude
+        path for path in LAYERS[3] if (REPO_ROOT / path).exists() and path.rstrip("/") not in agents
     ]
     assert not missing_gloss, (
-        f"CLAUDE.md places these at layer 3 but says nothing about them: {missing_gloss}"
+        f"AGENTS.md places these at layer 3 but says nothing about them: {missing_gloss}"
+    )
+
+
+def test_the_shared_map_reaches_claude_code() -> None:
+    # Copilot auto-detects AGENTS.md; Claude Code does not, and reads CLAUDE.md alone. Without this
+    # import the map is invisible to Claude Code, and every deferral in layer 2 to "the entry point"
+    # goes unanswered — silently, because the rules still load.
+    claude = (REPO_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+    outside_fences = re.sub(r"```.*?```", "", claude, flags=re.DOTALL).replace("`", "")
+    assert "@AGENTS.md" in outside_fences, (
+        "CLAUDE.md does not import AGENTS.md outside a code fence; Claude Code reads no AGENTS.md of "
+        "its own, so the map would reach every tool except this one"
     )
