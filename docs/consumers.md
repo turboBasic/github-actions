@@ -3,6 +3,17 @@
 The blast-radius list. A change to a workflow affects every repository named here, so keep this
 current in the same change that alters an input contract.
 
+**A pin is not insulation here**, which is why the list exists at all. Consumers pin `@v4`, a tag every
+release force-moves — the trade is in README's Versioning section. So a change merged here is running
+in every repository below on its next push, with no pull request and no review on their side, and the
+list is how you know who that is before the merge rather than after.
+
+Two things no ref carries, even to a consumer frozen on an old major: a required status-check context
+lives in that repository's ruleset, and a permission grant lives in its caller workflow. Each needs a
+human to edit that repository, so the change has to know which ones. And several paths run in exactly
+one place — `prek-advisory`, `release`, `cache-prek` — which makes a row here sometimes the only
+evidence a workflow works anywhere.
+
 `repo-factory` is out of scope for the workflow migration — it calls one composite action and no
 workflow. `opus-magnum` is the only migration still intended.
 
