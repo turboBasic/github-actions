@@ -83,5 +83,6 @@ surface-exclude = [
   ".github/workflows/commit-messages.yml",
   ".github/workflows/drift.yml",
   ".github/workflows/release.yml",
+  ".github/workflows/release-on-merge.yml",
   ".github/workflows/release-proposal.yml",
 ]

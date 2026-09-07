@@ -1,26 +1,14 @@
 # Raises and refreshes the release proposal: one pull request from a fixed branch, bumping
-# `[project].version` and carrying the notes that version would publish as its body. Merging it is
-# the approval, and `release.yml` takes over from there.
+# `[project].version` and carrying the notes that version would publish as its body. Merging it is the
+# approval, and release.yml takes over from there. CONTRIBUTING's Releasing section is the procedure.
 #
-# Nothing here decides a release. It proposes a number and shows the notes; a human merges. The
-# version still lands as a reviewed one-line diff, which is the whole point of the shape.
+# Every decision is a call into actions/release-decisions/decisions.py by in-repo path rather than
+# through `uses:`: this workflow has no `workflow_call` trigger, so it only ever runs here and the path
+# is always on disk. Every argument reaches it through the environment.
 #
-# The increment is judged by what the *consumer-facing* commits imply, not by the whole range: a
-# `feat` touching only this repository's own CI is a patch, because the version describes the
-# surface consumers resolve. That is why the second git-cliff pass is path-filtered.
-#
-# Every decision below is a call into actions/release-decisions/decisions.py, by in-repo path rather
-# than through `uses:`, because this workflow has no `workflow_call` trigger and so only ever runs
-# here — the path is always on disk. Every argument reaches it through the environment.
-#
-# Every write uses a GitHub App installation token, never `GITHUB_TOKEN`. `GITHUB_TOKEN` cannot open
-# a pull request here at all — `POST /pulls` answers "GitHub Actions is not permitted to create or
-# approve pull requests" while *Allow GitHub Actions to create and approve pull requests* is off,
-# and that setting stays off, because turning it on would let every workflow here approve a pull
-# request rather than merely open one. The token is scoped to this repository and expires in an hour.
-#
-# Nothing is pushed from the working tree: the checkout carries no credential, so the Git Data API
-# is the only route to the branch.
+# Every write uses a GitHub App installation token, never `GITHUB_TOKEN`, which cannot open a pull
+# request while *Allow GitHub Actions to create and approve pull requests* is off — and it stays off.
+# CONTRIBUTING's "The App behind the proposal" says why.
 
 name: 🌜 release-proposal
 
@@ -44,16 +32,15 @@ jobs:
       contents: read # the checkout, and nothing else — every write uses the App token
     env:
       GH_REPO: ${{ github.repository }}
-      # `runner.temp` is not available in a job-level env, so the workspace's parent — which exists
-      # and is writable — keeps these out of the checked-out tree.
+      # `runner.temp` is not available in a job-level env; the workspace's parent exists, is writable,
+      # and is outside the checked-out tree.
       NOTES: ${{ github.workspace }}/../release-notes.md
       CONTEXT: ${{ github.workspace }}/../release-context.json
       SCRIPT: actions/release-decisions/decisions.py
       BRANCH: release-proposal
-      # The refresh distinguishes its own commits from a reviewer's by author, so it needs an
-      # identity this workflow chooses rather than one the token implies: a commit made with an App
-      # installation token is otherwise attributed to `<app-name>[bot]`, which would change if the
-      # app were ever renamed or replaced.
+      # The refresh tells its own commits from a reviewer's by author, so it needs an identity this
+      # workflow chooses: an App installation token otherwise attributes a commit to `<app-name>[bot]`,
+      # which changes if the app is ever renamed or replaced.
       BOT_NAME: github-actions[bot]
       BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
     steps:
@@ -62,15 +49,15 @@ jobs:
         with:
           client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          # Narrowed rather than inherited. Without these the token carries every permission the
-          # installation was granted, so the app's own scope becomes this workflow's scope — and
-          # zizmor's `github-app` audit rates that High. Named here, the two writes are also the
-          # documentation of what this workflow can do.
+          # Narrowed rather than inherited: without these the token carries every permission the
+          # installation holds, which zizmor's `github-app` audit rates High. Named here, the two
+          # writes are also the documentation of what this workflow can do.
           permission-contents: write
           permission-pull-requests: write
 
-      # Full history and tags, because git-cliff measures the range from the newest version tag.
-      # Deliberately *not* given the App token: nothing is pushed from here.
+      # Full history and tags, because git-cliff measures the range from the newest version tag. No
+      # credential, and none needed: every write goes through the API, so nothing is pushed from the
+      # working tree.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
@@ -79,14 +66,13 @@ jobs:
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          # A push-triggered workflow holding a write token is exactly the shape zizmor's
-          # `cache-poisoning` audit is about: a poisoned tool cache would run under that token. This
-          # runs a few times a month, so the cache buys a few seconds and costs a real surface.
+          # A push-triggered workflow holding a write token is the shape zizmor's `cache-poisoning`
+          # audit is about, and the cache buys a few seconds here.
           cache: false
 
-      # Two reasons not to propose, in order. Both exit 0: this runs on every push to main, and a
-      # workflow that reddened main whenever a release was not due is one nobody would read — which
-      # is why the emptiness check is asked at `notice` severity.
+      # Two reasons not to propose, in order. Both exit 0, and the emptiness check asks at `notice`
+      # severity: this runs on every push to main, and a workflow that reddened main whenever a release
+      # was not due is one nobody would read.
       - name: Decide whether a proposal is wanted
         id: gate
         env:
@@ -95,9 +81,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          # The triggering commit's own tree — under `push: main` that is main's tip. Never the
-          # proposal branch: reading the version from there would find this workflow's own bump,
-          # conclude a release was already in flight, and stop refreshing the proposal it wrote.
+          # The triggering commit's own tree, never the proposal branch: reading the version from there
+          # would find this workflow's own bump, conclude a release was already in flight, and stop
+          # refreshing the proposal it wrote.
           declared=$(DECISION=declared-version python3 "${SCRIPT}")
 
           if ! gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/v${declared}" >/dev/null 2>&1; then
@@ -121,9 +107,9 @@ jobs:
 
           echo "wanted=true" >> "${GITHUB_OUTPUT}"
 
-      # A reviewer's number outranks a computed one, and survives every later refresh. Authorship is
-      # the signal because it needs no stored state: this workflow always writes as BOT_NAME, so any
-      # other author on the branch is a human who has already decided.
+      # A reviewer's number outranks a computed one and survives every later refresh. Authorship is the
+      # signal because it needs no stored state: this workflow always writes as BOT_NAME, so any other
+      # author on the branch is a human who has already decided.
       - name: Decide the version
         id: version
         if: steps.gate.outputs.wanted == 'true'
@@ -153,9 +139,7 @@ jobs:
 
           CONTEXT_FILE="${CONTEXT}" CURRENT_VERSION="${DECLARED}" DECISION=next-version python3 "${SCRIPT}"
 
-      # Through the Git Data API, because the checkout holds no credential and there is nothing to
-      # push from. Two blobs: pyproject.toml, and uv.lock, which carries the root package's version
-      # and makes `uv sync --locked` fail if it disagrees.
+      # Through the Git Data API: the checkout holds no credential, so there is nothing to push from.
       - name: Write the proposal branch
         if: steps.gate.outputs.wanted == 'true'
         env:
@@ -165,15 +149,14 @@ jobs:
           set -euo pipefail
 
           # `uv version` writes `[project].version` and re-locks in one call, so there is no
-          # hand-rolled edit to anchor to the right TOML table and no separate `uv lock`. `--no-sync`
-          # skips the virtual environment, which nothing here needs. uv.lock is not optional: it
-          # carries the root package's version, and `uv sync --locked` fails if it disagrees.
+          # hand-rolled TOML edit and no separate `uv lock`; `--no-sync` skips the virtual environment.
+          # uv.lock is not optional: it carries the root package's version, and `uv sync --locked`
+          # fails if it disagrees.
           uv version --no-sync "${VERSION}"
 
-          # Every body goes in through stdin rather than `-f`, for two separate reasons. A blob's
-          # base64 is past Linux's 128 KiB cap on a *single* argument, which `uv.lock` exceeds; and
-          # `gh`'s `-f` has no syntax for an array of objects, which is what a tree is. jq builds the
-          # JSON; `--rawfile` keeps the large string off the command line entirely.
+          # Every body goes in through stdin: a blob's base64 is past Linux's 128 KiB cap on a single
+          # argument, which `uv.lock` exceeds, and `gh`'s `-f` has no syntax for the array of objects a
+          # tree is. jq builds the JSON; `--rawfile` keeps the large string off the command line.
           blob() {
             base64 -w0 < "$1" > "${RUNNER_TEMP}/blob.b64"
             jq -n --rawfile content "${RUNNER_TEMP}/blob.b64" \
@@ -204,8 +187,8 @@ jobs:
             gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" --silent \
               -f "ref=refs/heads/${BRANCH}" -f "sha=${commit}"
 
-      # The body is the notes verbatim under one line of preamble. No commit text reaches a shell:
-      # `--body-file` reads the rendered file, and a commit subject is a merged pull request title.
+      # The body is the notes verbatim under one line of preamble, read from the file: no commit text
+      # reaches a shell line, and a commit subject is a merged pull request title.
       - name: Open or update the pull request
         if: steps.gate.outputs.wanted == 'true'
         env:

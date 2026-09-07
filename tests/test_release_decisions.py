@@ -43,6 +43,8 @@ OUR_FILTER = [
     "--exclude-path",
     ".github/workflows/release.yml",
     "--exclude-path",
+    ".github/workflows/release-on-merge.yml",
+    "--exclude-path",
     ".github/workflows/release-proposal.yml",
 ]
 

@@ -1,0 +1,44 @@
+# Cuts this repository's own release after a merge to `main`, and is the manual entry point for one.
+# Separate from ci.yml so a refused or failed release reddens this workflow rather than the one that
+# answers for the code.
+#
+# `verify` runs python-ci a second time on the commit ci.yml has already verified. That duplication is
+# the price of a separate run: a `needs:` edge is the only verdict structurally true on the commit
+# being tagged. `workflow_run` would have avoided it and is not used — zizmor rates it a high-severity
+# dangerous trigger, and its branch filter matches a *fork* branch named `main`, which would hand the
+# release job an unmerged head SHA.
+#
+# `workflow_dispatch` lives here rather than on release.yml so both paths pass the same gate.
+#
+# No `concurrency`: release.yml's own `release` group serialises what must not race, and every push
+# here is a different commit.
+
+name: 🌜 release-on-merge
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Run every refusal and render the real notes, then stop before creating any tag.
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  verify:
+    uses: $/.github/workflows/python-ci.yml
+    permissions:
+      contents: read
+
+  release:
+    needs: [verify]
+    uses: $/.github/workflows/release.yml
+    with:
+      # `inputs` does not exist on the push path, so this resolves to an empty string there; `|| false`
+      # is what makes it the boolean the input's type demands.
+      dry-run: ${{ inputs.dry-run || false }}
+    permissions:
+      contents: write # creates the version tag, publishes the release, moves the major tag

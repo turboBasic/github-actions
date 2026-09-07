@@ -1,45 +1,23 @@
-# Cuts a release: renders the notes from the commits being released, tags this commit with the
-# version `pyproject.toml` declares, publishes the release with those notes, then force-moves the
-# major tag consumers pin.
+# Cuts a release: renders the notes for the commits being released, tags this commit with the version
+# `pyproject.toml` declares, publishes the release from those notes, then force-moves the major tag
+# consumers pin.
 #
-# The notes are shaped from commit types by `.cliff.toml`, and rendered *before* any tag exists —
-# so a failure to produce them leaves no tag behind, and nothing reads a pull request label.
+# Every decision is a `uses:` of actions/release-decisions — no step here compares a version or reads
+# a commit payload. `gh api` and `git-cliff` stay in the workflow because that action does no network
+# I/O; its answers arrive as an input path or a string. It is an action rather than a script in this
+# repository because `actions/checkout` inside a reusable workflow checks out the *caller's* tree, so
+# nothing of ours is on disk.
 #
-# Every decision here is a `uses:` of actions/release-decisions, which answers one release question
-# from files and environment variables and exits non-zero to say the caller should not proceed. No
-# step compares a version or reads a commit payload. `gh api` and `git-cliff` stay in this file: the
-# action does no network I/O, so their results reach it as an input path or a string.
-#
-# The logic is a composite action rather than a script in this repository because `actions/checkout`
-# inside a reusable workflow checks out the *caller's* tree — `github-actions-test` calls this — so
-# nothing of ours is on disk. An action's own files arrive with the action download instead.
-#
-# The version bump is not done here. `main`'s ruleset requires a pull request and bypasses only for
-# the Repository admin role, which `GITHUB_TOKEN` does not hold, so a bump commit pushed from here
-# would be rejected. It arrives the same way every other change does — reviewed, CI-green — which
-# also makes the patch-vs-minor call a one-line diff someone can argue with. This workflow only
-# tags what that PR already decided, and refuses if the tag is already there.
-#
-# The checkout carries no credential. git-cliff needs history to find the range's lower bound, but
-# nothing is pushed from the working tree: every write still goes through the API, so no credential
-# is left in a workspace for a later step to pick up.
+# It never writes the version. `main` requires a pull request and `GITHUB_TOKEN` holds no bypass, so a
+# bump pushed from here would be rejected; this tags what the merged bump decided, and refuses if that
+# tag already exists.
 
 name: 🌜 release
 
-# Called by ci.yml behind `needs: [ci]` on a push to main, which is what makes the CI verdict a
-# structural fact rather than something to query: the job cannot start unless `ci / python-ci`
-# succeeded on this exact commit. `workflow_run` was the obvious trigger and is not used — zizmor
-# rates it a high-severity dangerous trigger, and it would also have meant reading the head SHA out
-# of the event payload, because `GITHUB_SHA` under `workflow_run` is the default branch's tip rather
-# than the commit CI reported on.
+# No trigger of its own: a caller's `needs:` edge is the only gate, and release-on-merge.yml is this
+# repository's caller, on a merge and on a dispatch alike.
 on:
   workflow_call:
-    inputs:
-      dry-run:
-        description: Run every refusal and render the real notes, then stop before creating any tag.
-        type: boolean
-        default: false
-  workflow_dispatch:
     inputs:
       dry-run:
         description: Run every refusal and render the real notes, then stop before creating any tag.
@@ -61,20 +39,18 @@ jobs:
       contents: write # creates the version tag, publishes the release, moves the major tag
     env:
       GH_TOKEN: ${{ github.token }}
-      # Every `gh` subcommand that is not `gh api` infers the repository from a git remote, and the
-      # checkout below is deliberately credential-less, so `gh release create` takes its repository
-      # from here rather than from the remote. One variable covers every such command rather than a
-      # `--repo` per call.
+      # Every `gh` subcommand but `gh api` infers the repository from a git remote, and this checkout
+      # is credential-less. One variable rather than a `--repo` per call.
       GH_REPO: ${{ github.repository }}
       DRY_RUN: ${{ inputs.dry-run }}
-      # `runner.temp` is not available in a job-level env, so the workspace's parent — which
-      # exists and is writable — keeps these out of the checked-out tree.
+      # `runner.temp` is not available in a job-level env; the workspace's parent exists, is writable,
+      # and is outside the checked-out tree.
       NOTES: ${{ github.workspace }}/../release-notes.md
       CONTEXT: ${{ github.workspace }}/../release-context.json
     steps:
       # Full history and every tag: `--unreleased` measures from the newest tag matching
-      # `.cliff.toml`'s `tag_pattern`, and a shallow checkout renders an empty range without
-      # complaining.
+      # `.cliff.toml`'s `tag_pattern`, and a shallow checkout renders an empty range in silence. No
+      # credential, because every write goes through the API rather than the working tree.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
@@ -84,8 +60,7 @@ jobs:
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
 
       # Every major, unfiltered: a frozen major is never backported, only left where it is, so the
-      # version being released has to be ahead of the highest release across all of them. Which ref
-      # is the highest, and whether the declared version beats it, is the next step's.
+      # version being released has to be ahead of the highest release across all of them.
       - name: Read the existing version tags
         id: tags
         run: |
@@ -97,10 +72,8 @@ jobs:
             echo 'TAG_REFS'
           } >> "${GITHUB_OUTPUT}"
 
-      # Refuses a run off `main` that is not a dry run, a declared version that is not a plain
-      # `N.N.N`, and one that is not ahead of the highest release. That last has three severities
-      # keyed on who asked, which is why it can answer `proceed=false` without failing: ci.yml calls
-      # this after every merge and most merges are not releases.
+      # Answers `proceed=false` without failing when the declared version is already tagged, because a
+      # caller runs this after every merge and most merges are not releases. README lists every refusal.
       - name: Verify the release
         id: verify
         uses: turboBasic/github-actions/actions/release-decisions@v4
@@ -109,41 +82,8 @@ jobs:
           tag-refs: ${{ steps.tags.outputs.refs }}
           dry-run: ${{ inputs.dry-run }}
 
-      # `ci / python-ci` is the context the `main` ruleset requires, so on a merged commit it is the
-      # verdict that covers this tree. Releasing past it would move the major tag — the ref every
-      # consumer resolves — onto code nothing has run. `filter=latest` is the endpoint's default, so
-      # a re-run supersedes the run it replaced.
-      #
-      # Only on the dispatched path. When ci.yml calls this, `needs: [ci]` already *is* the verdict —
-      # the job could not have started otherwise — and querying the API for it again would race the
-      # check run's own bookkeeping: a conclusion not yet visible would read as `missing` and
-      # silently cancel a legitimate release.
-      #
-      # `drift` is deliberately not consulted, and must not be: it is red precisely when a
-      # release is owed, because that is what its drift test asserts. Gating on it would mean a
-      # release can only be cut when none is needed.
-      #
-      # A `gh api` call, so it stays here rather than moving into the action, which does no network
-      # I/O. tests/test_action_pins.py asserts the context name is still in this file.
-      - name: Verify CI passed on this commit
-        if: github.event_name == 'workflow_dispatch' && steps.verify.outputs.proceed == 'true'
-        run: |
-          set -euo pipefail
-
-          conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs" \
-            --jq '[.check_runs[] | select(.name == "ci / python-ci") | .conclusion] | first // "missing"')
-          if [[ ${conclusion} != success ]]; then
-            echo "::error::ci / python-ci on ${GITHUB_SHA} is '${conclusion}', not success — the major tag would move onto unverified code"
-            exit 1
-          fi
-
-      # The consumer surface is declared by the repository being released, in its own `pyproject.toml`
-      # under `[tool.turbobasic-release]` — this workflow checks out the caller's tree, so that file is
-      # the caller's. No workflow spells the flags, and there is deliberately **no input**: an input
-      # would have to default to something, and this repository's layout is right for anyone else only
-      # by coincidence. A caller declaring nothing gets the unfiltered range and a notice saying so,
-      # which over-refuses rather than under-refuses. README's release.yml section is where a caller
-      # reads how to declare one.
+      # From the released repository's own `pyproject.toml`, which is the caller's tree, and
+      # deliberately not an input. README's release.yml section is how a caller declares one.
       - name: Read the consumer-surface filter
         id: surface
         if: steps.verify.outputs.proceed == 'true'
@@ -151,16 +91,13 @@ jobs:
         with:
           decision: surface-args
 
-      # Two reads of one range, and they ask different questions. The notes have to describe
-      # everything that landed, so they are unfiltered. The refusal in the next step reads the
-      # consumer surface only: a `!` on a commit touching nothing consumers resolve breaks no
-      # contract, so refusing it would force a major nothing justifies. Same definition as
-      # release-proposal.yml's increment, which is what makes the two halves agree on what
-      # "breaking" means.
+      # Two reads of one range, asking different questions. The notes describe everything that landed;
+      # the next step's refusal reads the consumer surface only, because a `!` on a commit touching
+      # nothing consumers resolve breaks no contract. release-proposal.yml's increment reads the same
+      # definition, which is what makes the two halves agree on what "breaking" means.
       #
-      # No commit text passes through `${{ }}` into a shell line: git-cliff reads git and writes a
-      # file, and `gh release create --notes-file` reads that file. A commit subject is a merged
-      # pull request title, which is attacker-influenceable text.
+      # No commit text reaches a shell line through `${{ }}`: a commit subject is a merged pull request
+      # title, which is attacker-influenceable text.
       - name: Render the notes
         if: steps.verify.outputs.proceed == 'true'
         env:
@@ -168,18 +105,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          # A non-zero exit is a bad range or a bad config, and is fatal. It is a different failure
-          # from a render holding nothing, which exits 0 — conflating the two would either publish
-          # an empty body or refuse a legitimate release because a tag lookup misfired.
+          # A non-zero exit is a bad range or a bad config and is fatal; a render holding nothing exits
+          # 0 and is the next step's refusal.
           git-cliff --unreleased > "${NOTES}"
 
-          # One line of flags, split on whitespace because no path in the list holds one.
+          # Whitespace-split, which is safe because the action rejects a path holding whitespace.
           read -ra surface <<< "${SURFACE}"
           git-cliff --unreleased --context "${surface[@]}" > "${CONTEXT}"
 
-      # Before any tag exists, so a refusal leaves nothing to clean up. Two refusals, both the
-      # action's: notes holding no content at all, and a range that breaks the consumer surface under
-      # a version that is not a new major.
+      # Before any tag exists, so a refusal leaves nothing to clean up.
       - name: Check the notes
         if: steps.verify.outputs.proceed == 'true'
         uses: turboBasic/github-actions/actions/release-decisions@v4
@@ -206,35 +140,24 @@ jobs:
             echo "::notice::dry run: the notes above are what a release would publish. No tag is created and no release exists."
           fi
 
-      # Annotated, like every tag already here: the tag is the artifact consumers resolve, so it
-      # carries a tagger and a date rather than being a bare pointer.
-      #
-      # The major tag moves last, after the release exists. It is the only ref consumers resolve,
-      # so a failure earlier leaves them on the previous release rather than half-way into this
-      # one — recover by bumping to the next patch version and merging that, not by re-running: the
-      # `immutable release tags` ruleset covers `refs/tags/v*.*.*` with `bypass_actors: []`, so a
-      # version tag this step already created cannot be deleted by anyone, admin included.
+      # The tag is annotated, like every tag already here: it is the artifact consumers resolve, so it
+      # carries a tagger and a date rather than being a bare pointer. The major tag moves last, after
+      # the release exists, so a failure earlier leaves consumers on the previous release rather than
+      # half-way into this one.
       - name: Tag and publish
         if: steps.verify.outputs.proceed == 'true' && !inputs.dry-run
         env:
           VERSION: ${{ steps.verify.outputs.version }}
-          # The name is a decision, so it comes from the action beside the others rather than from a
-          # shell expansion here: under 0.x the ref that tracks a compatibility line is `v0.1`, not
-          # `v0`, and `${VERSION%%.*}` cannot know that.
+          # A decision, so it comes from the action beside the others: under 0.x the ref tracking a
+          # compatibility line is `v0.1`, and `${VERSION%%.*}` cannot know that.
           MOVING_TAG: ${{ steps.verify.outputs.moving-tag }}
         run: |
           set -euo pipefail
 
           tag="v${VERSION}"
 
-          # Before any ref exists, because this is the one failure that cannot be recovered by
-          # re-running. The name comes from an action a caller resolves *at a tag*, so a release cut
-          # between adding an output there and moving that tag reads it as empty — and an empty ref
-          # name only fails after the version tag and the release have been published, leaving the
-          # moving ref behind and no way to delete the version tag the `immutable release tags` ruleset
-          # now protects. Refusing here costs a re-run; not refusing costs a hand-moved ref.
-          #
-          # The same holds for any output this step later takes from that action.
+          # Before the first ref, because an empty ref name would otherwise fail only after the version
+          # tag exists, and the `immutable release tags` ruleset lets nobody delete that.
           if [[ -z ${MOVING_TAG} ]]; then
             echo "::error::the release-decisions action reported no moving-tag, so there is no ref to move. That is what a release cut before the major tag caught up with this workflow looks like. No tag was created."
             exit 1
@@ -249,13 +172,10 @@ jobs:
           gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" --silent \
             -f "ref=refs/tags/${tag}" -f "sha=${cut}"
 
-          # `--notes-file` replaces `--generate-notes`, and `--notes-start-tag` is gone with it:
-          # the range is git-cliff's concern now, measured from the previous version *tag* rather
-          # than from the previous release, which is what `--generate-notes` alone would have used.
           gh release create "${tag}" --title "${tag}" --notes-file "${NOTES}" --latest --verify-tag
 
-          # PATCH moves it; the POST is for the first release of a new compatibility line, where there
-          # is no ref to move yet.
+          # PATCH moves it; the POST is the first release of a new compatibility line, where there is
+          # no ref to move yet.
           moved=$(tag_object "${MOVING_TAG}" "${MOVING_TAG} tracks ${tag}")
           gh api -X PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/${MOVING_TAG}" --silent \
             -f "sha=${moved}" -F force=true ||

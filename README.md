@@ -253,6 +253,11 @@ jobs:
 deliberate: the release cannot start unless CI passed on this exact commit, so there is no check run to
 query and no race to lose. Point `needs:` at whichever job reports your required context.
 
+This workflow has **no trigger of its own** — `workflow_call` only — so that edge is the only gate and
+nothing can reach the tagging step around it. A manual release therefore goes through your caller: give
+that workflow a `workflow_dispatch` with a `dry-run` input and pass it through, keeping the same `needs:`.
+This repository's own caller is `release-on-merge.yml`, which does exactly that.
+
 Requires a `.cliff.toml` — the notes come from commit types, never from a pull request label — and a
 `pyproject.toml` declaring `[project].version`, which is what decides the version being cut. Also a
 checkout with full history and tags, which the workflow does itself. `mise run release-notes` renders
