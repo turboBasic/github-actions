@@ -114,12 +114,17 @@ Composite actions live in `actions/`, not `.github/actions/`. The latter is the 
   trailing `# vX.Y.Z` comment. A tag can be retroactively repointed at malicious code. Enforced by
   `tests/test_action_pins.py`.
 - **First-party references use the moving major tag** (`@vN`), never a SHA. See **Versioning**.
-- **A workflow's own `name:` is an emoji, a space, then its filename stem** — 🧩 for the ones a
-  consumer resolves (`🧩 python-ci`), 🌜 for this repository's own plumbing (`🌜 ci`). The Actions
-  sidebar sorts by name by code point, so both blocks sit below the entries GitHub injects and
-  nobody can rename. The split is `OWN_CI` in `tests/test_action_pins.py`, which enforces it. No
-  check context reads a workflow's name, so renaming one retires no context — but the file is still
-  consumer-facing, so `drift` asks for a release like any other change to it.
+- **A workflow's own `name:` is an emoji, a space, then its filename stem** — 🧩 where `workflow_call`
+  is the only trigger (`🧩 python-ci`), 🌜 where the workflow has triggers of its own (`🌜 ci`). The
+  prefix answers what the Actions sidebar is there to answer: where a run history is. A 🧩 entry never
+  has one, because a called workflow's jobs appear inside its caller's run — so a 🧩 labelled 🌜 sends
+  a reader to an empty page. The sidebar sorts by name by code point, so both blocks sit below the
+  entries GitHub injects and nobody can rename, and every entry that has runs is contiguous.
+- **`OWN_CI` does not decide the prefix.** It answers whether a change obliges a release, which is a
+  different question with a different answer: `release.yml` is called by a consumer and is
+  deliberately off the version surface. `tests/test_action_pins.py` enforces both, separately. No
+  check context reads a workflow's name, so renaming one retires no context — but a consumer-facing
+  file is still consumer-facing, so `drift` asks for a release like any other change to it.
 - **A job's `name:` is lowercase-kebab-case, and a called job's name says what the job is rather
   than repeating its caller.** GitHub composes a check as `<caller job id> / <called job name>`, so
   the callee owns half of an identifier consumers type into their own rulesets. The name takes its

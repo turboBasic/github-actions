@@ -12,7 +12,7 @@
 # bump pushed from here would be rejected; this tags what the merged bump decided, and refuses if that
 # tag already exists.
 
-name: 🌜 release
+name: 🧩 release
 
 # No trigger of its own: a caller's `needs:` edge is the only gate, and release-on-merge.yml is this
 # repository's caller, on a merge and on a dispatch alike.
