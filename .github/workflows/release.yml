@@ -232,6 +232,19 @@ jobs:
 
           tag="v${VERSION}"
 
+          # Before any ref exists, because this is the one failure that cannot be recovered by
+          # re-running. The name comes from an action a caller resolves *at a tag*, so a release cut
+          # between adding an output there and moving that tag reads it as empty — and an empty ref
+          # name only fails after the version tag and the release have been published, leaving the
+          # moving ref behind and no way to delete the version tag the `immutable release tags` ruleset
+          # now protects. Refusing here costs a re-run; not refusing costs a hand-moved ref.
+          #
+          # The same holds for any output this step later takes from that action.
+          if [[ -z ${MOVING_TAG} ]]; then
+            echo "::error::the release-decisions action reported no moving-tag, so there is no ref to move. That is what a release cut before the major tag caught up with this workflow looks like. No tag was created."
+            exit 1
+          fi
+
           tag_object() {
             gh api -X POST "repos/${GITHUB_REPOSITORY}/git/tags" \
               -f "tag=$1" -f "message=$2" -f "object=${GITHUB_SHA}" -f type=commit --jq .sha

@@ -110,3 +110,36 @@ rather than only the two régimes separately.
 ## Outcome
 
 *Filled in when the ladder has run.*
+
+## What rung 3 actually found
+
+The interim window of [research.md D5](./research.md#d5) cuts **both** ways, and only the input half was
+guarded. `v4.1.1` ([run 34088344548](https://github.com/turboBasic/github-actions/actions/runs/34088344548))
+published its release and then failed:
+
+```text
+HIGHEST_MAJOR: 4                                        ← the guarded half worked
+##[warning]Unexpected input(s) 'highest-version'        ← the old action ignoring the new input
+MOVING_TAG:                                             ← the unguarded half
+gh: Could not verify tag name (HTTP 422)
+```
+
+`steps.verify.outputs.moving-tag` resolves the action at `@v4`, which did not declare that output yet, so it
+was the empty string. An unknown *input* is a warning; an absent *output* is silently `""` and flows into a
+command — a strictly worse failure mode, and the one I did not think to guard.
+
+It failed in the least recoverable order: notes rendered, `v4.1.1` tagged, release published, and only then
+the ref move. Consumers stayed on `v4.1.0`, which is the fail-safe direction the workflow's design intends,
+but the version tag could not be deleted — the `immutable release tags` ruleset covers it with no bypass — so
+re-running was impossible and `@v4` still pointed at an action without the output, deadlocking every retry.
+
+Recovered by completing the step by hand: an annotated `v4` tag object at the release commit, force-moved,
+which is exactly what the failed line does. `v4` now tracks `v4.1.1`.
+
+Fixed so it cannot recur: `release.yml` refuses an empty `MOVING_TAG` **before** creating any ref, with
+`test_the_release_refuses_an_empty_moving_tag_before_creating_a_ref` asserting the check precedes the first
+one. That turns an unrecoverable half-release into a re-runnable refusal.
+
+**The general rule this earned:** an output newly consumed by `release.yml` is empty for exactly one release,
+because the workflow resolves at the commit under review and the action resolves at the tag. Either guard it
+or add it a release before you read it.
