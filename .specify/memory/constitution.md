@@ -68,7 +68,10 @@ principle, state concretely what breaks without it, offer the smallest alternati
 underlying need, then stop and wait for a decision. Reporting the conflict is mandatory even when
 eroding a principle would only be a side effect.
 
+A new principle earns its place only if violating it is expensive to reverse and cheap to commit by
+accident. Anything a reviewer would catch and a revert would fix is a convention.
+
 Conventions are not governed here. Naming, file placement, how a test is organised — a request to
 change one of those is just a request.
 
-**Version**: 1.1.2 | **Ratified**: 2026-08-31 | **Last Amended**: 2026-09-07
+**Version**: 1.2.0 | **Ratified**: 2026-08-31 | **Last Amended**: 2026-09-07

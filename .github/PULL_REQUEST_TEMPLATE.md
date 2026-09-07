@@ -38,8 +38,8 @@ README is the consumer-facing contract and documents inputs. Name what you touch
 ---
 
 <!--
-Trading away a rule marked non-negotiable in docs/ai-instructions.md is a design change:
-name the rule and what breaks without it, here, before the review starts.
+Trading away a principle in .specify/memory/constitution.md is a design change, not a
+task. Its Governance section says what that obliges — do it here, before the review starts.
 
 Agent-written code is welcome — this repo exists to make it predictable. You are still
 the author, and reviewers will expect you to explain any part of this diff yourself.

@@ -1,7 +1,8 @@
 # AI Instructions
 
-Source of truth for all AI coding tools (Claude Code, GitHub Copilot) working in this repo.
-`CLAUDE.md` and `.github/copilot-instructions.md` both point here.
+The conventions layer: how work is done here, binding humans and AI coding tools (Claude Code, GitHub
+Copilot) alike. The invariants are a layer above and are cited here by principle number; the entry
+point says where every kind of instruction lives.
 
 Scope: reusable GitHub Actions workflows and composite actions consumed by other
 `turboBasic` repositories. This repo ships no application. Its Python is of two kinds: the suite under

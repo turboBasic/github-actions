@@ -12,8 +12,8 @@ In scope, roughly in order of how much it matters:
   interpolation of a PR title or branch name into a `run:` line, a `pull_request_target` workflow
   that checks out the head ref, a token passed to a step that did not need it.
 - **A supply-chain regression in a pinned action.** Every third-party action here is pinned to a
-  full commit SHA precisely because a tag can be retroactively repointed at malicious code —
-  CVE-2025-30066 did that to `tj-actions/changed-files`, leaking secrets into build logs. A floating
+  full commit SHA, for the reason constitution principle II gives. CVE-2025-30066 is that reason
+  realised: a repointed tag on `tj-actions/changed-files` leaked secrets into build logs. A floating
   ref reaching `main` is a vulnerability, not a style lapse, and
   `tests/test_action_pins.py` exists to stop it.
 - **A workflow that grants more permission than it needs.** Permissions can only be reduced down a

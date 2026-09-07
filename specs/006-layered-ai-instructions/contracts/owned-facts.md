@@ -24,6 +24,7 @@ already makes.
 | No gate is loosened to make a run pass | constitution VII | `no rule disabled to` |
 | How to object to a rule change | constitution Governance | `smallest alternative that meets the underlying need` |
 | Conventions are not governed by the constitution | constitution Governance | `Conventions are not governed here` |
+| What qualifies a rule as an invariant | constitution Governance | `expensive to reverse and cheap to commit by accident` |
 | Which major is current | `README.md` Versioning | pattern `@?\bv\d`, already asserted |
 | The label set and its axes | `CONTRIBUTING.md` Labels | `This table is the label set` |
 | Where the version is decided | `CONTRIBUTING.md` Releasing | `the only place the version is decided` |

@@ -11,11 +11,13 @@ privately instead of opening an issue — see the [security policy][security].
 
 ## Read this first
 
-[`docs/ai-instructions.md`][ai-instructions] is the source of truth and binds humans and AI
-tools alike. This file does not repeat it.
+Two files carry the rules and bind humans and AI tools alike: [the constitution][constitution] states
+what may never be violated, and [`docs/ai-instructions.md`][ai-instructions] states how work is done
+here. This file repeats neither.
 
-Start with [Changes to these rules][ai-instructions-changes]: it marks which
-rules are non-negotiable and what to do when a change would trade one away. The rest covers
+Start with [Changes to these rules][ai-instructions-changes]: it says how the conventions relate to
+the layers around them, and everything in that file is one. The constitution's Governance section
+owns what a request to erode an invariant obliges. The rest covers
 [tooling][ai-instructions-tooling],
 [workflows and actions][ai-instructions-workflows],
 [quality gates][ai-instructions-quality], and
