@@ -21,29 +21,21 @@ rather than assuming. Extend those files; never regenerate them.
 
 ### Changes to these rules
 
-A rule is **non-negotiable** when breaking it is irreversible, weakens security, or silently
-breaks a consumer: a third-party action on a floating ref, a breaking change to a workflow's input
-contract shipped under the same major tag, `pull_request_target` combined with a checkout of the
-head ref, a secret written anywhere, a blanket `# type: ignore` or a loosened tool mode.
-Everything else here is a convention: follow it, but a request to change it is just a request.
+Everything in this file is a convention: follow it, but a request to change one is just a request,
+and objecting over it is this layer exceeding its own standing. What may never be violated is not
+stated here, and neither is what a request to erode one of those obliges — the invariants layer's
+Governance section owns both.
 
-Treat a change to a non-negotiable as a design change, not a task. Before implementing one, in a
-short paragraph: name the rule, state concretely what breaks without it, and offer the smallest
-alternative that still meets the underlying need. Then stop and wait.
-
-- **Report the conflict even when it is incidental.** A change that erodes one of these as a side
-  effect gets the same treatment as a request to drop it outright.
 - **Once the objection is heard and the request restated, implement it fully.** Do not relitigate
   or leave the old path in place as a safety net.
-- **Never weaken one silently** to make a task easier.
-- Do not object over conventions: naming, file placement, or how a test is organised.
+- **Never weaken an invariant silently** to make a task easier.
 
 ### Specs
 
 Each `/speckit-*` skill documents its own step and `.specify/templates/` holds what they produce.
 Read those, not a summary here.
 
-`.specify/memory/constitution.md` is ours to edit — it states the non-negotiables above as gates a
+`.specify/memory/constitution.md` is ours to edit — it states the invariants as gates a
 spec fails against. Everything else under `.specify/` and `.claude/skills/speckit-*/` is vendored
 and version-locked to the `pipx:specify-cli` pin in `mise.toml`: bump the pin and run
 `mise run spec-kit-upgrade`, never `specify self upgrade`, which replaces the binary outside mise.
@@ -110,9 +102,8 @@ the only place a major is written literally.
 Composite actions live in `actions/`, not `.github/actions/`. The latter is the convention for
 *repo-local* actions and would read as private-by-convention here.
 
-- **Pin every third-party action to a full 40-character commit SHA**, with the version as a
-  trailing `# vX.Y.Z` comment. A tag can be retroactively repointed at malicious code. Enforced by
-  `tests/test_action_pins.py`.
+- **Pin every third-party action to a full 40-character commit SHA** (principle II), with the
+  version as a trailing `# vX.Y.Z` comment. Enforced by `tests/test_action_pins.py`.
 - **First-party references use the moving major tag** (`@vN`), never a SHA. See **Versioning**.
 - **A workflow's own `name:` is an emoji, a space, then its filename stem** — 🧩 where `workflow_call`
   is the only trigger (`🧩 python-ci`), 🌜 where the workflow has triggers of its own (`🌜 ci`). The
@@ -138,9 +129,7 @@ Composite actions live in `actions/`, not `.github/actions/`. The latter is the 
   do that for them.
 - **Every input needs a `description` and an explicit `default`** unless genuinely required. A
   consumer reads the input list as the contract.
-- **Declare the narrowest `permissions`** the workflow needs. Permissions can only be reduced down
-  a call chain, never elevated, so a reusable workflow that asks for too much cannot be constrained
-  by its caller.
+- **Declare the narrowest `permissions`** the workflow needs (principle III).
 - **Both halves of that contract are frozen by table.** `WORKFLOW_CONTRACTS` in
   `tests/test_action_pins.py` names every reusable workflow's inputs and each job's effective
   permissions, and both are validated before any job exists — so either one moving breaks a caller
@@ -149,8 +138,7 @@ Composite actions live in `actions/`, not `.github/actions/`. The latter is the 
   call-site shape, and `README.md` carries it.
 - **`env` does not propagate from caller to called workflow.** Anything a reusable workflow needs
   must arrive as an `input`.
-- **Interpolate untrusted values through `env`, not directly into `run:`.** A PR title or branch
-  name inlined as `${{ }}` in a shell line is a script-injection vector.
+- **Interpolate untrusted values through `env`, not directly into `run:`** (principle IV).
 - **`concurrency` belongs to the caller**, `timeout-minutes` to the callee. A reusable workflow
   cannot set its caller's concurrency group.
 
@@ -185,15 +173,14 @@ Python 3.14. The only Python here supports the actions and their tests.
 
 - prek is the linting entry point. Never call `ruff` directly.
 - `actionlint` covers `.github/workflows`; it does not look in `actions/`. `.github/actionlint.yaml`
-  owns its ignores. `zizmor` covers both and is the security linter — a finding it raises is
-  addressed, not silenced.
+  owns its ignores. `zizmor` covers both and is the security linter (principle VII).
 - `.yamllint.yaml` owns yamllint's rules and exempt paths.
 - A new GitHub config file gets a `check-jsonschema` hook and a matching line in the `lint` task.
   Prefer `--builtin-schema` to `--schemafile <url>`: a vendored schema needs no network and cannot be
   repointed. `.github/zizmor.yml` gets none — its only published schema is served off a floating
   `main` ref, and zizmor rejects an unknown field in its own config anyway. `.github/actionlint.yaml`
   does get one, because actionlint accepts an unknown key there silently.
-- pyright strict. Never a blanket `# type: ignore` or a loosened mode to clear an error.
+- pyright strict (principle VII).
 - pytest. Never `unittest.TestCase`. `tests/` asserts properties of the YAML where there is nothing
   to call, and calls the action modules where there is — the second is always the better test, and
   moving a decision out of a `run:` block so it can be called is the reason those modules exist.
@@ -212,13 +199,10 @@ Python 3.14. The only Python here supports the actions and their tests.
   `422` while a repository is public — so `test_this_repository_is_still_public` guards the
   precondition instead, carrying that setting as its failure message. Set the policy and delete the
   test, in that order.
-- **Lint does not verify a workflow. Run it.** Exercise every changed workflow before tagging: a
-  reusable one from a real PR, anything else from a dispatch. Every linter here passes on a workflow
-  that fails on its first run, because the file is correct and its environment is not — the caller
-  cannot know to grant a permission, an input resolves to nothing, or a CLI needs a context the
-  runner lacks. A relative self-call exercises a reusable workflow (principle VI). Where behaviour
-  turns on caller-side configuration — `python-ci.yml`'s `hook-stage`, `run-typecheck`, a consumer
-  with no mise config — it does not, so a consumer exercises it at the ref it pins.
+- **A relative self-call is what exercises a reusable workflow here** (principle VI). Which
+  behaviour turns on caller-side configuration is concrete: `python-ci.yml`'s `hook-stage`,
+  `run-typecheck`, and a consumer with no mise config — those want a real consumer at the ref it
+  pins.
 - **Pre-flight the line out of the file, never a retyping of it**, or you test your typing rather
   than the file.
 - **The allowed commit types are declared once**, as `conventional-commits.yml`'s `types` default,
@@ -230,13 +214,11 @@ Python 3.14. The only Python here supports the actions and their tests.
 
 ### Versioning
 
-Consumers pin a moving major tag rather than a SHA. This is a deliberate exception to the
-SHA-pinning rule above: that rule exists because a *third party* can repoint a tag. This repo shares
-its owner with every consumer, and SHA-pinning first-party workflows would mean one Dependabot PR
-per consumer for every one-line fix.
+Consumers pin a moving major tag rather than a SHA, which principle II allows only for first-party
+references. SHA-pinning them would mean one Dependabot PR per consumer for every one-line fix.
 
-A major bump — a new major tag, with the old one left where it is, not a move of the current one — is
-owed by any change a consumer cannot absorb by resolving the new ref alone:
+A major bump is owed by any change a consumer cannot absorb by resolving the new ref alone, and what
+a bump does to the tags is principle I:
 
 - **The call site stops working.** A removed or renamed input, a `uses:` path that no longer exists.
 - **A status check the consumer requires stops reporting.** Renaming a job whose name composes a check
@@ -263,7 +245,7 @@ the value from there; never restate it here.
 
 - Conventional Commits, commitizen's default types. The PR title is held to the same format.
 - Commit or push only when asked. Branch first if on the default branch.
-- Never commit a secret.
+- Never commit a secret (principle V).
 - **Labels are on issues, never on a pull request.** A PR's kind is its Conventional Commit title and
   a second copy of that on a label is a second source of truth. Nothing automated reads a label —
   `CONTRIBUTING.md`'s Labels section owns the axes and what each one is for.

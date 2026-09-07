@@ -3,9 +3,9 @@
 What must always be true of this repository. Seven principles, each one a gate a spec, plan or PR
 can fail against.
 
-This file does not restate the conventions — [`docs/ai-instructions.md`](../../docs/ai-instructions.md)
-owns those, and owns the concrete rules behind every principle here. Read this for *what may never
-be violated*; read that for *how to work*.
+This file names no other artefact. Read it for *what may never be violated* — the entry point says
+where every other kind of instruction lives, and the conventions layer owns the concrete rules
+behind each principle here.
 
 ## Core Principles
 
@@ -68,7 +68,7 @@ principle, state concretely what breaks without it, offer the smallest alternati
 underlying need, then stop and wait for a decision. Reporting the conflict is mandatory even when
 eroding a principle would only be a side effect.
 
-Conventions are not governed here. Naming, file placement, how a test is organised — those live in
-`docs/ai-instructions.md` and a request to change one is just a request.
+Conventions are not governed here. Naming, file placement, how a test is organised — a request to
+change one of those is just a request.
 
-**Version**: 1.1.1 | **Ratified**: 2026-08-31 | **Last Amended**: 2026-09-07
+**Version**: 1.1.2 | **Ratified**: 2026-08-31 | **Last Amended**: 2026-09-07
