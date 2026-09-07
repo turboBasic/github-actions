@@ -265,10 +265,17 @@ def test_an_owned_fact_is_stated_only_by_its_owner(owner: str, section: str, anc
     assert not elsewhere, f"{anchor!r} is owned by {owner} {section} but is restated in {elsewhere}"
 
 
+def _outside_code(text: str) -> str:
+    # Claude Code's import parser skips both fenced blocks and code spans, so an import inside either
+    # reads as present and loads nothing — a backtick is the documented way to mention a path without
+    # importing it. Removing the backticks instead, as this did, turns a code span into a passing
+    # import and defeats the whole check.
+    return re.sub(r"`[^`]*`", "", re.sub(r"```.*?```", "", text, flags=re.DOTALL))
+
+
 def test_both_rule_layers_are_reachable_from_navigation() -> None:
     claude = (REPO_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
-    # An import inside a fence is skipped, so a fenced one reads as present and loads nothing.
-    outside_fences = re.sub(r"```.*?```", "", claude, flags=re.DOTALL).replace("`", "")
+    outside_fences = _outside_code(claude)
     for target in (CONSTITUTION, CONVENTIONS):
         assert f"@{target}" in outside_fences, (
             f"CLAUDE.md does not import {target} outside a code fence; a fenced import loads nothing"
@@ -372,8 +379,7 @@ def test_the_shared_map_reaches_claude_code() -> None:
     # import the map is invisible to Claude Code, and every deferral in layer 2 to "the entry point"
     # goes unanswered — silently, because the rules still load.
     claude = (REPO_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
-    outside_fences = re.sub(r"```.*?```", "", claude, flags=re.DOTALL).replace("`", "")
-    assert "@AGENTS.md" in outside_fences, (
+    assert "@AGENTS.md" in _outside_code(claude), (
         "CLAUDE.md does not import AGENTS.md outside a code fence; Claude Code reads no AGENTS.md of "
         "its own, so the map would reach every tool except this one"
     )
