@@ -172,10 +172,6 @@ Python 3.14. The only Python here supports the actions and their tests.
   reasoning left in prose where a test can hold it.
 - `README.md` is the consumer-facing contract: what each workflow does, its inputs, and a call site
   that can be copied as-is. A new input or a changed default updates it in the same change.
-- **No document lists the consumers.** A change is not owed a reading of who calls what: whether a
-  `v4` caller can absorb it is answered from the diff, and the checks holding that answer read no
-  repository but this one. `github-actions-test`'s README is the call-site map, maintained where the
-  calls are; enumerate the rest live when a major's repins need an order.
 - Every change ends by checking the documentation it affects and correcting it in the same change.
   Stale framing is a defect, not a follow-up.
 

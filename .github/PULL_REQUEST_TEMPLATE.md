@@ -13,10 +13,10 @@ Link the issue if there is one (`Closes #12`).
 ## Blast radius
 
 <!--
-Whether a `v4` caller can absorb this by resolving the new ref. A removed or renamed input,
-a renamed job composing a check context, or a permission the caller must grant needs a new
-major instead — say which. `patch — nothing consumer-facing changed` is a complete answer
-where it is true. The answer is in this diff; no list of consumers is needed to reach it.
+Whether a caller on the current major can absorb this by resolving the new ref. A removed
+or renamed input, a renamed job composing a check context, or a permission the caller must
+grant needs a new major instead — say which. `patch — nothing consumer-facing changed` is a
+complete answer where it is true, and the answer is in this diff.
 -->
 
 ## Verification

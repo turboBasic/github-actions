@@ -2,7 +2,7 @@
 
 This repo holds the CI that other `turboBasic` repositories run. A change to a workflow reaches every
 consumer pinned to the moving major on their next push, so the question a change answers is whether a
-`v4` caller can absorb it — see [Versioning][readme-versioning].
+caller on that major can absorb it — see [Versioning][readme-versioning].
 Forking to suit your own conventions is an expected use; the [MIT licence][license] asks nothing
 beyond keeping the notice.
 
@@ -111,9 +111,9 @@ gh issue list --state open --json labels --jq '[.[].labels[].name]|group_by(.)|m
 Branch first. Title the PR as a Conventional Commit — a squash merge takes its subject from there.
 Both workflows must pass.
 
-Say whether a `v4` caller can absorb the change and what you ran to verify it, and update the
-[README][readme] in the same change when an input contract moves. Agent-written code is welcome; you
-are still the author of it.
+Say whether a caller on the current major can absorb the change and what you ran to verify it, and
+update the [README][readme] in the same change when an input contract moves. Agent-written code is
+welcome; you are still the author of it.
 
 ## Releasing
 
