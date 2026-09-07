@@ -58,4 +58,8 @@ postprocessors = [
   # paragraph break. Squeezed here rather than in Tera, whose `replace` only takes a literal
   # and so would leave a run of three.
   { pattern = ' {2,}', replace = " " },
+  # A bare `@v4` in a release body is an @-mention: GitHub resolves it to whoever holds that login,
+  # credits them in Contributors and notifies them. Backticks make it inert and read correctly as a
+  # ref pin. Anchored on a preceding space or bracket, so an email address is left alone.
+  { pattern = '(?m)(^|[\s(\[])@([A-Za-z0-9][A-Za-z0-9-]*)', replace = '${1}`@${2}`' },
 ]
