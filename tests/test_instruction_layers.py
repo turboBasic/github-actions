@@ -88,8 +88,9 @@ EXEMPTIONS: dict[str, str] = {
     "specs/": "completed feature directories are frozen work logs",
     "tmp/": "scratch, gitignored",
     ".github/PULL_REQUEST_TEMPLATE.md": (
-        "a Jinja2 template rendered by a composite action, and the default a caller inherits — "
-        "a form, not prose stating a rule"
+        "a Jinja2 template rendered by a composite action — a form, not prose stating a rule. "
+        "A caller inherits the path default, never this file's content, which resolves in the "
+        "caller's own workspace"
     ),
 }
 

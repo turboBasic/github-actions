@@ -1,4 +1,5 @@
 <!--
+The title is a Conventional Commit — a squash merge takes its subject from there.
 Everything below renders as prose; these hints disappear.
 -->
 
