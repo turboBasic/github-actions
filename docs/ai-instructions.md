@@ -19,7 +19,18 @@ rather than assuming. Extend those files; never regenerate them.
 - Match existing patterns over personal preference.
 - Scope to the request. No refactoring adjacent code or improving what was not asked about.
 
+A user-level instruction file is concatenated into context ahead of this one with no override
+mechanism, so a contradiction between the two has nowhere else to be resolved.
+**This repository's rules win where they are stricter.** Two are live today. A user-level file that
+permits a third-party action pinned to a tag rather than a full SHA does not permit one here, and one
+that permits `@main` for an in-house reference does not permit it here.
+
 ### Changes to these rules
+
+These rules are one layer of four. Each fact has exactly one owning layer; a layer needing a fact it
+does not own cites the owner instead of restating it; and a citation runs from the concrete to the
+abstract only. So this file cites a principle by number, and nothing more abstract than it cites
+back. Which layer owns what is navigation, and the entry point answers it.
 
 Everything in this file is a convention: follow it, but a request to change one is just a request,
 and objecting over it is this layer exceeding its own standing. What may never be violated is not
@@ -229,14 +240,8 @@ a bump does to the tags is principle I:
 
 **The version describes the consumer-facing surface, not this repository's commit history.** Judge a
 bump by what changed under `.github/workflows/` and `actions/`; a `feat:` touching only our own
-linting or editor config is a patch. The number is a human decision recorded as a one-line diff to
-`pyproject.toml`'s `[project].version`, merged like any other change, and never computed unattended.
-
-`release-proposal.yml` proposes that diff, and **proposing is not deciding**: a reviewer may change the
-number, and a version a human has edited survives every refresh. The release refuses if the tag already
-exists, so it cannot disagree with the reviewed decision. Notes are rendered before any tag is created,
-from commit types in `.cliff.toml` — never from a pull request label. `CONTRIBUTING.md`'s Releasing
-section is the procedure.
+linting or editor config is a patch. The number is a human decision, never computed unattended, and
+a proposal of it is not a decision.
 
 Which major is current and which tags are immutable live in `README.md`'s Versioning section. Read
 the value from there; never restate it here.
