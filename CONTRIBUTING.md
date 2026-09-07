@@ -11,11 +11,13 @@ privately instead of opening an issue — see the [security policy][security].
 
 ## Read this first
 
-[`docs/ai-instructions.md`][ai-instructions] is the source of truth and binds humans and AI
-tools alike. This file does not repeat it.
+Two files carry the rules and bind humans and AI tools alike: [the constitution][constitution] states
+what may never be violated, and [`docs/ai-instructions.md`][ai-instructions] states how work is done
+here. This file repeats neither.
 
-Start with [Changes to these rules][ai-instructions-changes]: it marks which
-rules are non-negotiable and what to do when a change would trade one away. The rest covers
+Start with [Changes to these rules][ai-instructions-changes]: it says how the conventions relate to
+the layers around them, and everything in that file is one. The constitution's Governance section
+owns what a request to erode an invariant obliges. The rest covers
 [tooling][ai-instructions-tooling],
 [workflows and actions][ai-instructions-workflows],
 [quality gates][ai-instructions-quality], and
@@ -37,10 +39,9 @@ mise run ci      # lint, schema validation, typecheck, test — exactly what CI 
 
 ## Specs
 
-Most changes are an issue and a PR. A new input, a new workflow, or any behaviour a consumer can see
-gets a spec first — `/speckit-specify`, then `/speckit-plan`, then `/speckit-tasks`. Which changes
-need one is settled in [ai-instructions][ai-instructions-specs]; the gates a spec is read against
-are in [the constitution][constitution].
+Which changes need a spec first, and the sequence one goes through, is settled in
+[ai-instructions][ai-instructions-specs]; the gates a spec is read against are in
+[the constitution][constitution].
 
 A spec lands in `specs/NNN-slug/` on your branch and merges with the code it describes. Until that
 merge it is a proposal — the PR review is what makes it an artifact, so put it up for review before

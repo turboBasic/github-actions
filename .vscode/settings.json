@@ -23,6 +23,7 @@
     "**/.ruff_cache": true,
     "**/.mypy_cache": true
   },
+  "chat.useAgentsMdFile": true,
   "cSpell.enabled": true,
   "cSpell.diagnosticLevel": "Information",
   "cSpell.enabledFileTypes": {
