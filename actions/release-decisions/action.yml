@@ -43,12 +43,6 @@ inputs:
       tag exists to be moved onto a broken contract. The whole version, not just its major, because
       under 0.x the compatibility boundary is the minor.
     default: ""
-  highest-major:
-    description: >
-      Deprecated, and read by nothing here. Declared until the release that ships `highest-version`
-      has moved the major tag: `release.yml` resolves as `$/` while this action resolves at `@vN`, so
-      one run pairs the new workflow with the previous version of this module, which reads only this.
-    default: ""
   severity:
     description: >
       `notice` reports an empty range as a decline rather than refusing the release, for a caller
@@ -65,9 +59,6 @@ outputs:
   highest-version:
     description: The highest existing release as a plain `N.N.N`; empty when none exists.
     value: ${{ steps.decide.outputs.highest-version }}
-  highest-major:
-    description: Deprecated; see the input of the same name. Removed once the major tag has moved.
-    value: ${{ steps.decide.outputs.highest-major }}
   moving-tag:
     description: >
       The ref this release publishes, named for its compatibility line — `v0.1` under 0.x, `v1` above
@@ -106,7 +97,6 @@ runs:
         CONTEXT_FILE: ${{ inputs.context-file }}
         CURRENT_VERSION: ${{ inputs.current-version }}
         HIGHEST_VERSION: ${{ inputs.highest-version }}
-        HIGHEST_MAJOR: ${{ inputs.highest-major }}
         SEVERITY: ${{ inputs.severity }}
       shell: bash
       run: python3 "${GITHUB_ACTION_PATH}/decisions.py"

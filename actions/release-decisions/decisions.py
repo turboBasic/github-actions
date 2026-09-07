@@ -323,10 +323,6 @@ def _verify_version() -> None:
     _out("version", version)
     _out("moving-tag", moving_tag(parsed))
     _out("highest-version", _render(highest) if highest else "")
-    # Kept until the release that ships this has moved v4. `release.yml` resolves as `$/` while the
-    # action resolves at `@v4`, so one run pairs the new workflow with the *old* module — which reads
-    # only this, and whose refusal would be permanently false without it.
-    _out("highest-major", str(highest[0]) if highest else "")
 
 
 def _check_notes() -> None:

@@ -107,10 +107,6 @@ One more merge: a breaking range under `1.0.0`. Expect it to proceed, `v1.0.0` a
 left where it is. That is the graduation path, and it confirms the line comparison handles a régime change
 rather than only the two régimes separately.
 
-## Outcome
-
-*Filled in when the ladder has run.*
-
 ## What rung 3 actually found
 
 The interim window of [research.md D5](./research.md#d5) cuts **both** ways, and only the input half was
@@ -143,3 +139,36 @@ one. That turns an unrecoverable half-release into a re-runnable refusal.
 **The general rule this earned:** an output newly consumed by `release.yml` is empty for exactly one release,
 because the workflow resolves at the commit under review and the action resolves at the tag. Either guard it
 or add it a release before you read it.
+
+## Outcome
+
+Ran 2026-09-07. Every rung passed. `github-actions-test` was reset first: five releases and eight tags
+deleted, `main` rewritten to its nineteen functional commits — the three `chore: cut vX`, the two `004`
+probes and the `v2.0.0` bump dropped, the surface table kept — and force-pushed. Dropping the bump commits
+left `[project].version` at `0.1.0` on its own, so no artificial reset commit was needed.
+
+| Rung | Evidence |
+| --- | --- |
+| 1–2 offline and by hand | `mise run ci`, 157 → 158 passed. `test_the_zero_x_rule_is_stated_exactly_once` **failed on the first attempt**, because `next_version` had restated `major == 0` instead of reading the line |
+| 3 release here | `v4.1.1` **broke** — see the section above. Recovered by hand; `v4.1.2` then released cleanly with `MOVING_TAG: v4` and `HIGHEST_VERSION: 4.1.1` |
+| 5a `0.1.0` | `v0.1.0` **and `v0.1`**, and **no `v0`** — where a shell expansion would have produced one |
+| 5b `0.1.1` | `v0.1 tracks v0.1.1`; the moving ref advancing inside its line ([#37](https://github.com/turboBasic/github-actions-test/pull/37)) |
+| 5c refuse `0.1.2` | `HIGHEST_VERSION: 0.1.1`, then `the range breaks the consumer surface but 0.1.2 stays on the v0.1 line … Release 0.2.0 instead`. No `v0.1.2` tag ([#38](https://github.com/turboBasic/github-actions-test/pull/38)) |
+| 5d allow `0.2.0` | `v0.2 tracks v0.2.0`, `v0.1` still at `0.1.1`, still no `v0` ([#39](https://github.com/turboBasic/github-actions-test/pull/39)) |
+
+5c and 5d are the pair that carries the fix: the **same range**, refused as a patch and released as the next
+minor. That is the defect #107 was filed about, and before `v4.1.2` the only exits were `1.0.0` or rewriting
+the commit.
+
+### Two rungs deliberately not run
+
+**Rung 6, the proposal, is offline-only.** `github-actions-test` has no `release-proposal.yml` — that workflow
+needs a GitHub App installation, which is not worth standing up in a test consumer. So `next_version`'s 0.x
+behaviour is covered by its unit tests and by rung 2, not by a real proposal. Acceptable because it is a pure
+function over three integers with no repository state in it; the *refusal* was the half that needed real
+invocation, because it turns on which tags exist, and it got it.
+
+**Rung 7, graduating to `1.0.0`, was skipped on purpose.** `is_ahead` compares across every major, so
+releasing `1.0.0` there would make every future 0.x release not-ahead — burning the only repository that can
+exercise this path at all. It stays at `0.2.0` as standing 0.x coverage. The graduation case is a unit test
+(`(1, 0, 0)` over `(0, 1, 0)` is not refused), and that is the right place for it.
