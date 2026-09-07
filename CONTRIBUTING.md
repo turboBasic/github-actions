@@ -39,10 +39,9 @@ mise run ci      # lint, schema validation, typecheck, test — exactly what CI 
 
 ## Specs
 
-Most changes are an issue and a PR. A new input, a new workflow, or any behaviour a consumer can see
-gets a spec first — `/speckit-specify`, then `/speckit-plan`, then `/speckit-tasks`. Which changes
-need one is settled in [ai-instructions][ai-instructions-specs]; the gates a spec is read against
-are in [the constitution][constitution].
+Which changes need a spec first, and the sequence one goes through, is settled in
+[ai-instructions][ai-instructions-specs]; the gates a spec is read against are in
+[the constitution][constitution].
 
 A spec lands in `specs/NNN-slug/` on your branch and merges with the code it describes. Until that
 merge it is a proposal — the PR review is what makes it an artifact, so put it up for review before

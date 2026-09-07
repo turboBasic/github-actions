@@ -16,9 +16,9 @@ In scope, roughly in order of how much it matters:
   realised: a repointed tag on `tj-actions/changed-files` leaked secrets into build logs. A floating
   ref reaching `main` is a vulnerability, not a style lapse, and
   `tests/test_action_pins.py` exists to stop it.
-- **A workflow that grants more permission than it needs.** Permissions can only be reduced down a
-  call chain, so a reusable workflow asking for `write` where `read` suffices cannot be constrained
-  by its callers.
+- **A workflow that grants more permission than it needs.** Constitution principle III gives the
+  reason a reusable workflow asking for `write` where `read` suffices cannot be constrained by its
+  callers.
 
 There are no supported versions to list beyond the current major tag, which moves. If you pinned a
 SHA or an immutable patch tag, you own that copy.
