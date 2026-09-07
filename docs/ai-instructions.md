@@ -141,6 +141,12 @@ Composite actions live in `actions/`, not `.github/actions/`. The latter is the 
 - **Declare the narrowest `permissions`** the workflow needs. Permissions can only be reduced down
   a call chain, never elevated, so a reusable workflow that asks for too much cannot be constrained
   by its caller.
+- **Both halves of that contract are frozen by table.** `WORKFLOW_CONTRACTS` in
+  `tests/test_action_pins.py` names every reusable workflow's inputs and each job's effective
+  permissions, and both are validated before any job exists — so either one moving breaks a caller
+  with no job and no log, and is a major bump. Adding an input is backwards-compatible and updates
+  the table in the same change. Defaults are not frozen there: a default is behaviour rather than
+  call-site shape, and `README.md` carries it.
 - **`env` does not propagate from caller to called workflow.** Anything a reusable workflow needs
   must arrive as an `input`.
 - **Interpolate untrusted values through `env`, not directly into `run:`.** A PR title or branch
