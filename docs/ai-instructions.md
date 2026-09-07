@@ -82,9 +82,8 @@ CLI is pinned in `mise.toml`, which owns every version in its `[tools]` table �
 are `pyproject.toml`'s.
 
 **No `[tools]` entry is `latest`.** Each names a version, so two machines on one commit resolve the
-same linters. `.github/renovate.json` enables the `mise` manager that bumps them, and
-`tests/test_action_pins.py::test_no_mise_tool_version_floats` is what stops a new tool arriving
-unpinned.
+same linters. `.github/renovate.json` enables the `mise` manager that bumps them, and a gate stops a
+new tool arriving unpinned.
 
 ### Dependencies
 
@@ -115,7 +114,7 @@ Composite actions live in `actions/`, not `.github/actions/`. The latter is the 
 *repo-local* actions and would read as private-by-convention here.
 
 - **Pin every third-party action to a full 40-character commit SHA** (principle II), with the
-  version as a trailing `# vX.Y.Z` comment. Enforced by `tests/test_action_pins.py`.
+  version as a trailing `# vX.Y.Z` comment. Enforced by test.
 - **First-party references use the moving major tag** (`@vN`), never a SHA. See **Versioning**.
 - **A workflow's own `name:` is an emoji, a space, then its filename stem** — 🧩 where `workflow_call`
   is the only trigger (`🧩 python-ci`), 🌜 where the workflow has triggers of its own (`🌜 ci`). The
@@ -123,31 +122,30 @@ Composite actions live in `actions/`, not `.github/actions/`. The latter is the 
   has one, because a called workflow's jobs appear inside its caller's run — so a 🧩 labelled 🌜 sends
   a reader to an empty page. The sidebar sorts by name by code point, so both blocks sit below the
   entries GitHub injects and nobody can rename, and every entry that has runs is contiguous.
-- **`OWN_CI` does not decide the prefix.** It answers whether a change obliges a release, which is a
-  different question with a different answer: `release.yml` is called by a consumer and is
-  deliberately off the version surface. `tests/test_action_pins.py` enforces both, separately. No
-  check context reads a workflow's name, so renaming one retires no context — but a consumer-facing
-  file is still consumer-facing, so `drift` asks for a release like any other change to it.
+- **Whether a workflow is on the version surface does not decide the prefix.** That answers whether a
+  change obliges a release, which is a different question with a different answer: `release.yml` is
+  called by a consumer and is deliberately off the surface. Separate gates hold the two. No check
+  context reads a workflow's name, so renaming one retires no context — but a consumer-facing file is
+  still consumer-facing, so a release is owed for it like any other change.
 - **A job's `name:` is lowercase-kebab-case, and a called job's name says what the job is rather
   than repeating its caller.** GitHub composes a check as `<caller job id> / <called job name>`, so
   the callee owns half of an identifier consumers type into their own rulesets. The name takes its
   workflow's name without the prefix — `python-ci`, `dependency-review` — unless the workflow has
   sibling jobs, where the deed distinguishes them (`pr-title`, `commit-messages`), or unless it
   would double a common caller id, where the deed wins again (`tag-and-publish`, not `release`).
-  Never name it after behaviour a caller can switch off. `tests/test_action_pins.py` enforces the
-  casing; the rest is judgement.
+  Never name it after behaviour a caller can switch off. A gate enforces the casing; the rest is
+  judgement.
 - **Renaming a job that composes a required context is a major bump**, because a required check that
   stops reporting blocks every pull request until each consumer edits its own ruleset, and no ref can
   do that for them.
 - **Every input needs a `description` and an explicit `default`** unless genuinely required. A
   consumer reads the input list as the contract.
 - **Declare the narrowest `permissions`** the workflow needs (principle III).
-- **Both halves of that contract are frozen by table.** `WORKFLOW_CONTRACTS` in
-  `tests/test_action_pins.py` names every reusable workflow's inputs and each job's effective
-  permissions, and both are validated before any job exists — so either one moving breaks a caller
-  with no job and no log, and is a major bump. Adding an input is backwards-compatible and updates
-  the table in the same change. Defaults are not frozen there: a default is behaviour rather than
-  call-site shape, and `README.md` carries it.
+- **Both halves of that contract are frozen by a table in the suite** — every reusable workflow's
+  inputs, and each job's effective permissions. Both are validated before any job exists, so either
+  one moving breaks a caller with no job and no log, and is a major bump. Adding an input is
+  backwards-compatible and updates the table in the same change. Defaults are not frozen there: a
+  default is behaviour rather than call-site shape, and `README.md` carries it.
 - **`env` does not propagate from caller to called workflow.** Anything a reusable workflow needs
   must arrive as an `input`.
 - **Interpolate untrusted values through `env`, not directly into `run:`** (principle IV).
@@ -196,21 +194,14 @@ Python 3.14. The only Python here supports the actions and their tests.
 - pytest. Never `unittest.TestCase`. `tests/` asserts properties of the YAML where there is nothing
   to call, and calls the action modules where there is — the second is always the better test, and
   moving a decision out of a `run:` block so it can be called is the reason those modules exist.
-- **The suite is offline; `mise run ci` must never need the network.** The exceptions are marked
-  `@pytest.mark.drift` and deselected by default, run by `mise run test-drift` from `drift.yml`,
-  which is scheduled as well as run on a pull request because the state it reads changes with no
-  commit. It carries no `push` trigger, so it never shares a run with the release that moves the
-  major tag, and `ci.yml`'s badge answers for the code alone. Reach for one only where the thing being asserted is repository state no
-  file can express: the required status checks on the `main` ruleset, the label set against
-  `CONTRIBUTING.md`'s table, this repository still being public, and whether the major tag still
-  predates a change consumers resolve.
+- **The suite is offline; `mise run ci` must never need the network.** The few exceptions are marked
+  and deselected by default, and `mise run test-drift` opts in. What earns the marker is stated where
+  the marker is declared.
 - **This repository stays public, or every consumer needs an access policy.** A private caller resolves
-  these workflows only because this one is public; were it made private, each consumer would need
-  Settings → Actions → General → Access → "Accessible from repositories owned by 'turboBasic'". The
-  policy itself cannot be asserted — `GET /repos/{owner}/{repo}/actions/permissions/access` answers
-  `422` while a repository is public — so `test_this_repository_is_still_public` guards the
-  precondition instead, carrying that setting as its failure message. Set the policy and delete the
-  test, in that order.
+  these workflows only because this one is public; were it made private, each consumer would have to
+  allow access to repositories this owner holds. The policy itself cannot be asserted, so a gate
+  guards the visibility that makes it unnecessary and carries the setting as its failure message. Set
+  the policy and delete the gate, in that order.
 - **A relative self-call is what exercises a reusable workflow here** (principle VI). Which
   behaviour turns on caller-side configuration is concrete: `python-ci.yml`'s `hook-stage`,
   `run-typecheck`, and a consumer with no mise config — those want a real consumer at the ref it
@@ -218,9 +209,9 @@ Python 3.14. The only Python here supports the actions and their tests.
 - **Pre-flight the line out of the file, never a retyping of it**, or you test your typing rather
   than the file.
 - **The allowed commit types are declared once**, as `conventional-commits.yml`'s `types` default,
-  and asserted equal to commitizen's built-in set by `tests/test_action_pins.py`. Both the title and
-  the commit-message check read it from there. It may not fall back to a tool's own default:
-  commitizen's set and the action's differ, `bump` being the one that does.
+  and asserted equal to commitizen's built-in set by test. Both the title and the commit-message
+  check read it from there. It may not fall back to a tool's own default: commitizen's set and the
+  action's differ, `bump` being the one that does.
 
 ## Shipping
 
@@ -265,16 +256,15 @@ the value from there; never restate it here.
 workflow is validated by the version under review; the `turboBasic/github-actions/...@vN` form
 resolves at the tag and would validate it against the last good release. `commit-messages.yml` calls
 `conventional-commits.yml` this way, and `ci.yml` calls `python-ci.yml` this way.
-`tests/test_action_pins.py` enforces it, because every other gate accepts the tagged form too.
+A gate enforces it, because every other gate accepts the tagged form too.
 
 **Never write the older `./.github/workflows/<name>.yml`.** It resolves at the same commit, but
 reaches the file through the runner's filesystem, so a step running earlier can substitute what gets
 called; zizmor's `self-repository` audit rejects it. `$/` is unavailable on GitHub Enterprise Server,
 which nothing here targets.
 
-actionlint has not learned `$/` yet (rhysd/actionlint#711) and reports it as a malformed call, so
-`.github/actionlint.yaml` ignores that one message, anchored on the `$/` prefix so a genuinely
-malformed ref still fails. It is the one silenced rule in the repo, and it silences a false positive
-rather than a finding. `test_the_actionlint_ignore_is_still_needed` asserts actionlint still rejects
-`$/`, so the day #711 ships the suite says to delete the file. A second ignore needs the same two
-things, a false positive and an expiry.
+actionlint has not learned `$/` yet and reports it as a malformed call, so `.github/actionlint.yaml`
+ignores that one message. It is the one silenced rule in the repo, and it silences a false positive
+rather than a finding — the config names the upstream bug, and a gate fails on the day that bug ships
+so the ignore cannot outlive it. A second ignore needs the same two things, a false positive and an
+expiry.

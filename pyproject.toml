@@ -59,6 +59,10 @@ testpaths = ["tests"]
 pythonpath = ["actions/release-decisions"]
 # `drift` is deselected by default so the suite stays offline: `mise run ci` must not depend on
 # api.github.com being reachable. `mise run test-drift` opts in, and CI runs it as its own job.
+#
+# A test earns the marker only where what it asserts is repository state no file in the tree can
+# express — a ruleset, a label set, a visibility setting, where a ref points. Anything a file
+# declares is asserted against that file, offline.
 addopts = ["-ra", "-m", "not drift"]
 markers = ["drift: asserts GitHub's own state against what the tree declares"]
 
