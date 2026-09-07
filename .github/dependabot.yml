@@ -1,11 +1,12 @@
-# Renovate owns action and dependency updates here: Dependabot's github-actions
-# ecosystem scans .github/workflows plus a root-level action.yml only, so it cannot see
-# actions/*/action.yml — which is most of this repository. Renovate matches action.yml
-# at any depth and can maintain the `# vX.Y.Z` comment beside a digest pin.
+# Renovate owns version updates here: Dependabot's github-actions ecosystem scans
+# .github/workflows plus a root-level action.yml only, so it cannot see actions/*/action.yml
+# — which is most of this repository. Renovate matches action.yml at any depth and can
+# maintain the `# vX.Y.Z` comment beside a digest pin.
 #
-# Kept for security-only updates, which Renovate does not replace.
-# dependabot-automerge.yml auto-merges a patch-level fix from here, same as renovate.json
-# does for a patch/digest bump — minor and major still wait for a human either way.
+# Dependabot is kept for security alerts, which Renovate does not replace. Those PRs wait for
+# a human and nothing auto-merges them: reaching the first patched release can mean a minor or
+# major jump, so a security fix is not the boring bump renovate.json auto-merges. The two tools
+# divide the work rather than mirror each other, and symmetry between their rules is not a goal.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
@@ -14,6 +15,5 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "ci"
-    # Version updates come from Renovate; this leaves Dependabot's security alerts,
-    # which ignore this limit.
+    # 0 stops version updates, not security alerts — those ignore this limit.
     open-pull-requests-limit: 0

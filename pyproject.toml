@@ -81,7 +81,6 @@ surface-include = [".github/workflows/**", "actions/**"]
 surface-exclude = [
   ".github/workflows/ci.yml",
   ".github/workflows/commit-messages.yml",
-  ".github/workflows/dependabot-automerge.yml",
   ".github/workflows/drift.yml",
   ".github/workflows/release.yml",
   ".github/workflows/release-proposal.yml",
