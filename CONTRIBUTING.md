@@ -65,10 +65,8 @@ Move the major tag only after that.
 
 A workflow only this repo runs — `ci.yml`, `commit-messages.yml`, `release-on-merge.yml`,
 `release-proposal.yml` — has no consumer to call it. Dispatch it, or open a PR that
-triggers it, and read the run. `release.yml` has no trigger of its own and cannot be dispatched: reach
-it by dispatching `release-on-merge.yml` with `dry-run`, which runs every refusal and creates nothing —
-on a commit that is already tagged it stops at the empty-range refusal, which is that refusal working. A
-brand-new workflow cannot be dispatched at all: GitHub offers `workflow_dispatch` only for a workflow file already on the default branch, so exercising one before
+triggers it, and read the run. `release.yml` has no trigger of its own: dispatch
+`release-on-merge.yml` to reach it. A brand-new workflow cannot be dispatched at all: GitHub offers `workflow_dispatch` only for a workflow file already on the default branch, so exercising one before
 merge means a temporary trigger scoped to your branch, removed in the same pull request.
 
 ## Labels
@@ -126,51 +124,29 @@ proposal][release-proposal-workflow] workflow opens a pull request titled `bump:
 body is the exact notes that release will publish, and its diff is `pyproject.toml`'s
 `[project].version` and `uv.lock`'s matching line, nothing else. Read the notes, and:
 
-- **Agree with the version?** Merge it. The [Release on merge][release-workflow] workflow runs on the merge
-  commit and, when its `verify` job passes, calls the release: it renders the notes again from the same
-  rules, tags `vX.Y.Z`, publishes the release with those notes, and force-moves `vX` last. No further
-  human action. `ci.yml` runs on the same commit and answers for the code alone, so a refused or failed
-  release never reddens it.
+- **Agree with the version?** Merge it. [Release on merge][release-workflow] runs on the merge commit
+  and, once its `verify` job passes, cuts the release. No further human action. `ci.yml` runs on the same
+  commit and answers for the code alone, so a refused or failed release never reddens it.
 - **Disagree with the version?** Change it on the proposal branch before merging. The released version
   is the one you approved, and every later refresh leaves it alone — a commit on that branch authored
   by anyone but the bot is how the workflow knows a human has decided.
 
-The proposal proposes; it does not decide. The increment it offers is computed from the commits that
-touch the surface consumers resolve — `.github/workflows/` and `actions/`, minus this repo's own
-CI — so a `feat:` that only touched our own linting comes out a patch, which is the rule the number
-has always followed. `pyproject.toml` remains the only place the version is decided.
+The proposal proposes; it does not decide. `pyproject.toml` is the only place the version is decided,
+and what the number describes is [ai-instructions][ai-instructions-versioning]'s rule: the
+consumer-facing surface, declared as `[tool.turbobasic-release]` in that same file. A major bump is a
+new tag rather than a move, so the [README][readme-versioning]'s Versioning section names the new one in
+the same pull request — including the `0.x` case, where the increments differ.
 
-Nothing is built and nothing is uploaded. A consumer resolves this repository's tree at a ref, so the
-tag *is* the artifact — which is why deciding the number in a reviewed pull request is the whole point.
+What the release refuses, and what it does on a merge that releases nothing, is the
+[README][readme-release]'s: it is the same workflow a consumer calls. Two things are ours alone:
 
-A major bump is a new tag rather than a move: the old major stays where it is, and the
-[README][readme]'s Versioning section is updated to name the new one in the same pull request.
-
-**Under `0.x` the minor is the boundary, so the increments differ.** A breaking range is proposed as the next
-*minor* — `0.1.0 → 0.2.0` — rather than graduating the project to `1.0.0`, which is a decision nobody should
-make by merging a proposal. A `feat` is proposed as a patch, because the moving ref a consumer pins is
-`v0.1` and a minor bump would leave it. Within a `0.x` line a `feat` and a `fix` therefore reach the same
-number; the notice says which it was. None of this applies from `1.0.0` up, where the increments are
-unchanged.
-
-### What refuses, and why
-
-The release renders the notes *before* it creates any ref, so a failure leaves no tag behind. It
-refuses when the version is not ahead of every existing release, when the notes render nothing, and
-when the range breaks the consumer surface under a version that is not a new major — publishing that
-would move the existing major tag onto a broken contract. A breaking change that touches nothing
-consumers resolve is not that: it reads the same reusable workflows and composite actions the version
-itself describes, so a `!` over `tests/` or this repository's own CI refuses nothing.
-
-On an ordinary merge, where the declared version is already tagged, it says so with a notice and stops.
-It does not redden `main` for doing nothing wrong.
-
-`mise run release-notes` renders the notes locally, offline, creating nothing.
-[Dispatching Release on merge][release-workflow] with `dry-run` verifies the commit, runs every refusal
-and prints the notes it would publish, without creating a tag. If a release fails *after* the version tag
-exists, recover by merging the next patch version rather than by re-dispatching: the `immutable release
-tags` ruleset bypasses nobody, so that tag cannot be deleted. The major tag moves last precisely so
-consumers stay on the previous release until the rest has succeeded.
+- `mise run release-notes` renders the notes locally, offline, creating nothing. [Dispatching Release on
+  merge][release-workflow] with `dry-run` does the same on a runner, through every refusal, creating
+  nothing — on a commit that is already tagged it stops at the empty-range refusal, which is that
+  refusal working.
+- If a release fails *after* the version tag exists, recover by merging the next patch version. The
+  `immutable release tags` ruleset bypasses nobody, so that tag cannot be deleted, and the major tag
+  moves last precisely so consumers stay on the previous release until the rest has succeeded.
 
 ### The App behind the proposal
 
@@ -185,11 +161,8 @@ well as opening. An App is not "GitHub Actions", so it is not subject to that se
 requests trigger the required checks with no click.
 
 **If that key is rotated or the installation removed, no proposal is raised and nothing says so.** The
-backstop is `mise run test-drift`, which fails while a reusable workflow or composite action is newer
-than the major tag — the repo-local workflows named under [Verifying a workflow
-change](#verifying-a-workflow-change) are excluded, since nothing outside resolves those — so the next
-pull request says a release is owed rather than someone noticing by accident. That check is why the major tag can no longer sit 29 commits behind
-`main` for 19 days with four consumer-facing changes stranded, as it once did.
+backstop is `mise run test-drift`, which fails while anything a consumer resolves is newer than the
+major tag, so the next pull request says a release is owed rather than someone noticing by accident.
 
 <!-- Links -->
 
@@ -208,5 +181,6 @@ pull request says a release is owed rather than someone noticing by accident. Th
 [readme]: README.md
 [test-consumer]: https://github.com/turboBasic/github-actions-test
 [readme-versioning]: README.md#versioning
+[readme-release]: README.md#releaseyml
 [release-proposal-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release-proposal.yml
 [release-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release-on-merge.yml
