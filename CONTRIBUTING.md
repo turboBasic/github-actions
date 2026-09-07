@@ -1,7 +1,8 @@
 # Contributing
 
-This repo holds the CI that other `turboBasic` repositories run. A change here executes in every
-consumer listed in [`docs/consumers.md`][consumers] — read that list before starting.
+This repo holds the CI that other `turboBasic` repositories run. A change to a workflow reaches every
+consumer pinned to the moving major on their next push, so the question a change answers is whether a
+`v4` caller can absorb it — see [Versioning][readme-versioning].
 Forking to suit your own conventions is an expected use; the [MIT licence][license] asks nothing
 beyond keeping the notice.
 
@@ -110,9 +111,9 @@ gh issue list --state open --json labels --jq '[.[].labels[].name]|group_by(.)|m
 Branch first. Title the PR as a Conventional Commit — a squash merge takes its subject from there.
 Both workflows must pass.
 
-Say which consumers a change affects and what you ran to verify it, and update
-[`docs/consumers.md`][consumers] and the [README][readme] in the same change when an
-input contract moves. Agent-written code is welcome; you are still the author of it.
+Say whether a `v4` caller can absorb the change and what you ran to verify it, and update the
+[README][readme] in the same change when an input contract moves. Agent-written code is welcome; you
+are still the author of it.
 
 ## Releasing
 
@@ -136,6 +137,20 @@ and what the number describes is [ai-instructions][ai-instructions-versioning]'s
 consumer-facing surface, declared as `[tool.turbobasic-release]` in that same file. A major bump is a
 new tag rather than a move, so the [README][readme-versioning]'s Versioning section names the new one in
 the same pull request — including the `0.x` case, where the increments differ.
+
+### Repinning consumers onto a new major
+
+Only a major needs this; nothing else asks a consumer to act. Repin `github-actions-test` first: it is
+the only caller of `prek-advisory.yml` and `release.yml`, so `advisory / prek-advisory` and
+`release / tag-and-publish` report nowhere else and a rename to either is unverified until that
+repository is green.
+
+Then, per consumer, two orderings that are not interchangeable. Its ruleset flips **after** its repin
+branch has reported the new check names, never before — a required context that has never reported
+blocks every open pull request in that repository, not just the one doing the repin. And between the
+flip and the merge, that repository's `main` still resolves the old major, so any *other* pull request
+opened in that window reports the retired names and blocks. Keep the window short, and expect a
+consumer whose ruleset requires an approving review not to merge unattended.
 
 What the release refuses, and what it does on a merge that releases nothing, is the
 [README][readme-release]'s: it is the same workflow a consumer calls. Two things are ours alone:
@@ -166,7 +181,6 @@ major tag, so the next pull request says a release is owed rather than someone n
 
 <!-- Links -->
 
-[consumers]: docs/consumers.md
 [license]: LICENSE
 [coc]: CODE_OF_CONDUCT.md
 [security]: SECURITY.md

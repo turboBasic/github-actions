@@ -172,8 +172,10 @@ Python 3.14. The only Python here supports the actions and their tests.
   reasoning left in prose where a test can hold it.
 - `README.md` is the consumer-facing contract: what each workflow does, its inputs, and a call site
   that can be copied as-is. A new input or a changed default updates it in the same change.
-- `docs/consumers.md` records which repository calls what. Keep it current — it is the blast-radius
-  list for any change to a workflow.
+- **No document lists the consumers.** A change is not owed a reading of who calls what: whether a
+  `v4` caller can absorb it is answered from the diff, and the checks holding that answer read no
+  repository but this one. `github-actions-test`'s README is the call-site map, maintained where the
+  calls are; enumerate the rest live when a major's repins need an order.
 - Every change ends by checking the documentation it affects and correcting it in the same change.
   Stale framing is a defect, not a follow-up.
 
@@ -201,6 +203,13 @@ Python 3.14. The only Python here supports the actions and their tests.
   file can express: the required status checks on the `main` ruleset, the label set against
   `CONTRIBUTING.md`'s table, this repository still being public, and whether the major tag still
   predates a change consumers resolve.
+- **This repository stays public, or every consumer needs an access policy.** A private caller resolves
+  these workflows only because this one is public; were it made private, each consumer would need
+  Settings → Actions → General → Access → "Accessible from repositories owned by 'turboBasic'". The
+  policy itself cannot be asserted — `GET /repos/{owner}/{repo}/actions/permissions/access` answers
+  `422` while a repository is public — so `test_this_repository_is_still_public` guards the
+  precondition instead, carrying that setting as its failure message. Set the policy and delete the
+  test, in that order.
 - **Lint does not verify a workflow. Run it.** Exercise every changed workflow before tagging: a
   reusable one from a real PR, anything else from a dispatch. Every linter here passes on a workflow
   that fails on its first run, because the file is correct and its environment is not — the caller

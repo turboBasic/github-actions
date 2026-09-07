@@ -4,8 +4,7 @@
 
 The CI that other `turboBasic` repositories run. It ships no service and is published to no package
 index, but it is the highest-leverage repository in the account: code here executes in every
-consumer listed in [`docs/consumers.md`](docs/consumers.md), holds a `GITHUB_TOKEN`, and in one case
-runs on `pull_request_target`.
+repository that pins it, holds a `GITHUB_TOKEN`, and in one case runs on `pull_request_target`.
 
 In scope, roughly in order of how much it matters:
 
