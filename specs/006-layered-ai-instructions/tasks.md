@@ -118,10 +118,10 @@ in `docs/`, in `.github/` and in `.specify/memory/`. The check lives in `tests/`
 
 **Independent Test**: read `docs/instruction-layers.md` alone and find no rule about workflows, actions, releases or pinning.
 
-- [ ] T031 [US4] Write `docs/instruction-layers.md`: the four layers, the reference direction, what belongs in each, the navigation-is-not-a-rule-layer principle, and how a violation is caught. Explanatory rather than normative — this repository's copy of the rule lives in layer 2 per T013 — so it sits at layer 3. Examples are allowed where marked as such. It must contain no literal major version, because every prose document except `README.md` is already scanned for one.
-- [ ] T032 [US4] Add `docs/instruction-layers.md` to the layer 3 list in `tests/test_instruction_layers.py`, so the new document is assigned rather than unassigned.
-- [ ] T033 [P] [US4] Name `docs/instruction-layers.md` from `CLAUDE.md`'s navigation layer with a one-line gloss.
-- [ ] T034 [US4] Prove SC-009: grep `docs/instruction-layers.md` for `workflow`, `action`, `release`, `pin`, `major` and `consumer` and confirm no hit outside a marked example.
+- [X] T031 [US4] Write `docs/instruction-layers.md`: the four layers, the reference direction, what belongs in each, the navigation-is-not-a-rule-layer principle, and how a violation is caught. Explanatory rather than normative — this repository's copy of the rule lives in layer 2 per T013 — so it sits at layer 3. Examples are allowed where marked as such. It must contain no literal major version, because every prose document except `README.md` is already scanned for one.
+- [X] T032 [US4] Add `docs/instruction-layers.md` to the layer 3 list in `tests/test_instruction_layers.py`, so the new document is assigned rather than unassigned.
+- [X] T033 [P] [US4] Name `docs/instruction-layers.md` from `CLAUDE.md`'s navigation layer with a one-line gloss.
+- [X] T034 [US4] Prove SC-009: grep `docs/instruction-layers.md` for `workflow`, `action`, `release`, `pin`, `major` and `consumer` and confirm no hit outside a marked example.
 
 **Checkpoint**: all four stories complete.
 
