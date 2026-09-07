@@ -186,6 +186,8 @@ def _uses_lines(path: Path) -> list[tuple[int, str]]:
 
 @pytest.mark.parametrize("path", _yaml_files(), ids=lambda p: str(p.relative_to(REPO_ROOT)))
 def test_third_party_actions_are_pinned_to_a_full_sha(path: Path) -> None:
+    # Holds constitution principle II: a third-party action is pinned to a full 40-character SHA,
+    # with the version as a trailing comment so the pin stays readable and trackable.
     for number, ref in _uses_lines(path):
         target = ref.split("#")[0].strip()
         if target.startswith((FIRST_PARTY, *SELF_PREFIXES)):
@@ -204,6 +206,8 @@ def test_third_party_actions_are_pinned_to_a_full_sha(path: Path) -> None:
 
 @pytest.mark.parametrize("path", _yaml_files(), ids=lambda p: str(p.relative_to(REPO_ROOT)))
 def test_first_party_actions_use_the_major_tag(path: Path) -> None:
+    # Holds principle II's other half: a first-party reference tracks the moving major tag rather
+    # than a SHA, allowed only because this repository shares its owner with every consumer.
     for number, ref in _uses_lines(path):
         target = ref.split("#")[0].strip()
         if not target.startswith(FIRST_PARTY):
@@ -269,9 +273,10 @@ def _mise_tool_versions() -> dict[str, str]:
 
 
 def test_no_mise_tool_version_floats() -> None:
-    # A `latest` resolves at install time, so one commit runs different linters on different
-    # machines. The digit rule admits a partial pin like `3.14` and rejects every form that leaves
-    # the choice to whoever runs `mise install`.
+    # Holds the conventions layer's rule that no tool version is `latest`. A `latest` resolves at
+    # install time, so one commit runs different linters on different machines. The digit rule admits
+    # a partial pin like `3.14` and rejects every form that leaves the choice to whoever runs
+    # `mise install`.
     floating = sorted(
         f"{name} = {version!r}"
         for name, version in _mise_tool_versions().items()
@@ -301,6 +306,9 @@ def test_no_prose_document_names_a_concrete_major(doc: Path) -> None:
 
 
 def test_a_self_call_resolves_at_the_commit_under_review() -> None:
+    # Holds the conventions layer's CI rule that a self-call uses the self-repository form, so it
+    # resolves at the caller's own commit and validates the version under review.
+    #
     # Every other gate accepts both forms — test_first_party_actions_use_the_major_tag accepts the
     # tagged one by design, since prek-advisory.yml references a composite action that way —
     # so nothing else here would notice a self-call rewritten to resolve at the tag instead.
@@ -321,6 +329,9 @@ def test_a_self_call_resolves_at_the_commit_under_review() -> None:
 
 
 def test_the_actionlint_ignore_is_still_needed(tmp_path: Path) -> None:
+    # Holds the conventions layer's rule that a silenced lint rule needs two things, a false positive
+    # and an expiry. This is the expiry.
+    #
     # Asserts an upstream bug persists, so the workaround cannot outlive it: `.github/actionlint.yaml`
     # exists only because actionlint rejects `$/`, and nothing else would ever say that stopped being
     # true. Run against a config without the ignore — when this fails, rhysd/actionlint#711 has
@@ -427,6 +438,9 @@ def _effective_permissions(lines: list[str], job_id: str) -> set[str]:
 def test_the_reusable_interface_is_frozen(
     workflow: str, inputs: set[str] | None, permissions: dict[str, set[str]]
 ) -> None:
+    # Holds the conventions layer's rule that both halves of a reusable workflow's contract are
+    # frozen — its inputs and each job's effective permissions. Constitution principles I and III
+    # are why: the surface is public, and permissions only ever reduce down a call chain.
     lines = (REPO_ROOT / ".github" / "workflows" / workflow).read_text().splitlines()
 
     for job_id, granted in permissions.items():
@@ -599,6 +613,9 @@ def test_the_ruleset_requires_exactly_the_checks_that_exist() -> None:
 
 @pytest.mark.drift
 def test_this_repository_is_still_public() -> None:
+    # Holds the conventions layer's rule that this repository stays public, or every consumer needs
+    # an access policy.
+    #
     # Private `opus-magnum` can call these workflows only because this repository is public. The
     # setting that would replace that cannot be asserted — `actions/permissions/access` answers 422
     # while a repo is public — so this guards the precondition instead, and its message carries the
@@ -746,6 +763,8 @@ def block_of_words(path: Path, key: str) -> set[str]:
 
 
 def test_allowed_types_match_the_commitizen_builtin_set() -> None:
+    # Holds the conventions layer's rule that the allowed commit types are declared exactly once.
+    #
     # commitizen has the final say on commit messages, through the commit-msg hook and
     # `cz check`. A type it accepts that this list rejects is a gate disagreeing with the
     # tool it mirrors, and `bump` is the one that differs from the action's own default —
@@ -761,6 +780,9 @@ def test_allowed_types_match_the_commitizen_builtin_set() -> None:
 
 
 def test_every_workflow_name_carries_its_prefix() -> None:
+    # Holds the conventions layer's rule that a workflow's name is an emoji, a space, then its
+    # filename stem.
+    #
     # The Actions sidebar sorts by name by code point, so the prefix is what keeps these together and
     # below the entries GitHub injects and nobody can rename. Which block a workflow belongs to is its
     # trigger: a `workflow_call`-only workflow never has a run of its own, because its jobs appear
@@ -783,11 +805,13 @@ def test_every_workflow_name_carries_its_prefix() -> None:
 
 
 def test_every_job_name_is_lowercase_kebab() -> None:
+    # Holds the conventions layer's rule that a job name is lowercase-kebab-case.
+    #
     # `REQUIRED_CHECKS` pins three names, not the shape of a fourth, so nothing else holds a new job
     # to the scheme every check context here follows.
     #
     # Casing only. Whether a callee's name says what the job is rather than repeating its caller is
-    # judgement, and docs/ai-instructions.md owns it; this is the half a regex can hold.
+    # judgement, and the conventions layer owns that half; this is the half a regex can hold.
     offenders = [
         f"{path.name}:{number}: {line.strip()}"
         for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml"))

@@ -5,13 +5,12 @@ Copilot) alike. The invariants are a layer above and are cited here by principle
 point says where every kind of instruction lives.
 
 Scope: reusable GitHub Actions workflows and composite actions consumed by other
-`turboBasic` repositories. This repo ships no application. Its Python is of two kinds: the suite under
-`tests/`, which asserts properties of the YAML, and the modules a composite action runs — where a
+`turboBasic` repositories. This repo ships no application. Its Python is of two kinds: the test suite,
+which asserts properties of the YAML, and the modules a composite action runs — where a
 decision the YAML used to make in shell now lives, so that it can be tested at all.
 
-Committed configuration is authoritative for settings it already declares — read `mise.toml`,
-`pyproject.toml`, `.pre-commit-config.yaml` (prek reads this same file), and `.cspell.config.yaml`
-rather than assuming. Extend those files; never regenerate them.
+Committed configuration is authoritative for settings it already declares: read it rather than
+assuming, extend it, and never regenerate it. The entry point names which file holds what.
 
 ## Working style
 
@@ -49,7 +48,7 @@ Read those, not a summary here.
 
 `.specify/memory/constitution.md` is ours to edit — it states the invariants as gates a
 spec fails against. Everything else under `.specify/` and `.claude/skills/speckit-*/` is vendored
-and version-locked to the `pipx:specify-cli` pin in `mise.toml`: bump the pin and run
+and version-locked to the `pipx:specify-cli` pin mise holds: bump the pin and run
 `mise run spec-kit-upgrade`, never `specify self upgrade`, which replaces the binary outside mise.
 
 A spec is not the default path. Size decides:
@@ -66,24 +65,23 @@ that ships.
 
 A completed feature directory under `specs/` is never edited again; a changed requirement gets a new
 numbered directory cross-linking the one it supersedes. Nothing there is authoritative for current
-behaviour — `README.md`, `docs/` and the workflows are. Read a ticked `tasks.md` as a work log.
+behaviour — the shipped documentation and the workflows are. Read a ticked `tasks.md` as a work log.
 
 ## Environment
 
 ### Tooling hierarchy
 
-1. **Project task** — a `mise.toml` task (`lint`, `test`, `typecheck`, `fmt`). Never bypass it.
+1. **Project task** — a mise task (`lint`, `test`, `typecheck`, `fmt`). Never bypass it.
 2. **prek** — `mise exec -- prek run`.
 3. **`uv run <tool>`** — project-local Python tools.
 4. **`mise exec -- <tool>`** — system tools mise manages (`actionlint`, `zizmor`, `shellcheck`).
 
 Never `pip install`. Never activate a venv by hand. Nothing is installed globally: a new runtime or
-CLI is pinned in `mise.toml`, which owns every version in its `[tools]` table — Python tool versions
-are `pyproject.toml`'s.
+CLI is pinned with mise, which owns every version in its `[tools]` table — except Python tool
+versions, which are declared alongside the Python dependencies.
 
 **No `[tools]` entry is `latest`.** Each names a version, so two machines on one commit resolve the
-same linters. `.github/renovate.json` enables the `mise` manager that bumps them, and a gate stops a
-new tool arriving unpinned.
+same linters. Renovate's `mise` manager bumps them, and a gate stops a new tool arriving unpinned.
 
 ### Dependencies
 
@@ -91,7 +89,7 @@ new tool arriving unpinned.
   published from here.
 - Run `uv lock` after editing dependencies and commit the result in the same change.
 - Renovate owns version updates; Dependabot is kept for security alerts, whose PRs wait for a human.
-  `.github/dependabot.yml` owns that split and says why symmetry between the two is not a goal.
+  Their own configs own that split and say why symmetry between the two is not a goal.
 - Introducing a new file type updates `.editorconfig`, `.gitattributes`, and `.gitignore` in the
   same change.
 
@@ -107,8 +105,8 @@ The repository layout is load-bearing:
 | `.github/workflows/{ci,commit-messages,release-on-merge}.yml` | this repo's own CI and its release | not referenced |
 | `actions/<name>/action.yml` | composite actions | `turboBasic/github-actions/actions/<name>@vN` |
 
-`vN` is the current major tag. `README.md`'s Versioning section declares which one that is, and is
-the only place a major is written literally.
+`vN` is the current major tag. Exactly one artefact declares which one that is, and it is the only
+place a major is written literally.
 
 Composite actions live in `actions/`, not `.github/actions/`. The latter is the convention for
 *repo-local* actions and would read as private-by-convention here.
@@ -145,7 +143,7 @@ Composite actions live in `actions/`, not `.github/actions/`. The latter is the 
   inputs, and each job's effective permissions. Both are validated before any job exists, so either
   one moving breaks a caller with no job and no log, and is a major bump. Adding an input is
   backwards-compatible and updates the table in the same change. Defaults are not frozen there: a
-  default is behaviour rather than call-site shape, and `README.md` carries it.
+  default is behaviour rather than call-site shape, and the consumer-facing reference carries it.
 - **`env` does not propagate from caller to called workflow.** Anything a reusable workflow needs
   must arrive as an `input`.
 - **Interpolate untrusted values through `env`, not directly into `run:`** (principle IV).
@@ -162,11 +160,11 @@ Python 3.14. The only Python here supports the actions and their tests.
 - A script invoked by a composite action reads its arguments from the environment, declared in
   `action.yml`. It never parses `${{ }}` interpolations inline.
 - **A module a composite action runs is standard-library-only, and keeps to syntax older
-  interpreters parse.** `mise.toml` pins 3.14 here, but a caller whose own config pins no `python`
+  interpreters parse.** mise pins 3.14 here, but a caller whose own config pins no `python`
   falls back to the runner's, and `python3` is what runs the file — there is no resolution step to
   fail loudly. Its imports are asserted against `sys.stdlib_module_names` by test.
-- **A module a composite action runs is importable by the suite**, through a `pythonpath` entry in
-  `pyproject.toml` and a matching `extraPaths` for pyright. Both are needed; neither is a relaxation.
+- **A module a composite action runs is importable by the suite**, through a `pythonpath` entry in the
+  pytest config and a matching `extraPaths` for pyright. Both are needed; neither is a relaxation.
 
 ### Comments and docs
 
@@ -174,7 +172,7 @@ Python 3.14. The only Python here supports the actions and their tests.
 - Comments only where the WHY is non-obvious, never restating what the code does.
 - State the rule, not the incident that taught it. No war stories, no version archaeology, no
   reasoning left in prose where a test can hold it.
-- `README.md` is the consumer-facing contract: what each workflow does, its inputs, and a call site
+- The consumer-facing reference is a contract: what each workflow does, its inputs, and a call site
   that can be copied as-is. A new input or a changed default updates it in the same change.
 - Every change ends by checking the documentation it affects and correcting it in the same change.
   Stale framing is a defect, not a follow-up.
@@ -182,16 +180,16 @@ Python 3.14. The only Python here supports the actions and their tests.
 ## Quality gates
 
 - prek is the linting entry point. Never call `ruff` directly.
-- `actionlint` covers `.github/workflows`; it does not look in `actions/`. `.github/actionlint.yaml`
-  owns its ignores. `zizmor` covers both and is the security linter (principle VII).
-- `.yamllint.yaml` owns yamllint's rules and exempt paths.
+- `actionlint` covers `.github/workflows`; it does not look in `actions/`. Its own config owns its
+  ignores. `zizmor` covers both and is the security linter (principle VII).
+- yamllint's own config owns its rules and exempt paths.
 - A new GitHub config file gets a `check-jsonschema` hook and a matching line in the `lint` task.
   Prefer `--builtin-schema` to `--schemafile <url>`: a vendored schema needs no network and cannot be
-  repointed. `.github/zizmor.yml` gets none — its only published schema is served off a floating
-  `main` ref, and zizmor rejects an unknown field in its own config anyway. `.github/actionlint.yaml`
-  does get one, because actionlint accepts an unknown key there silently.
+  repointed. zizmor's config gets none — its only published schema is served off a floating `main`
+  ref, and zizmor rejects an unknown field in its own config anyway. actionlint's does get one,
+  because actionlint accepts an unknown key there silently.
 - pyright strict (principle VII).
-- pytest. Never `unittest.TestCase`. `tests/` asserts properties of the YAML where there is nothing
+- pytest. Never `unittest.TestCase`. The suite asserts properties of the YAML where there is nothing
   to call, and calls the action modules where there is — the second is always the better test, and
   moving a decision out of a `run:` block so it can be called is the reason those modules exist.
 - **The suite is offline; `mise run ci` must never need the network.** The few exceptions are marked
@@ -235,8 +233,8 @@ bump by what changed under `.github/workflows/` and `actions/`; a `feat:` touchi
 linting or editor config is a patch. The number is a human decision, never computed unattended, and
 a proposal of it is not a decision.
 
-Which major is current and which tags are immutable live in `README.md`'s Versioning section. Read
-the value from there; never restate it here.
+Which major is current, and which tags are immutable, is declared in exactly one artefact and read
+from there. Never restate it here.
 
 ### Git
 
@@ -244,8 +242,8 @@ the value from there; never restate it here.
 - Commit or push only when asked. Branch first if on the default branch.
 - Never commit a secret (principle V).
 - **Labels are on issues, never on a pull request.** A PR's kind is its Conventional Commit title and
-  a second copy of that on a label is a second source of truth. Nothing automated reads a label —
-  `CONTRIBUTING.md`'s Labels section owns the axes and what each one is for.
+  a second copy of that on a label is a second source of truth. Nothing automated reads a label, and
+  the axes are documented once, for contributors.
 
 ### CI
 
@@ -263,8 +261,8 @@ reaches the file through the runner's filesystem, so a step running earlier can 
 called; zizmor's `self-repository` audit rejects it. `$/` is unavailable on GitHub Enterprise Server,
 which nothing here targets.
 
-actionlint has not learned `$/` yet and reports it as a malformed call, so `.github/actionlint.yaml`
-ignores that one message. It is the one silenced rule in the repo, and it silences a false positive
+actionlint has not learned `$/` yet and reports it as a malformed call, so its own config ignores
+that one message. It is the one silenced rule in the repo, and it silences a false positive
 rather than a finding — the config names the upstream bug, and a gate fails on the day that bug ships
 so the ignore cannot outlive it. A second ignore needs the same two things, a false positive and an
 expiry.
