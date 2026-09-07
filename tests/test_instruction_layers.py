@@ -163,8 +163,9 @@ def test_the_derived_vocabulary_carries_no_domain_vocabulary() -> None:
 
 
 def test_no_artefact_names_one_from_a_higher_layer() -> None:
-    # Layer 4 is exempt as a source: naming every artefact by path is its entire content. It is not
-    # exempt as a target — a layer 3 file naming CLAUDE.md is an upward citation like any other.
+    # Navigation needs no exemption as a source, because it carries the highest number: naming every
+    # artefact by path is its entire content, and no citation from it can rise. It is not exempt as a
+    # target — a layer 3 file naming a navigation file is an upward citation like any other.
     owner = _layer_of_path()
     violations: list[str] = []
     edges: set[tuple[int, int]] = set()
@@ -179,13 +180,12 @@ def test_no_artefact_names_one_from_a_higher_layer() -> None:
                     continue
                 if target_layer != layer:
                     edges.add((layer, target_layer))
-                if target_layer > layer and layer != 4:
+                if target_layer > layer:
                     violations.append(f"layer {layer} {source} names layer {target_layer} {target}")
     assert not violations, "citations run concrete to abstract only: " + "; ".join(violations)
 
-    # Every cross-layer citation strictly decreases, from every source the direction rule binds, so
-    # the citation graph has no cycle.
-    rising = sorted(e for e in edges if e[1] > e[0] and e[0] != 4)
+    # Every cross-layer citation strictly decreases, so the citation graph has no cycle.
+    rising = sorted(e for e in edges if e[1] > e[0])
     assert not rising, f"cycle in the citation graph via rising edges: {rising}"
 
 
@@ -302,6 +302,18 @@ IMPERATIVE_OPENERS = (
 )
 
 
+MARKDOWN_PREFIX = "#*_->`| \t"
+
+
+def _sentences(text: str) -> list[str]:
+    # Split the raw text, never the collapsed form. Collapsing removes the line breaks that separate a
+    # heading from the prose under it and one table row from the next, which leaves a whole document as
+    # a handful of sentences each beginning `#` or `|` — where no opener can ever match. Table cells
+    # split too, so a rule written into a gloss column is still reached.
+    cells = [cell for line in text.splitlines() for cell in line.split("|")]
+    return [piece for cell in cells for piece in re.split(r"(?<=[.:])\s+", cell) if piece.strip()]
+
+
 @pytest.mark.parametrize("navigation", LAYERS[4])
 def test_a_navigation_file_carries_pointers_and_no_rule(navigation: str) -> None:
     text = (REPO_ROOT / navigation).read_text(encoding="utf-8")
@@ -311,8 +323,8 @@ def test_a_navigation_file_carries_pointers_and_no_rule(navigation: str) -> None
 
     imperative = [
         sentence.strip()
-        for sentence in re.split(r"(?<=[.:])\s+|\n", _collapsed(text))
-        if sentence.strip().lower().lstrip("*_- ").startswith(IMPERATIVE_OPENERS)
+        for sentence in _sentences(text)
+        if sentence.strip().lower().lstrip(MARKDOWN_PREFIX).startswith(IMPERATIVE_OPENERS)
     ]
     assert not imperative, (
         f"{navigation} is navigation and states no rule, but reads as imperative: {imperative}"
