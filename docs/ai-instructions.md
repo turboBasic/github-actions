@@ -101,7 +101,7 @@ The repository layout is load-bearing:
 | Path | Contents | Referenced as |
 | --- | --- | --- |
 | `.github/workflows/*.yml` with `workflow_call` | reusable workflows | `turboBasic/github-actions/.github/workflows/<name>.yml@vN` |
-| `.github/workflows/{ci,commit-messages,release,release-on-merge}.yml` | this repo's own CI and its release | not referenced |
+| `.github/workflows/{ci,commit-messages,release-on-merge}.yml` | this repo's own CI and its release | not referenced |
 | `actions/<name>/action.yml` | composite actions | `turboBasic/github-actions/actions/<name>@vN` |
 
 `vN` is the current major tag. `README.md`'s Versioning section declares which one that is, and is

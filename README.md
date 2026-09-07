@@ -231,16 +231,32 @@ So is a key other than those two — a misspelled `surface_include` would otherw
 leaving you with the unfiltered range and nothing said about it.
 
 ```yaml
+# .github/workflows/release-on-merge.yml
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Run every refusal and render the real notes, then stop before creating any tag.
+        type: boolean
+        default: false
+
+permissions: {}
+
 jobs:
-  ci:
+  verify:
     uses: turboBasic/github-actions/.github/workflows/python-ci.yml@v4
     permissions:
       contents: read
 
   release:
-    needs: [ci]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [verify]
     uses: turboBasic/github-actions/.github/workflows/release.yml@v4
+    with:
+      # `inputs` does not exist on the push path, so `|| false` is what makes this the boolean the
+      # input's type demands.
+      dry-run: ${{ inputs.dry-run || false }}
     permissions:
       contents: write # creates the version tag, publishes the release, moves the major tag
 ```
@@ -249,14 +265,18 @@ jobs:
 | --- | --- | --- |
 | `dry-run` | `false` | Run every refusal and render the real notes, then stop before creating any tag. |
 
-**`needs: [ci]` is the CI verdict**, and gating on a job rather than on a `workflow_run` trigger is
+**Give the release its own workflow rather than a job in your CI one.** A refused or failed release
+then reddens the release, and your CI badge keeps answering for the code alone.
+
+**`needs: [verify]` is the CI verdict**, and gating on a job rather than on a `workflow_run` trigger is
 deliberate: the release cannot start unless CI passed on this exact commit, so there is no check run to
-query and no race to lose. Point `needs:` at whichever job reports your required context.
+query and no race to lose. Point `needs:` at whichever job reports your required context. Verifying in
+this workflow means running CI twice on the merge commit — that is the price of a separate run, since a
+`needs:` edge is the only verdict structurally true on the commit being tagged.
 
 This workflow has **no trigger of its own** — `workflow_call` only — so that edge is the only gate and
-nothing can reach the tagging step around it. A manual release therefore goes through your caller: give
-that workflow a `workflow_dispatch` with a `dry-run` input and pass it through, keeping the same `needs:`.
-This repository's own caller is `release-on-merge.yml`, which does exactly that.
+nothing can reach the tagging step around it. A manual release therefore goes through your caller, which
+is what the `workflow_dispatch` above is for.
 
 Requires a `.cliff.toml` — the notes come from commit types, never from a pull request label — and a
 `pyproject.toml` declaring `[project].version`, which is what decides the version being cut. Also a
