@@ -38,7 +38,6 @@ body:
     attributes:
       label: Which repositories would use this
       description: >
-        One is enough to discuss; two is the bar for extracting something shared. See
-        [docs/consumers.md](https://github.com/turboBasic/github-actions/blob/main/docs/consumers.md).
+        One is enough to discuss; two is the bar for extracting something shared.
     validations:
       required: false

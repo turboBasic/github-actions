@@ -38,6 +38,21 @@ LABEL_WRITERS = (
     Path(".github/renovate.json"),
 )
 LABEL_TABLE_ROWS = 3
+# Every prose document except README, which is the authority for which major is current. `specs/` is
+# out because a completed feature directory is never edited again, and `.specify/templates/` and
+# `.claude/skills/` are vendored. Globs are non-recursive, so a new documentation subdirectory needs a
+# line here.
+PROSE_DOCS = sorted(
+    path.relative_to(REPO_ROOT)
+    for directory in (
+        REPO_ROOT,
+        REPO_ROOT / "docs",
+        REPO_ROOT / ".github",
+        REPO_ROOT / ".specify" / "memory",
+    )
+    for path in directory.glob("*.md")
+    if path.name != "README.md"
+)
 # This repo's own plumbing. A change to how one *behaves* alters nothing a consumer's own build
 # does, so it is neither a reason to cut a release nor a version increment — the version describes
 # the consumer-facing surface, not this repository's history. Input contracts are a separate
@@ -218,19 +233,20 @@ def test_no_mise_tool_version_floats() -> None:
     )
 
 
-def test_ai_instructions_names_no_concrete_major() -> None:
-    # CLAUDE.md is one line pointing at this file, so a literal `@v2` here is what an agent writes
-    # into a consumer — and it keeps resolving after that major is frozen. README's Versioning
-    # section is the only place a major is written; this file states the form, `@vN`.
-    doc = REPO_ROOT / "docs" / "ai-instructions.md"
+@pytest.mark.parametrize("doc", PROSE_DOCS, ids=str)
+def test_no_prose_document_names_a_concrete_major(doc: Path) -> None:
+    # README's Versioning section is the only place a major is written literally, and every other
+    # document is told to read the value from there. A literal `@v2` in ai-instructions is what an
+    # agent writes into a consumer, and it keeps resolving after that major is frozen; a bare `v4` in
+    # prose rots the same way without being copied anywhere, which is why neither form is allowed.
     stale = [
         f"{number}: {line.strip()}"
-        for number, line in enumerate(doc.read_text().splitlines(), start=1)
-        if re.search(r"@v\d", line)
+        for number, line in enumerate((REPO_ROOT / doc).read_text().splitlines(), start=1)
+        if re.search(r"@?\bv\d", line)
     ]
     assert not stale, (
-        f"{doc.name} names a concrete major, which goes stale at the next bump: {stale}. "
-        f"Write `@vN` and cite README's Versioning section for the value."
+        f"{doc} names a concrete major, which goes stale at the next bump: {stale}. Write `@vN`, or "
+        f"say the current major, and cite README's Versioning section for the value."
     )
 
 

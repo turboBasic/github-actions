@@ -7,8 +7,7 @@ Reusable GitHub Actions workflows and composite actions shared across `turboBasi
 [![License: MIT][license-badge]][license]
 
 Conventions live in [`docs/ai-instructions.md`][ai-instructions]; how to send a change is
-in [`CONTRIBUTING.md`][contributing]. [`docs/consumers.md`][consumers] lists which
-repository calls what.
+in [`CONTRIBUTING.md`][contributing].
 
 ## Reusable workflows
 
@@ -416,6 +415,5 @@ validates those against their published JSON schemas.
 [ai-instructions]: docs/ai-instructions.md
 [contributing]: CONTRIBUTING.md
 [contributing-releasing]: CONTRIBUTING.md#releasing
-[consumers]: docs/consumers.md
 [prek-advisory-heading]: #prek-advisoryyml
 [job-conditions]: https://docs.github.com/en/actions/using-jobs/using-conditions-to-control-job-execution

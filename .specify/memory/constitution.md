@@ -54,8 +54,6 @@ reason written down, and reported.
 This repository is shared infrastructure, so a change here is not a local change. Every spec for a
 change to a reusable workflow or composite action states, before any plan is written:
 
-- **Affected consumers** — from [`docs/consumers.md`](../../docs/consumers.md), which is the
-  blast-radius list.
 - **Interface delta** — the current input/output/permission surface against the proposed one.
 - **Compatibility** — whether existing call sites keep working untouched, and if not, why a major
   bump is warranted.
@@ -73,4 +71,4 @@ eroding a principle would only be a side effect.
 Conventions are not governed here. Naming, file placement, how a test is organised — those live in
 `docs/ai-instructions.md` and a request to change one is just a request.
 
-**Version**: 1.1.0 | **Ratified**: 2026-08-31 | **Last Amended**: 2026-08-31
+**Version**: 1.1.1 | **Ratified**: 2026-08-31 | **Last Amended**: 2026-09-07

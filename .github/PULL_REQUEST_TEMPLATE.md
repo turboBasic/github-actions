@@ -13,9 +13,10 @@ Link the issue if there is one (`Closes #12`).
 ## Blast radius
 
 <!--
-Which consumers this reaches — see docs/consumers.md. Say `none — not yet referenced`
-if nothing calls the changed workflow. If an input contract moved, say whether it is
-backwards-compatible or needs a major tag.
+Whether a caller on the current major can absorb this by resolving the new ref. A removed
+or renamed input, a renamed job composing a check context, or a permission the caller must
+grant needs a new major instead — say which. `patch — nothing consumer-facing changed` is a
+complete answer where it is true, and the answer is in this diff.
 -->
 
 ## Verification
@@ -30,8 +31,8 @@ pass and fail. A check that cannot fail is not a check.
 
 <!--
 Documentation moves with the change — stale framing is a defect, not a follow-up. The
-README documents inputs; docs/consumers.md is the blast-radius list. Name what you
-touched, or `none — no doc describes this`.
+README is the consumer-facing contract and documents inputs. Name what you touched, or
+`none — no doc describes this`.
 -->
 
 ---
