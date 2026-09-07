@@ -1,6 +1,6 @@
 [project]
 name = "turbobasic-github-actions"
-version = "4.1.1"
+version = "4.1.2"
 description = "Reusable GitHub Actions workflows and composite actions"
 readme = "README.md"
 requires-python = ">=3.14"
