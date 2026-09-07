@@ -1,8 +1,13 @@
 import ast
+import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).parent.parent
+CONSTITUTION = ".specify/memory/constitution.md"
+CONVENTIONS = "docs/ai-instructions.md"
 
 # Every instruction path belongs to exactly one layer. A path in none of these lists fails, so a new
 # document has to be placed deliberately rather than drifting in unassigned.
@@ -36,6 +41,38 @@ LAYERS: dict[int, list[str]] = {
     ],
     4: ["CLAUDE.md", ".github/copilot-instructions.md"],
 }
+
+# One row per fact with more than one plausible home. The anchor is a distinctive phrase from the
+# owner's own text, and each row is asserted twice: the anchor is still in its owner, and it is
+# nowhere else. The first assertion is what stops a row rotting into a pattern that matches nothing.
+#
+# Two rows from the contract carry no anchor and are absent here, because a gate already holds them:
+# the allowed commit types are held equal to commitizen's set, and the frozen input and permission
+# surface is the WORKFLOW_CONTRACTS table. Both live in test_action_pins.py. Which major is current
+# is likewise already asserted, by the no-concrete-major scan.
+#
+# A deliberate paraphrase is a new statement and a reviewer's problem, not this check's.
+ANCHORED_FACTS: list[tuple[str, str, str]] = [
+    (CONSTITUTION, "I", "Patch tags are immutable"),
+    (CONSTITUTION, "II", "retroactively repointed at malicious code"),
+    (CONSTITUTION, "III", "only ever reduce down a call chain"),
+    (CONSTITUTION, "IV", "never through inline"),
+    (CONSTITUTION, "V", "written to a file, a log, an artifact"),
+    (CONSTITUTION, "VI", "Lint does not verify a workflow"),
+    (CONSTITUTION, "VII", "no rule disabled to"),
+    (CONSTITUTION, "Governance", "smallest alternative that meets the underlying need"),
+    (CONSTITUTION, "Governance", "Conventions are not governed here"),
+    (CONSTITUTION, "Governance", "expensive to reverse and cheap to commit by accident"),
+    ("CONTRIBUTING.md", "Labels", "This table is the label set"),
+    ("CONTRIBUTING.md", "Releasing", "the only place the version is decided"),
+    ("CONTRIBUTING.md", "Releasing", "approve a proposal"),
+    ("CONTRIBUTING.md", "Verifying a workflow change", "Run every workflow you change"),
+]
+
+# The user-level layer is concatenated into context ahead of the conventions with no override
+# mechanism, and it is looser in two places. Prose is the only place that contradiction can be
+# resolved, so the paragraph resolving it is required and asserted by anchor.
+PRECEDENCE_ANCHOR = "This repository's rules win where they are stricter"
 
 # A reason per entry, asserted present, so the list cannot quietly become a dial on the gate.
 # `.specify/memory/constitution.md` sits inside a vendored tree and is deliberately absent here: it
@@ -153,3 +190,140 @@ def test_no_artefact_names_one_from_a_higher_layer() -> None:
 def test_every_exemption_carries_a_reason() -> None:
     missing = sorted(path for path, reason in EXEMPTIONS.items() if not reason.strip())
     assert not missing, f"exemption without a reason: {missing}"
+
+
+# A renamed test leaves prose that is wrong with nothing to say so, which is why a mechanism name is
+# forbidden above the layer that owns it. The patterns catch the same class of silent rot in a
+# reference nobody derives: an upstream issue that gets closed, a REST route that moves, a status
+# code that stops being what the endpoint returns.
+MECHANISM_PATTERNS: dict[str, str] = {
+    "test module path": r"tests/test_\w+\.py",
+    "pytest marker": r"@pytest\.mark\.\w+",
+    "upstream issue reference": r"\b[\w.-]+/[\w.-]+#\d+\b",
+    "REST path": r"/repos/\{",
+    "bare status code": r"`[45]\d\d`",
+}
+
+
+@pytest.mark.parametrize("layer", [1, 2])
+def test_no_mechanism_identifier_appears_above_layer_3(layer: int) -> None:
+    vocabulary = derived_vocabulary()
+    found: list[str] = []
+    for source in LAYERS[layer]:
+        text = (REPO_ROOT / source).read_text(encoding="utf-8")
+        found += [f"{source} names {name}" for name in sorted(vocabulary) if name in text]
+        for label, pattern in MECHANISM_PATTERNS.items():
+            found += [f"{source} carries a {label}: {hit}" for hit in re.findall(pattern, text)]
+    assert not found, f"layer {layer} carries a mechanism identifier: {'; '.join(found)}"
+
+
+def _collapsed(text: str) -> str:
+    # Three of the anchors span a line break in their owner, so a line-based match finds none of
+    # them. Every comparison here is on whitespace-collapsed text.
+    return re.sub(r"\s+", " ", text)
+
+
+@pytest.mark.parametrize(
+    ("owner", "section", "anchor"),
+    ANCHORED_FACTS,
+    ids=[f"{Path(o).stem}-{s}-{a[:24]}" for o, s, a in ANCHORED_FACTS],
+)
+def test_an_owned_fact_is_stated_only_by_its_owner(owner: str, section: str, anchor: str) -> None:
+    needle = _collapsed(anchor)
+    assert needle in _collapsed((REPO_ROOT / owner).read_text(encoding="utf-8")), (
+        f"{owner} {section} no longer contains {anchor!r}; the owner was rewritten and this row "
+        "was not updated with it"
+    )
+    elsewhere = [
+        path
+        for path in _prose_files()
+        if path != owner and needle in _collapsed((REPO_ROOT / path).read_text(encoding="utf-8"))
+    ]
+    assert not elsewhere, f"{anchor!r} is owned by {owner} {section} but is restated in {elsewhere}"
+
+
+def test_both_rule_layers_are_reachable_from_navigation() -> None:
+    claude = (REPO_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+    # An import inside a fence is skipped, so a fenced one reads as present and loads nothing.
+    outside_fences = re.sub(r"```.*?```", "", claude, flags=re.DOTALL).replace("`", "")
+    for target in (CONSTITUTION, CONVENTIONS):
+        assert f"@{target}" in outside_fences, (
+            f"CLAUDE.md does not import {target} outside a code fence; a fenced import loads nothing"
+        )
+
+    copilot = (REPO_ROOT / ".github/copilot-instructions.md").read_text(encoding="utf-8")
+    for target in (CONSTITUTION, CONVENTIONS):
+        assert target in copilot, (
+            f".github/copilot-instructions.md does not link {target}; Copilot has no import "
+            "mechanism and reaches the rule layers only by link"
+        )
+
+
+def test_the_conventions_still_override_the_user_level_layer() -> None:
+    conventions = _collapsed((REPO_ROOT / CONVENTIONS).read_text(encoding="utf-8"))
+    assert _collapsed(PRECEDENCE_ANCHOR) in conventions, (
+        f"{CONVENTIONS} no longer states {PRECEDENCE_ANCHOR!r}; nothing else resolves a looser "
+        "user-level rule, because memory files concatenate with no override mechanism"
+    )
+
+
+# A navigation file states no rule, and a rule in prose is written in the imperative. Matching the
+# mood is not possible, so this matches the openings the repository's own rules are written in — the
+# verbs that start a sentence in layers 1, 2 and 3. A rule phrased around them slips through and is
+# a reviewer's catch; one written the way every other rule here is written does not.
+IMPERATIVE_OPENERS = (
+    "use ",
+    "do not ",
+    "don't ",
+    "never ",
+    "always ",
+    "prefer ",
+    "ensure ",
+    "avoid ",
+    "add ",
+    "run ",
+    "write ",
+    "keep ",
+    "read ",
+    "check ",
+    "declare ",
+    "pin ",
+    "move ",
+    "delete ",
+    "update ",
+    "fix ",
+    "follow ",
+    "state ",
+    "treat ",
+    "put ",
+    "make ",
+)
+
+
+@pytest.mark.parametrize("navigation", LAYERS[4])
+def test_a_navigation_file_carries_pointers_and_no_rule(navigation: str) -> None:
+    text = (REPO_ROOT / navigation).read_text(encoding="utf-8")
+    assert CONSTITUTION in text and CONVENTIONS in text, (
+        f"{navigation} does not point at both rule layers"
+    )
+
+    imperative = [
+        sentence.strip()
+        for sentence in re.split(r"(?<=[.:])\s+|\n", _collapsed(text))
+        if sentence.strip().lower().lstrip("*_- ").startswith(IMPERATIVE_OPENERS)
+    ]
+    assert not imperative, (
+        f"{navigation} is navigation and states no rule, but reads as imperative: {imperative}"
+    )
+
+
+def test_navigation_glosses_every_artefact_it_places() -> None:
+    # Every layer 3 artefact that exists gets a line in CLAUDE.md saying what it answers. A path
+    # assigned to a layer with nothing said about it is a path a reader cannot route to.
+    claude = (REPO_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+    missing_gloss = [
+        path for path in LAYERS[3] if (REPO_ROOT / path).exists() and path.rstrip("/") not in claude
+    ]
+    assert not missing_gloss, (
+        f"CLAUDE.md places these at layer 3 but says nothing about them: {missing_gloss}"
+    )

@@ -26,6 +26,7 @@ GitHub Copilot has no import mechanism and reaches both rule layers by link from
 | `README.md` | what each workflow and action does, its inputs and their defaults, a copyable call site, and which major tag is current |
 | `CONTRIBUTING.md` | the setup, the label set, how a workflow change is verified, and how a release is cut |
 | `docs/technical-debt.md` | which shortcuts are deliberate, and the condition that clears each |
+| `.github/PULL_REQUEST_TEMPLATE.md` | what a pull request has to answer before review starts |
 | `SECURITY.md` | how something exploitable is reported |
 | `CODE_OF_CONDUCT.md` | what taking part requires |
 | `tests/` | every rule a gate holds, including the tables that freeze the reusable surface |
