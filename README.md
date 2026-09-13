@@ -27,7 +27,7 @@ Every call site below pins the moving ref. It resolves, but a capability merged 
 is not on it until a release moves it there — and a break starts a new line instead, leaving the old
 ref where it is. Versioning says which ref to pin.
 
-### `python-ci`
+### 🧩 `python-ci`
 
 One check over a **Python project**: its own lint, typecheck and test tasks, run by its own task
 runner, after installing from its own lockfile.
@@ -63,7 +63,7 @@ Two things worth knowing before setting an input, and prose is the only place ei
   changed-files lint fires the default stage and those hooks silently stop running on pull requests.
   Pass `prek-advisory` the same stage.
 
-### `conventional-commits`
+### 🧩 `conventional-commits`
 
 One grammar over both the pull request title and every commit message in the range, judged by the same
 tool the local commit hook uses, against one list of types — so the two checks cannot reach different
@@ -107,7 +107,7 @@ the `pr-title` job, and a skipped job reports success — so a ruleset still req
 `commits / pr-title` afterwards names a gate that no longer reports, and blocks every pull request in
 the repository until someone edits the ruleset by hand.
 
-### `pr-description`
+### 🧩 `pr-description`
 
 Fills a pull request's body from the commits in its range, into your own template: the subjects as a
 summary, the full messages as a change list with each body indented under its subject.
@@ -172,7 +172,7 @@ fail the run, naming which one and where to put it.
 push, discarding whatever a human typed into it since — and the body is where they explain *why*, which
 no renderer can reconstruct from commits.
 
-### `release`
+### 🧩 `release`
 
 Tags the version your manifest already declares, publishes the release from notes rendered out of the
 commit range, and moves the compatibility ref last. It never decides a version and never writes one:
@@ -252,7 +252,7 @@ Omit it and every changed path counts towards a break — refusing more often ra
 out loud in the log. A misspelled key is refused rather than read as an absent one, because silently
 widening the surface while looking configured is the failure nobody would notice.
 
-### `prek-advisory`
+### 🧩 `prek-advisory`
 
 Lints the whole tree and reports it as one pull request comment, edited in place on later pushes rather
 than duplicated, plus a job summary and a warning annotation. It is what compensates for `python-ci`'s
@@ -292,7 +292,7 @@ CI without handing write access to your pull requests.
 **Pass the same `hook-stage` you pass to `python-ci`.** Different stages mean the two runs disagree
 about which checks apply, and the comment then reports on a set of hooks the blocking check never ran.
 
-### `dependency-review`
+### 🧩 `dependency-review`
 
 Reads the dependency-graph difference between a pull request's base and its head, and reddens on an
 advisory at or above a severity floor. It is the only capability here judging what a change starts
