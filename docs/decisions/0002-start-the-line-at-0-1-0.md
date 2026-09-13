@@ -28,9 +28,6 @@ transitional one.
 From `0.1.0` on, no published release tag is deleted or moved. The `immutable-release-tags` ruleset in
 `.github/rulesets/` is where that is held, and this ruling is why it may not be dropped.
 
-What would justify `1.0.0` — consumers having run the surface, and the surface having stopped moving
-under them — is tracked as work, not here.
-
 ## Links
 
 No issue — ruled in conversation. Sits beside [ADR 0001](0001-this-repository-is-the-library.md) and
