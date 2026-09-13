@@ -15,9 +15,6 @@ permissions: {}
 
 env:
   PROPOSAL_BRANCH: release/next
-  # The automation's own record of what it last computed, carried in the pull request body. A version on
-  # the branch that differs from this was put there by a person, and a person outranks the computation.
-  MARKER: release-proposal:computed=
 
 jobs:
   propose:
@@ -96,30 +93,40 @@ jobs:
           fi
           echo "::notice::the range renders no notes, so no release is proposed"
 
-      - name: Settle which version the proposal carries
-        id: version
+      # Read off the branch itself, never the pull request body: a template change, a hand edit or a
+      # reopen cannot lose what is stored here. Every commit unique to the branch, not just its tip,
+      # because a person's edit becomes the tip and carries no trailer of its own — the trailer being
+      # sought sits on the workflow's own commit underneath it.
+      - id: branch
+        name: Read the proposal branch's current state
         if: steps.close.outputs.empty != 'true'
         env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
-          COMPUTED: ${{ steps.next.outputs.version }}
+          DELIMITER: __PROPOSAL_BRANCH__
         run: |
-          version="$COMPUTED"
-          number=$(gh pr list --head "$PROPOSAL_BRANCH" --state open --json number --jq '.[0].number // ""')
-          if [ -n "$number" ]; then
-            previous=$(gh pr view "$number" --json body --jq .body \
-              | sed -n "s/.*${MARKER}\([0-9.]*\).*/\1/p" | head -1)
+          on_branch=""
+          messages=""
+          if git rev-parse --verify -q "origin/$PROPOSAL_BRANCH" >/dev/null 2>&1; then
             on_branch=$(git show "origin/$PROPOSAL_BRANCH:pyproject.toml" 2>/dev/null \
               | python3 -c 'import sys,tomllib; print(tomllib.loads(sys.stdin.read())["project"]["version"])' \
-              || true)
-            # The two disagree only if a person edited the version, so their answer survives the refresh.
-            if [ -n "$previous" ] && [ -n "$on_branch" ] && [ "$on_branch" != "$previous" ]; then
-              version="$on_branch"
-              echo "::notice::keeping $version from the proposal branch — this last computed $previous, so a person chose the difference"
-            fi
+              2>/dev/null || true)
+            messages=$(git log --format=%B%x1e "$GITHUB_SHA..origin/$PROPOSAL_BRANCH" 2>/dev/null || true)
           fi
-          printf 'number=%s\n' "$number" >> "$GITHUB_OUTPUT"
-          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          printf 'on-branch=%s\n' "$on_branch" >> "$GITHUB_OUTPUT"
+          {
+            printf 'messages<<%s\n' "$DELIMITER"
+            printf '%s\n' "$messages"
+            printf '%s\n' "$DELIMITER"
+          } >> "$GITHUB_OUTPUT"
+
+      - id: version
+        name: Settle which version the proposal carries
+        if: steps.close.outputs.empty != 'true'
+        uses: $/actions/release-decisions
+        with:
+          decision: proposal-version
+          computed-version: ${{ steps.next.outputs.version }}
+          on-branch-version: ${{ steps.branch.outputs.on-branch }}
+          branch-messages: ${{ steps.branch.outputs.messages }}
 
       # One commit carrying the manifest and the lockfile together. The lockfile records the project's
       # own version, so moving the manifest without it leaves `uv sync --locked` failing on the proposal
@@ -134,21 +141,10 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ steps.version.outputs.version }}
+          COMPUTED: ${{ steps.next.outputs.version }}
           COMMIT: ${{ github.sha }}
         run: |
-          python3 - <<'PY'
-          import os
-          import pathlib
-          import re
-
-          path = pathlib.Path("pyproject.toml")
-          text = path.read_text(encoding="utf-8")
-          bumped = re.sub(
-              r'(?m)^version = ".*"$', f'version = "{os.environ["VERSION"]}"', text, count=1
-          )
-          path.write_text(bumped, encoding="utf-8")
-          PY
-          uv lock
+          uv version --no-sync "$VERSION"
 
           # `--rawfile`, never an argument: a base64 of the lockfile is far past the argument-length
           # limit, and the blobs API takes UTF-8 directly, so there is nothing to encode.
@@ -176,7 +172,11 @@ jobs:
           }' > "$RUNNER_TEMP/tree.json"
           tree=$(gh api "repos/$GH_REPO/git/trees" --input "$RUNNER_TEMP/tree.json" --jq .sha)
 
-          jq -n --arg m "chore: propose $VERSION" --arg t "$tree" --arg p "$COMMIT" \
+          # The trailer records what this run computed, not what it wrote: comparing it against the
+          # branch's actual version on a later run is how a person's edit is told apart from a fresh
+          # computation, without reading anything the branch's rewrite itself would have discarded.
+          message=$(printf 'chore: propose %s\n\nComputed-Version: %s\n' "$VERSION" "$COMPUTED")
+          jq -n --arg m "$message" --arg t "$tree" --arg p "$COMMIT" \
             '{message: $m, tree: $t, parents: [$p]}' > "$RUNNER_TEMP/commit.json"
           proposed=$(gh api "repos/$GH_REPO/git/commits" --input "$RUNNER_TEMP/commit.json" --jq .sha)
 
@@ -189,18 +189,16 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           BASE: ${{ github.ref_name }}
-          NUMBER: ${{ steps.version.outputs.number }}
           VERSION: ${{ steps.version.outputs.version }}
-          COMPUTED: ${{ steps.next.outputs.version }}
         run: |
           {
-            printf '<!-- %s%s -->\n\n' "$MARKER" "$COMPUTED"
             printf 'Merging this releases v%s. The notes below are the ones it will publish.\n\n' "$VERSION"
             printf 'Editing the version in pyproject.toml on this branch overrides the computed one, and survives every refresh.\n\n'
             cat "$RUNNER_TEMP/notes.md"
           } > "$RUNNER_TEMP/body.md"
-          if [ -n "$NUMBER" ]; then
-            gh pr edit "$NUMBER" --title "chore: release v$VERSION" --body-file "$RUNNER_TEMP/body.md"
+          number=$(gh pr list --head "$PROPOSAL_BRANCH" --state open --json number --jq '.[0].number // ""')
+          if [ -n "$number" ]; then
+            gh pr edit "$number" --title "chore: release v$VERSION" --body-file "$RUNNER_TEMP/body.md"
           else
             gh pr create --head "$PROPOSAL_BRANCH" --base "$BASE" \
               --title "chore: release v$VERSION" --body-file "$RUNNER_TEMP/body.md"

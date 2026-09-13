@@ -53,7 +53,8 @@ SURFACE_KEYS = ("exclude", "include")
 MOVING_REF = "moving-ref"
 NEXT_VERSION = "next-version"
 RELEASE_VERDICT = "release-verdict"
-DECISIONS = (MOVING_REF, NEXT_VERSION, RELEASE_VERDICT)
+PROPOSAL_VERSION = "proposal-version"
+DECISIONS = (MOVING_REF, NEXT_VERSION, RELEASE_VERDICT, PROPOSAL_VERSION)
 
 
 class Refusal(NamedTuple):
@@ -113,6 +114,31 @@ def increment(version: Version, breaking: bool, feature: bool) -> Version:
     if feature and line_owns_the_major:
         return (major, minor + 1, 0)
     return (major, minor, patch + 1)
+
+
+def find_last_computed(messages: Iterable[str]) -> str:
+    # Walked newest-first: the trailer sought is on the newest commit that carries one, however many
+    # commits without it — a person's edits — sit on top. Reading only the tip would miss it entirely
+    # the moment a person's own commit becomes the tip, which is the ordinary shape of an override.
+    for message in messages:
+        for line in message.splitlines():
+            if line.startswith("Computed-Version: "):
+                return line.removeprefix("Computed-Version: ")
+    return ""
+
+
+def settle_proposal_version(computed: str, on_branch: str, last_computed: str) -> tuple[str, bool]:
+    # The branch's version differs from what this workflow last computed only because a person edited
+    # it — comparing against a stored computation, read off the branch itself, survives every rewrite
+    # of the branch and every replacement of the pull request body, because neither carries it.
+    #
+    # A missing LAST_COMPUTED is not evidence of an override: a branch this workflow never wrote a
+    # trailer to — one from before this comparison existed, or one a person created by hand — has
+    # nothing to compare against, and treating that absence as a difference would freeze the branch's
+    # current content forever on the next run, which is the wrong side of "not sure" to fail on.
+    if on_branch and last_computed and parse_version(on_branch) and on_branch != last_computed:
+        return on_branch, True
+    return computed, False
 
 
 def range_verdicts(messages: Iterable[str]) -> tuple[bool, bool]:
@@ -394,6 +420,21 @@ def answer_release_verdict() -> int:
     return 1 if verdict.severity == ERROR else 0
 
 
+def answer_proposal_version() -> int:
+    last_computed = find_last_computed(read_records("BRANCH_MESSAGES"))
+    version, overridden = settle_proposal_version(
+        computed=read_text("COMPUTED").strip(),
+        on_branch=read_text("ON_BRANCH").strip(),
+        last_computed=last_computed,
+    )
+    if overridden:
+        annotate(
+            NOTICE, f"keeping {version} from the proposal branch — a person has already decided"
+        )
+    emit(version=version)
+    return 0
+
+
 def main() -> int:
     decision = read_text("DECISION").strip()
     if decision == MOVING_REF:
@@ -402,6 +443,8 @@ def main() -> int:
         return answer_next_version()
     if decision == RELEASE_VERDICT:
         return answer_release_verdict()
+    if decision == PROPOSAL_VERSION:
+        return answer_proposal_version()
     annotate(
         ERROR,
         f"release-decisions was asked for {decision!r} and answers only {list(DECISIONS)}",

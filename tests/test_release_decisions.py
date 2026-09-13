@@ -400,3 +400,65 @@ def test_a_value_holding_the_delimiter_cannot_close_the_block_early(
     assert opening.startswith("message<<")
     delimiter = opening.removeprefix("message<<")
     assert delimiter not in hostile
+
+
+def test_the_trailer_is_found_under_a_commit_carrying_none_of_its_own() -> None:
+    # A person's edit becomes the branch's newest commit and carries no trailer of its own — the
+    # trailer being sought sits on the workflow's own commit underneath it.
+    messages = (
+        "chore: edit the version by hand\n",
+        "chore: propose 0.2.0\n\nComputed-Version: 0.2.0\n",
+    )
+    assert decisions.find_last_computed(messages) == "0.2.0"
+
+
+def test_the_newest_trailer_wins_over_an_older_one() -> None:
+    messages = (
+        "chore: propose 0.3.0\n\nComputed-Version: 0.3.0\n",
+        "chore: propose 0.2.0\n\nComputed-Version: 0.2.0\n",
+    )
+    assert decisions.find_last_computed(messages) == "0.3.0"
+
+
+def test_no_trailer_anywhere_is_empty() -> None:
+    assert decisions.find_last_computed(("chore: propose 0.2.0\n",)) == ""
+
+
+def test_a_branch_matching_the_last_computation_is_not_an_override() -> None:
+    version, overridden = decisions.settle_proposal_version(
+        computed="0.2.0", on_branch="0.2.0", last_computed="0.2.0"
+    )
+    assert (version, overridden) == ("0.2.0", False)
+
+
+def test_a_branch_disagreeing_with_the_last_computation_is_kept() -> None:
+    # The branch carries 0.3.0, this workflow last computed 0.2.0 — the difference is a person's edit,
+    # and it survives even though the fresh computation has since moved on to 0.2.1.
+    version, overridden = decisions.settle_proposal_version(
+        computed="0.2.1", on_branch="0.3.0", last_computed="0.2.0"
+    )
+    assert (version, overridden) == ("0.3.0", True)
+
+
+def test_a_branch_with_no_stored_computation_is_not_an_override() -> None:
+    # A branch this workflow never wrote a trailer to — one from before this comparison existed, or one
+    # a person created by hand — has nothing to compare against. Treating that absence as a difference
+    # would freeze the branch's current content forever on the very next run.
+    version, overridden = decisions.settle_proposal_version(
+        computed="0.1.1", on_branch="0.2.0", last_computed=""
+    )
+    assert (version, overridden) == ("0.1.1", False)
+
+
+def test_no_branch_yet_is_not_an_override() -> None:
+    version, overridden = decisions.settle_proposal_version(
+        computed="0.1.1", on_branch="", last_computed=""
+    )
+    assert (version, overridden) == ("0.1.1", False)
+
+
+def test_a_malformed_on_branch_version_is_not_trusted() -> None:
+    version, overridden = decisions.settle_proposal_version(
+        computed="0.1.1", on_branch="not-a-version", last_computed="0.1.0"
+    )
+    assert (version, overridden) == ("0.1.1", False)
