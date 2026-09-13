@@ -1,8 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
-  "addLabels": ["deps"],
-  "dependencyDashboardLabels": ["deps"],
   "reviewers": ["turboBasic"],
   "assignees": ["turboBasic"],
   "schedule": ["every weekend"],
@@ -26,12 +24,12 @@
       "groupName": "specify-cli",
       "groupSlug": "specify-cli",
       "prBodyNotes": [
-        ":warning: Merging this alone leaves `.specify/integrations/*.manifest.json` describing a version nothing pins. Run `mise run spec-kit-upgrade` on this branch and commit the re-synced `.specify/` and `.claude/skills/speckit-*/` files first. Never `specify self upgrade` — it replaces the binary outside mise."
+        ":warning: docs/ai-instructions.md's Specs section owns the upgrade procedure — read it before merging this alone."
       ]
     },
     {
       "description": "tests/test_commit_grammar.py holds CZ_VERSION in conventional-commits.yml equal to the commitizen uv.lock resolves. Grouped with lock file maintenance so both move in the one PR, never as a red gate landing separately from the bump that caused it.",
-      "matchManagers": ["regex"],
+      "matchManagers": ["custom.regex"],
       "matchDepNames": ["commitizen"],
       "groupName": "lock file maintenance",
       "groupSlug": "lock-file-maintenance"
@@ -40,23 +38,13 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "The only fact this reads is the CZ_VERSION line; test_commit_grammar.py is what proves the workflow and the lockfile still agree after Renovate moves it.",
-      "managerFilePatterns": ["^\\.github/workflows/conventional-commits\\.yml$"],
-      "matchStrings": ["CZ_VERSION: \"(?<currentValue>.*?)\""],
+      "description": "The only fact this reads is the CZ_VERSION line; tests/test_commit_grammar.py pre-flights this same pattern against that line, and is what proves the workflow and the lockfile still agree after Renovate moves it.",
+      "managerFilePatterns": [".github/workflows/conventional-commits.yml"],
+      "matchStrings": ["CZ_VERSION:\\s*[\"']?(?<currentValue>[0-9][0-9A-Za-z.\\-+]*)[\"']?"],
       "depNameTemplate": "commitizen",
       "datasourceTemplate": "pypi"
     }
   ],
-  "github-actions": {
-    "enabled": true,
-    "pinDigests": true
-  },
-  "mise": {
-    "enabled": true
-  },
-  "pep621": {
-    "enabled": true
-  },
   "pre-commit": {
     "enabled": true
   },

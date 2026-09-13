@@ -3,10 +3,9 @@
 # — which is most of this repository. Renovate matches action.yml at any depth and can
 # maintain the `# vX.Y.Z` comment beside a digest pin.
 #
-# Dependabot is kept for security alerts, which Renovate does not replace. Those PRs wait for
-# a human and nothing auto-merges them: reaching the first patched release can mean a minor or
-# major jump, so a security fix is not the boring bump renovate.json auto-merges. The two tools
-# divide the work rather than mirror each other, and symmetry between their rules is not a goal.
+# Dependabot is kept for security alerts, which Renovate does not replace and which ignore
+# open-pull-requests-limit below. Every PR either tool opens waits for a human; the two tools
+# divide the work by what triggers them, not by how the result is merged.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
