@@ -4,18 +4,13 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 
-# Every name in the tree is already `github-actions`, the destination one, while these URLs still
-# carry the staging repository's `-new` suffix because a URL has to resolve today. GitHub redirects
-# a renamed repository's URLs, so a stale one keeps working and nothing announces the drift — hence
-# a gate rather than a note. The remote is the only offline authority on what this repository is
-# called; CI's checkout sets it to the same thing.
+# GitHub redirects a renamed repository's URLs, so a stale one keeps working and nothing announces the
+# drift — hence a gate rather than a note. The remote is the only offline authority on what this
+# repository is called; CI's checkout sets it to the same thing.
 URL_OWNER_REPO = re.compile(r"https://github\.com/(turboBasic/[A-Za-z0-9._-]+)")
 
-# The README explains the mismatch and names both repositories on purpose; it is the artefact that
-# answers what this repository is for.
-EXEMPT: dict[str, str] = {
-    "README.md": "states the staging arrangement, so it names the destination and the staging repo",
-}
+# No file is exempt: every self URL in the tree names the repository this clone is.
+EXEMPT: dict[str, str] = {}
 
 # Another repository of this owner's, named on purpose. The matcher cannot tell a stale self URL from a
 # deliberate reference to a different repository, so each deliberate one is named here with why —

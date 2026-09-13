@@ -200,5 +200,5 @@ secrets before expecting another proposal.
 [test-consumer]: https://github.com/turboBasic/github-actions-test
 [readme-versioning]: README.md#versioning
 [readme-release]: README.md#release
-[release-proposal-workflow]: https://github.com/turboBasic/github-actions-new/actions/workflows/release-proposal.yml
-[release-workflow]: https://github.com/turboBasic/github-actions-new/actions/workflows/release-on-merge.yml
+[release-proposal-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release-proposal.yml
+[release-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release-on-merge.yml

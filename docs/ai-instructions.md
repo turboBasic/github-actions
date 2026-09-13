@@ -73,9 +73,9 @@ behaviour — the shipped documentation and the code are. Read a ticked `tasks.m
 Records live in `docs/decisions/`, one ruling per file. The `planning:write-adr` skill owns the bar a
 decision has to clear and the shape of the record; neither is restated here (principle I).
 
-What this repository owns is the permitted `scope:` values, which today are `instructions`, `release`
-and `tooling`. A ruling that fits neither adds a value to this list in the same change — the list grows
-with the repository rather than ahead of it.
+What this repository owns is the permitted `scope:` values, which today are `identity`, `instructions`,
+`release` and `tooling`. A ruling that fits none adds a value to this list in the same change — the list
+grows with the repository rather than ahead of it.
 
 ## Environment
 
@@ -173,10 +173,11 @@ Python 3.14. The only Python here supports the actions and their tests.
 - **The consumer set is indefinite and is not recorded.** Whether a change breaks a consumer is read
   from the published surface and its fixture, never from which repositories are known to call what. A
   call count is not an argument about the interface — why in
-  [ADR 0002](decisions/0002-judge-compatibility-from-the-surface.md).
+  [ADR 0003](decisions/0003-judge-compatibility-from-the-surface.md).
 - **No published release tag is deleted or moved.** The exact version tags are immutable; only the
-  compatibility ref moves — why in
-  [ADR 0001](decisions/0001-continue-the-existing-version-line.md).
+  compatibility ref moves — why in [ADR 0002](decisions/0002-start-the-line-at-0-1-0.md).
+- **The line is `0.x`, so a break is signalled by the minor.** `v0` is never published, and `1.0.0` is
+  not reached for until consumers have exercised the surface — why in the same record.
 
 ### Git
 

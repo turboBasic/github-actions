@@ -26,7 +26,7 @@ exact release tag, you own that copy.
 
 ## Reporting
 
-Use [private vulnerability reporting](https://github.com/turboBasic/github-actions-new/security/advisories/new).
+Use [private vulnerability reporting](https://github.com/turboBasic/github-actions/security/advisories/new).
 It keeps the report unpublished while it is being looked at.
 
 Do not open a public issue for something exploitable. For a workflow you think is merely ill-advised, a
