@@ -92,6 +92,18 @@ repos:
         language: system
         files: ^actions/[^/]+/action\.ya?ml$
 
+      - id: check-renovate
+        name: check-jsonschema (renovate)
+        entry: uv run check-jsonschema --builtin-schema vendor.renovate
+        language: system
+        files: ^\.github/renovate\.json$
+
+      - id: check-dependabot
+        name: check-jsonschema (dependabot)
+        entry: uv run check-jsonschema --builtin-schema vendor.dependabot
+        language: system
+        files: ^\.github/dependabot\.ya?ml$
+
       # Not a schema: asserts every job sets timeout-minutes.
       - id: check-workflow-timeouts
         name: check-jsonschema (workflow timeouts)

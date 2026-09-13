@@ -54,6 +54,8 @@ run = [
   "uv run check-jsonschema --builtin-schema vendor.github-issue-config .github/ISSUE_TEMPLATE/config.yml",
   "uv run check-jsonschema --builtin-schema vendor.github-actions actions/*/action.yml",
   "uv run check-jsonschema --builtin-schema custom.github-workflows-require-timeout .github/workflows/*.yml",
+  "uv run check-jsonschema --builtin-schema vendor.renovate .github/renovate.json",
+  "uv run check-jsonschema --builtin-schema vendor.dependabot .github/dependabot.yml",
 ]
 
 [tasks.typecheck]
