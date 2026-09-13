@@ -1,5 +1,7 @@
 # turboBasic/github-actions
 
+[![ci](https://github.com/turboBasic/github-actions/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/turboBasic/github-actions/actions/workflows/ci.yml?query=branch%3Amain)
+
 Reusable GitHub Actions workflows for `turboBasic` repositories. Every published capability is a
 callable workflow: none is offered as a composite action a consumer places in a job it already owns.
 
