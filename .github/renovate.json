@@ -16,7 +16,7 @@
       "groupSlug": "non-major"
     },
     {
-      "description": "Nothing in this tree names a first-party reference with a ref today — every one is $/. This rule stays anyway: a future uses: turboBasic/...@ref is meant to track a moving major tag, and a digest pin here would defeat that on purpose.",
+      "description": "Nothing in this tree names a first-party reference with a ref today — every one is $/. This rule stays anyway: a future step naming another turboBasic repository by tag is meant to track a moving major, and a digest pin here would defeat that on purpose.",
       "matchPackageNames": ["turboBasic/**"],
       "enabled": false
     },
