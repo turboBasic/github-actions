@@ -7,7 +7,7 @@ description: >-
 
 inputs:
   decision:
-    description: Which question to answer — moving-ref, next-version, or release-verdict.
+    description: Which question to answer — moving-ref, next-version, release-verdict, or proposal-version.
     required: true
   version:
     description: The version the manifest declares, as a plain N.N.N with no leading v.
@@ -52,14 +52,33 @@ inputs:
       refuses more often rather than less.
     required: false
     default: pyproject.toml
+  computed-version:
+    description: The version this run would propose absent an override, for the proposal-version decision.
+    required: false
+    default: ""
+  on-branch-version:
+    description: >-
+      The version currently declared on the proposal branch, for the proposal-version decision. Empty
+      means the branch does not exist yet.
+    required: false
+    default: ""
+  last-computed-version:
+    description: >-
+      The version this workflow computed the last time it wrote the branch, read off the branch's own
+      history rather than the pull request body, for the proposal-version decision.
+    required: false
+    default: ""
 
 outputs:
   ref:
     description: The moving ref the version belongs to.
     value: ${{ steps.decide.outputs.ref }}
   version:
-    description: The incremented version, for the next-version decision.
+    description: The incremented or settled version, depending on the decision.
     value: ${{ steps.decide.outputs.version }}
+  overridden:
+    description: Whether the proposal-version decision kept a person's edit over the computed version.
+    value: ${{ steps.decide.outputs.overridden }}
   proceed:
     description: Whether every refusal passed. Not permission to create a ref — a dry run proceeds too.
     value: ${{ steps.decide.outputs.proceed }}
@@ -89,4 +108,7 @@ runs:
         COMMIT_MESSAGES: ${{ inputs.commit-messages }}
         CHANGED_PATHS: ${{ inputs.changed-paths }}
         MANIFEST: ${{ inputs.manifest }}
+        COMPUTED: ${{ inputs.computed-version }}
+        ON_BRANCH: ${{ inputs.on-branch-version }}
+        LAST_COMPUTED: ${{ inputs.last-computed-version }}
       run: python3 "$GITHUB_ACTION_PATH/decisions.py"
