@@ -11,7 +11,7 @@ body:
       options:
         - label: >-
             I searched the [open and closed
-            issues](https://github.com/turboBasic/github-actions-new/issues?q=is%3Aissue)
+            issues](https://github.com/turboBasic/github-actions/issues?q=is%3Aissue)
             for a duplicate.
           required: true
 

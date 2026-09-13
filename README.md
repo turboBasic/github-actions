@@ -3,15 +3,6 @@
 Reusable GitHub Actions workflows for `turboBasic` repositories. Every published capability is a
 callable workflow: none is offered as a composite action a consumer places in a job it already owns.
 
-The work is staged at
-[`turboBasic/github-actions-new`](https://github.com/turboBasic/github-actions-new) and replaces
-[`turboBasic/github-actions`](https://github.com/turboBasic/github-actions) if it succeeds. Every name
-in the tree is therefore already the destination one while every URL still carries the `-new` suffix,
-because a URL has to resolve today. The suffix goes when the repository does.
-
-The workflows and actions are specified from the *functional behaviour* of the repository they
-replace, rather than ported from its files.
-
 ## Capabilities
 
 One section each, carrying a call site to copy, what the capability is for, and when not to reach for
@@ -44,7 +35,7 @@ jobs:
   ci:
     permissions:
       contents: read
-    uses: turboBasic/github-actions-new/.github/workflows/python-ci.yml@v0.1
+    uses: turboBasic/github-actions/.github/workflows/python-ci.yml@v0.1
 ```
 
 Required context: `ci / python-ci` — your own job id, then the called job's name.
@@ -89,7 +80,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    uses: turboBasic/github-actions-new/.github/workflows/conventional-commits.yml@v0.1
+    uses: turboBasic/github-actions/.github/workflows/conventional-commits.yml@v0.1
 ```
 
 Required contexts: `commits / pr-title` and `commits / commit-messages` — two jobs, so two checks you
@@ -131,7 +122,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    uses: turboBasic/github-actions-new/.github/workflows/pr-description.yml@v0.1
+    uses: turboBasic/github-actions/.github/workflows/pr-description.yml@v0.1
 ```
 
 Required context: `describe / pr-description`.
@@ -204,13 +195,13 @@ jobs:
   verify:
     permissions:
       contents: read
-    uses: turboBasic/github-actions-new/.github/workflows/python-ci.yml@v0.1
+    uses: turboBasic/github-actions/.github/workflows/python-ci.yml@v0.1
 
   release:
     needs: verify
     permissions:
       contents: write
-    uses: turboBasic/github-actions-new/.github/workflows/release.yml@v0.1
+    uses: turboBasic/github-actions/.github/workflows/release.yml@v0.1
     with:
       dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
 ```
@@ -276,7 +267,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    uses: turboBasic/github-actions-new/.github/workflows/prek-advisory.yml@v0.1
+    uses: turboBasic/github-actions/.github/workflows/prek-advisory.yml@v0.1
 ```
 
 Context composed: `advisory / prek-advisory`. **Do not require it in a ruleset** — see below.
@@ -310,7 +301,7 @@ jobs:
   guard:
     permissions:
       contents: read
-    uses: turboBasic/github-actions-new/.github/workflows/dependency-review.yml@v0.1
+    uses: turboBasic/github-actions/.github/workflows/dependency-review.yml@v0.1
 ```
 
 Required context: `guard / dependency-review` — your own job id, then the called job's name. It may be
@@ -328,9 +319,8 @@ change it, and says it cannot make that change on your behalf.
 
 ## Versioning
 
-This repository starts its own version line and inherits no ref from the one it supersedes. Adopting it
-is one deliberate migration: repin the call site and re-check the required contexts, once. No old pin is
-promised to keep resolving.
+The line is `0.x`. `1.0.0` waits for consumers to have exercised the surface, so the table below is the
+live rule rather than a transitional one.
 
 Pin the moving ref. It is force-moved to each release, last, after the release exists:
 
