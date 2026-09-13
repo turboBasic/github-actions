@@ -1,3 +1,4 @@
+import json
 import re
 import tomllib
 from typing import Any, cast
@@ -8,6 +9,7 @@ from commitizen.cz.conventional_commits.conventional_commits import Conventional
 from capabilities import CONVENTIONAL_COMMITS, REPO, allowed_commit_types, load, values_at
 
 LOCKFILE = REPO / "uv.lock"
+RENOVATE = REPO / ".github" / "renovate.json"
 
 TOOL = "commitizen"
 
@@ -87,6 +89,27 @@ def test_the_readers_find_a_version_they_are_given() -> None:
     assert PINNED_IN_WORKFLOW.match("  CZ_CONFIG: |") is None
     assert SHIPPED_TYPES.search("(?s)(build|chore|feat)(\\(\\S+\\))?") is not None
     assert SHIPPED_TYPES.search("(?s)(feat)") is None
+
+
+def renovate_cz_pattern() -> str:
+    config = json.loads(RENOVATE.read_text(encoding="utf-8"))
+    (manager,) = [m for m in config["customManagers"] if m["depNameTemplate"] == TOOL]
+    (pattern,) = manager["matchStrings"]
+    # Renovate's regex flavour names a group as JS does, `(?<name>`; Python's re module requires the
+    # `P` that JS omits. Translating it is what lets this test compile the same pattern Renovate runs.
+    return pattern.replace("(?<currentValue>", "(?P<currentValue>")
+
+
+def test_renovates_reader_finds_the_version_the_test_finds() -> None:
+    # renovate.json is a second reader of the same CZ_VERSION line, held to nothing until now.
+    # Pre-flight it the same way the test's own reader is pre-flighted above, or a quoting change
+    # nothing here rejects could pass this suite while leaving Renovate extracting nothing.
+    match = re.search(renovate_cz_pattern(), CONVENTIONAL_COMMITS.read_text(encoding="utf-8"))
+    assert match is not None, (
+        f"{RENOVATE.name}'s commitizen customManagers pattern does not match anything in "
+        f"{CONVENTIONAL_COMMITS.name}, so Renovate would never propose a CZ_VERSION bump"
+    )
+    assert match.group("currentValue") == workflow_version()
 
 
 def test_the_workflow_installs_the_version_it_names() -> None:

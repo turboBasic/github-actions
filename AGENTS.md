@@ -38,6 +38,8 @@ and reaches the rule layers by link. Layer 3 is read on demand by both.
 | `docs/instruction-layers.md` | the layering itself, explained for another repository to adopt |
 | `tests/` | every rule a gate holds |
 | `mise.toml` | every tool version, and the task names |
+| `.github/renovate.json` | which version updates Renovate opens, how they group, and which it never touches |
+| `.github/dependabot.yml` | that Dependabot is kept for security alerts only, and opens no version-update pull requests |
 | `pyproject.toml` | the Python dependencies, the tool settings, and the released version |
 | `.pre-commit-config.yaml` | the prek hooks |
 | `.github/workflows/ci.yml` | which gates run on a pull request |
