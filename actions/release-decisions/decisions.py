@@ -116,6 +116,17 @@ def increment(version: Version, breaking: bool, feature: bool) -> Version:
     return (major, minor, patch + 1)
 
 
+def find_last_computed(messages: Iterable[str]) -> str:
+    # Walked newest-first: the trailer sought is on the newest commit that carries one, however many
+    # commits without it — a person's edits — sit on top. Reading only the tip would miss it entirely
+    # the moment a person's own commit becomes the tip, which is the ordinary shape of an override.
+    for message in messages:
+        for line in message.splitlines():
+            if line.startswith("Computed-Version: "):
+                return line.removeprefix("Computed-Version: ")
+    return ""
+
+
 def settle_proposal_version(computed: str, on_branch: str, last_computed: str) -> tuple[str, bool]:
     # The branch's version differs from what this workflow last computed only because a person edited
     # it — comparing against a stored computation, read off the branch itself, survives every rewrite
@@ -410,16 +421,17 @@ def answer_release_verdict() -> int:
 
 
 def answer_proposal_version() -> int:
+    last_computed = find_last_computed(read_records("BRANCH_MESSAGES"))
     version, overridden = settle_proposal_version(
         computed=read_text("COMPUTED").strip(),
         on_branch=read_text("ON_BRANCH").strip(),
-        last_computed=read_text("LAST_COMPUTED").strip(),
+        last_computed=last_computed,
     )
     if overridden:
         annotate(
             NOTICE, f"keeping {version} from the proposal branch — a person has already decided"
         )
-    emit(version=version, overridden="true" if overridden else "false")
+    emit(version=version)
     return 0
 
 

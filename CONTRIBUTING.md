@@ -136,8 +136,8 @@ and `uv.lock`'s matching line, nothing else. Read the notes, and:
   and, once its `verify` job passes, cuts the release. No further human action. `ci.yml` runs on the same
   commit and answers for the code alone, so a refused or failed release never reddens it.
 - **Disagree with the version?** Change it on the proposal branch before merging. The released version is
-  the one you approved, and every later refresh leaves it alone — a commit on that branch authored by
-  anyone but the bot is how the workflow knows a human has decided.
+  the one you approved, and every later refresh leaves it alone — the branch disagreeing with what the
+  workflow's own last commit there says it computed is how it knows a human has decided.
 
 The proposal proposes; it does not decide. `pyproject.toml` is the only place the version is decided, and
 what the number describes is [ai-instructions][ai-instructions-versioning]'s rule: the consumer-facing

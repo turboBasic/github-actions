@@ -94,25 +94,29 @@ jobs:
           echo "::notice::the range renders no notes, so no release is proposed"
 
       # Read off the branch itself, never the pull request body: a template change, a hand edit or a
-      # reopen cannot lose what is stored here. LAST_COMPUTED is this workflow's own trailer on its
-      # last commit to the branch, so a difference from ON_BRANCH is a person's edit and nothing else —
-      # unlike comparing authorship, this keeps working across every later rewrite of the branch, since
-      # each rewrite carries the trailer forward on its own.
+      # reopen cannot lose what is stored here. Every commit unique to the branch, not just its tip,
+      # because a person's edit becomes the tip and carries no trailer of its own — the trailer being
+      # sought sits on the workflow's own commit underneath it.
       - id: branch
         name: Read the proposal branch's current state
         if: steps.close.outputs.empty != 'true'
+        env:
+          DELIMITER: __PROPOSAL_BRANCH__
         run: |
           on_branch=""
-          last_computed=""
+          messages=""
           if git rev-parse --verify -q "origin/$PROPOSAL_BRANCH" >/dev/null 2>&1; then
             on_branch=$(git show "origin/$PROPOSAL_BRANCH:pyproject.toml" 2>/dev/null \
               | python3 -c 'import sys,tomllib; print(tomllib.loads(sys.stdin.read())["project"]["version"])' \
               2>/dev/null || true)
-            last_computed=$(git show -s --format=%B "origin/$PROPOSAL_BRANCH" 2>/dev/null \
-              | sed -n 's/^Computed-Version: //p' | head -1 || true)
+            messages=$(git log --format=%B%x1e "$GITHUB_SHA..origin/$PROPOSAL_BRANCH" 2>/dev/null || true)
           fi
           printf 'on-branch=%s\n' "$on_branch" >> "$GITHUB_OUTPUT"
-          printf 'last-computed=%s\n' "$last_computed" >> "$GITHUB_OUTPUT"
+          {
+            printf 'messages<<%s\n' "$DELIMITER"
+            printf '%s\n' "$messages"
+            printf '%s\n' "$DELIMITER"
+          } >> "$GITHUB_OUTPUT"
 
       - id: version
         name: Settle which version the proposal carries
@@ -122,7 +126,7 @@ jobs:
           decision: proposal-version
           computed-version: ${{ steps.next.outputs.version }}
           on-branch-version: ${{ steps.branch.outputs.on-branch }}
-          last-computed-version: ${{ steps.branch.outputs.last-computed }}
+          branch-messages: ${{ steps.branch.outputs.messages }}
 
       # One commit carrying the manifest and the lockfile together. The lockfile records the project's
       # own version, so moving the manifest without it leaves `uv sync --locked` failing on the proposal

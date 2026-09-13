@@ -62,10 +62,11 @@ inputs:
       means the branch does not exist yet.
     required: false
     default: ""
-  last-computed-version:
+  branch-messages:
     description: >-
-      The version this workflow computed the last time it wrote the branch, read off the branch's own
-      history rather than the pull request body, for the proposal-version decision.
+      Every commit message unique to the proposal branch, newest first and separated the same way as
+      commit-messages, for the proposal-version decision. Read for the newest `Computed-Version:`
+      trailer, which may sit under commits a person made on top of it.
     required: false
     default: ""
 
@@ -76,9 +77,6 @@ outputs:
   version:
     description: The incremented or settled version, depending on the decision.
     value: ${{ steps.decide.outputs.version }}
-  overridden:
-    description: Whether the proposal-version decision kept a person's edit over the computed version.
-    value: ${{ steps.decide.outputs.overridden }}
   proceed:
     description: Whether every refusal passed. Not permission to create a ref — a dry run proceeds too.
     value: ${{ steps.decide.outputs.proceed }}
@@ -110,5 +108,5 @@ runs:
         MANIFEST: ${{ inputs.manifest }}
         COMPUTED: ${{ inputs.computed-version }}
         ON_BRANCH: ${{ inputs.on-branch-version }}
-        LAST_COMPUTED: ${{ inputs.last-computed-version }}
+        BRANCH_MESSAGES: ${{ inputs.branch-messages }}
       run: python3 "$GITHUB_ACTION_PATH/decisions.py"
