@@ -15,9 +15,11 @@ permissions: {}
 
 env:
   PROPOSAL_BRANCH: release/next
-  # The automation's own record of what it last computed, carried in the pull request body. A version on
-  # the branch that differs from this was put there by a person, and a person outranks the computation.
-  MARKER: release-proposal:computed=
+  # The refresh tells its own commits from a person's by author, so the identity has to be explicit and
+  # fixed: an App installation token otherwise attributes a commit to `<app-slug>[bot]`, which changes if
+  # the app is ever renamed or replaced.
+  BOT_NAME: github-actions[bot]
+  BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
 
 jobs:
   propose:
@@ -103,19 +105,19 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           COMPUTED: ${{ steps.next.outputs.version }}
+          COMMIT: ${{ github.sha }}
         run: |
           version="$COMPUTED"
           number=$(gh pr list --head "$PROPOSAL_BRANCH" --state open --json number --jq '.[0].number // ""')
-          if [ -n "$number" ]; then
-            previous=$(gh pr view "$number" --json body --jq .body \
-              | sed -n "s/.*${MARKER}\([0-9.]*\).*/\1/p" | head -1)
-            on_branch=$(git show "origin/$PROPOSAL_BRANCH:pyproject.toml" 2>/dev/null \
-              | python3 -c 'import sys,tomllib; print(tomllib.loads(sys.stdin.read())["project"]["version"])' \
-              || true)
-            # The two disagree only if a person edited the version, so their answer survives the refresh.
-            if [ -n "$previous" ] && [ -n "$on_branch" ] && [ "$on_branch" != "$previous" ]; then
+          # Authorship is the signal, and it needs no stored state: every commit this workflow writes to
+          # the branch carries BOT_NAME, so any other author already on it is a person who has decided.
+          if git rev-parse --verify -q "origin/$PROPOSAL_BRANCH" >/dev/null; then
+            human=$(git log --format=%an "$COMMIT..origin/$PROPOSAL_BRANCH" | grep -vxF -m1 "$BOT_NAME" || true)
+            if [ -n "$human" ]; then
+              on_branch=$(git show "origin/$PROPOSAL_BRANCH:pyproject.toml" \
+                | python3 -c 'import sys,tomllib; print(tomllib.loads(sys.stdin.read())["project"]["version"])')
               version="$on_branch"
-              echo "::notice::keeping $version from the proposal branch — this last computed $previous, so a person chose the difference"
+              echo "::notice::keeping $version from the proposal branch — it carries a commit by $human, so a person has already decided"
             fi
           fi
           printf 'number=%s\n' "$number" >> "$GITHUB_OUTPUT"
@@ -136,19 +138,9 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           COMMIT: ${{ github.sha }}
         run: |
-          python3 - <<'PY'
-          import os
-          import pathlib
-          import re
-
-          path = pathlib.Path("pyproject.toml")
-          text = path.read_text(encoding="utf-8")
-          bumped = re.sub(
-              r'(?m)^version = ".*"$', f'version = "{os.environ["VERSION"]}"', text, count=1
-          )
-          path.write_text(bumped, encoding="utf-8")
-          PY
-          uv lock
+          # Writes `[project].version` and re-locks in one call: no hand-rolled TOML edit and no
+          # separate `uv lock`, so no commit on the branch has a manifest and lockfile that disagree.
+          uv version --no-sync "$VERSION"
 
           # `--rawfile`, never an argument: a base64 of the lockfile is far past the argument-length
           # limit, and the blobs API takes UTF-8 directly, so there is nothing to encode.
@@ -177,7 +169,9 @@ jobs:
           tree=$(gh api "repos/$GH_REPO/git/trees" --input "$RUNNER_TEMP/tree.json" --jq .sha)
 
           jq -n --arg m "chore: propose $VERSION" --arg t "$tree" --arg p "$COMMIT" \
-            '{message: $m, tree: $t, parents: [$p]}' > "$RUNNER_TEMP/commit.json"
+            --arg name "$BOT_NAME" --arg email "$BOT_EMAIL" \
+            '{message: $m, tree: $t, parents: [$p], author: {name: $name, email: $email}}' \
+            > "$RUNNER_TEMP/commit.json"
           proposed=$(gh api "repos/$GH_REPO/git/commits" --input "$RUNNER_TEMP/commit.json" --jq .sha)
 
           gh api -X PATCH "repos/$GH_REPO/git/refs/heads/$PROPOSAL_BRANCH" -F force=true -f "sha=$proposed" \
@@ -191,10 +185,8 @@ jobs:
           BASE: ${{ github.ref_name }}
           NUMBER: ${{ steps.version.outputs.number }}
           VERSION: ${{ steps.version.outputs.version }}
-          COMPUTED: ${{ steps.next.outputs.version }}
         run: |
           {
-            printf '<!-- %s%s -->\n\n' "$MARKER" "$COMPUTED"
             printf 'Merging this releases v%s. The notes below are the ones it will publish.\n\n' "$VERSION"
             printf 'Editing the version in pyproject.toml on this branch overrides the computed one, and survives every refresh.\n\n'
             cat "$RUNNER_TEMP/notes.md"
