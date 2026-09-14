@@ -12,10 +12,9 @@ them would keep alone. Its consumers are that owner's own repositories, in sever
 one of them pinned by somebody further downstream. Each reaches for the same few results: a version
 number nobody had to choose, a change described the same way it would be described anywhere else, its
 own checks reaching a verdict it can reproduce, and a warning before it starts depending on something
-with a known vulnerability. Asked what they would do without this repository, the answer was not that
-they would rebuild these things — it was that they would drop them. That is the whole justification:
-not that any of this is hard, but that a standard nobody has to re-implement is a standard that
-survives.
+with a known vulnerability. Without somewhere central to keep them, those results are not rebuilt per
+repository — they are dropped. None of this is hard. A standard nobody has to re-implement is a
+standard that survives.
 
 ## Feature catalogue
 
@@ -30,8 +29,7 @@ survives.
 - **Not included:** Putting whatever the project builds anywhere. The release is published; uploading
   an artefact is deliberately outside it.
 
-Today a consumer can have the release cut but must still choose the number. Closing that is the one
-addition this brief asks for.
+Today a consumer can have the release cut but must still choose the number.
 
 ### One grammar for describing changes, across every repository
 
@@ -54,9 +52,8 @@ addition this brief asks for.
 - **Not included:** Supplying the rules. The checks stay the maintainer's own; this runs them and never
   decides what they should be.
 
-This is the one feature here a maintainer cannot take in any language: only a Python project can take
-it today. The other three are language-neutral. Nothing here commits to answering this one for other
-languages, and that omission is deliberate.
+Only a Python project can take this one. The other three features are language-neutral, and nothing
+here commits to answering this one for other languages.
 
 ### No new dependency carrying a known advisory
 
@@ -87,29 +84,24 @@ The only section carrying internal names, because traceability needs them.
 | Current offer | Direction | Reason |
 | --- | --- | --- |
 | `pr-description` | remove | No feature names it. It produces content rather than a verdict, and the half of a pull request body worth having — why the change was made — cannot be derived from the commits. |
-| `prek-advisory`, and the changed-files lint it compensates for | remove and narrow together | Judging only the files a change touched was the single thing making a published verdict differ from the maintainer's own full run. Judging the whole tree removes the gap, the second capability, and four inputs. |
+| `prek-advisory`, and the changed-files lint it compensates for | remove and narrow together | Judging only the files a change touched is the one thing making a published verdict differ from the maintainer's own full run. Judging the whole tree removes the gap, the second capability, and four inputs. |
 | `release-proposal` | close a gap, not a removal | The capability exists but nothing outside this repository can reach it, which is why half the first feature is unavailable. |
-| `apply-ruleset` | leave alone | Settings drift was considered as a feature and deliberately not adopted as one. This stays as something the repository does for itself, and is not excess for failing to be a feature. |
+| `apply-ruleset` | leave alone | Not a consumer feature. It stays as something the repository does for itself. |
 
 ## Test direction
 
 **Retain.** Coverage of each feature's success statement, and of every constraint above. Three groups
-earn their place beyond argument: the fixture recording each capability's published surface, because a
-renamed input or check name is the one break a consumer cannot absorb; the coverage of the version
-decision, because its refusals are all that stand between a mistake and an immutable tag somebody else
-pinned; and the tests that prove the other checks are not inert, because a check reading nothing
-reports success.
+earn their place: the fixture recording each capability's published surface, because a renamed input or
+check name is the one break a consumer cannot absorb; the coverage of the version decision, because its
+refusals are all that stand between a mistake and an immutable tag somebody else pinned; and the tests
+that prove the other checks are not inert, because a check reading nothing reports success.
 
 **Reduce.** Three tests, each going with the capability it covers rather than ahead of it. Nothing else
-in the suite was found to document how the code happens to work, which was the failure this review
-looked for.
+in the suite documents how the code happens to work.
 
-**Reclassify rather than cut.** Coverage of the settings work protects something real; it stopped being
-a consumer promise and became an internal safeguard, which is not the same as becoming excess.
+**Reclassify rather than cut.** Coverage of the settings work protects an internal safeguard rather
+than a consumer promise. That is not excess.
 
 ## Open decisions
 
-None block simplification. Two questions were closed without being answered and neither gates
-anything: how often each result is actually wanted, which no longer changes any verdict; and whether
-four tests encoding internal conventions are worth keeping, which was put to the owner and declined as
-not worth a decision.
+None block simplification.
