@@ -287,7 +287,8 @@ push, and it writes rather than judges.
 approving along with opening. Install an App with `Contents` and `Pull requests` write and nothing else,
 keep its client id and private key in Actions secrets, and pass them by name as above — never
 `secrets: inherit`, which would hand this every secret your repository holds. The token each run mints is
-narrowed to those two scopes and expires in an hour.
+narrowed to those two scopes and expires in an hour. A secret you do not pass refuses the run before any
+job exists — no job, no log, no annotation — exactly as a permission you do not grant does.
 
 **If that key is rotated or the installation removed, no proposal is raised and nothing says so.** No
 check reddens, because nothing failed — the run cannot mint a token.
