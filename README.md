@@ -252,6 +252,58 @@ Omit it and every changed path counts towards a break — refusing more often ra
 out loud in the log. A misspelled key is refused rather than read as an absent one, because silently
 widening the surface while looking configured is the failure nobody would notice.
 
+### 🧩 `release-proposal`
+
+Works out the next version from the commit range, writes it into `pyproject.toml` on a branch of its
+own, and opens a pull request whose body is the exact notes that release will publish. Merging that pull
+request is what releases: `release` only tags what the manifest already declares, and this is what puts
+the number there — so nobody types one.
+
+Like `release` it has **no trigger of its own**, and for a second reason: the App credentials below are
+then reachable from no event a fork can raise.
+
+```yaml
+name: propose-on-merge
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  proposal:
+    permissions:
+      contents: read
+    uses: turboBasic/github-actions/.github/workflows/release-proposal.yml@v0.1
+    secrets:
+      app-client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+      app-private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+```
+
+Context composed: `proposal / propose`. There is nothing here for a ruleset to require — it runs on a
+push, and it writes rather than judges.
+
+**It needs a GitHub App, and the run's own token cannot stand in.** Opening a pull request with
+`GITHUB_TOKEN` requires *Allow GitHub Actions to create and approve pull requests*, which grants
+approving along with opening. Install an App with `Contents` and `Pull requests` write and nothing else,
+keep its client id and private key in Actions secrets, and pass them by name as above — never
+`secrets: inherit`, which would hand this every secret your repository holds. The token each run mints is
+narrowed to those two scopes and expires in an hour. A secret you do not pass refuses the run before any
+job exists — no job, no log, no annotation — exactly as a permission you do not grant does.
+
+**If that key is rotated or the installation removed, no proposal is raised and nothing says so.** No
+check reddens, because nothing failed — the run cannot mint a token.
+
+**The proposal branch is `release/next`, and a version you put there wins.** Every merge refreshes the
+branch and leaves a hand-edited version alone: the workflow records what it computed in a trailer on its
+own commit, so a version disagreeing with that trailer is one a person decided.
+
+**An empty range closes a standing proposal** rather than leaving one pending against a range the last
+release already covers.
+
+Prerequisites in the calling repository, on top of everything `release` needs: `uv` pinned in
+`mise.toml` alongside `git-cliff`, and a `uv.lock`. The version is written to the manifest and the
+lockfile in one commit, so a proposal never leaves the two disagreeing.
+
 ### 🧩 `prek-advisory`
 
 Lints the whole tree and reports it as one pull request comment, edited in place on later pushes rather

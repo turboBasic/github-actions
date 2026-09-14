@@ -1,0 +1,23 @@
+name: 🌜 propose-on-merge
+
+# This repository's own call site. No dry run: nothing here creates a tag or moves a ref.
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  # Resolves by path, so this repository is a real consumer of the capability. The job id composes the
+  # first half of the context, `proposal / propose`.
+  proposal:
+    permissions:
+      contents: read # the capability checks this tree out; every write it makes goes through the App token
+    uses: $/.github/workflows/release-proposal.yml
+    secrets:
+      app-client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+      app-private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

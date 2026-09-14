@@ -215,6 +215,11 @@ def declared_input_specs(doc: Doc) -> dict[str, Doc]:
     return {str(name): cast(Doc, spec) for name, spec in cast(Doc, call).get("inputs", {}).items()}
 
 
+def declared_secrets(doc: Doc) -> set[str]:
+    call: Any = triggers(doc).get("workflow_call") or {}
+    return {str(name) for name in cast(Doc, call).get("secrets", {})}
+
+
 def action_inputs(doc: Doc) -> set[str]:
     return {str(name) for name in cast(Doc, doc.get("inputs", {}))}
 

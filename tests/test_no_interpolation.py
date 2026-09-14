@@ -75,37 +75,38 @@ def strings(node: Any, path: str = "") -> list[tuple[str, str]]:
     return [(path, node)] if isinstance(node, str) else []
 
 
-def test_no_secret_reaches_anything_but_a_step_input() -> None:
+# The two keys that hand a secret to something which consumes it: a step's `with:`, and a called
+# workflow's declared `secrets:`. Every other key puts it where something else can read it.
+CONSUMES_A_SECRET = re.compile(r"\.(?:with|secrets)\.")
+
+
+def escaped_secrets(doc: Doc) -> list[str]:
+    return [
+        f"{path}: ${{{{ {expression} }}}}"
+        for path, value in strings(doc)
+        for expression in contexts(value)
+        if "secrets." in expression and not CONSUMES_A_SECRET.search(f".{path}.")
+    ]
+
+
+def test_no_secret_reaches_anything_but_a_key_that_consumes_it() -> None:
     # A token that has been written to a file, a log or an artifact cannot be un-written, and the whole
-    # point of minting a narrowed one is that it never leaves the step that mints it. `with:` is the
-    # only place a secret belongs: the action reads it, and nothing else sees it.
-    escaped: list[str] = []
-    for where, doc in every_yaml():
-        for path, value in strings(doc):
-            for expression in contexts(value):
-                if "secrets." in expression and ".with." not in f"{path}.":
-                    escaped.append(f"{where} at {path}: ${{{{ {expression} }}}}")
+    # point of minting a narrowed one is that it never leaves the step that mints it.
+    escaped = [f"{where} at {leak}" for where, doc in every_yaml() for leak in escaped_secrets(doc)]
     assert escaped == [], (
         "a secret reaches something other than a step's `with:` block: "
         + "; ".join(escaped)
-        + ". Mint a narrowed token and hand it to the action that needs it; a token that has been used "
-        "cannot be un-used"
+        + ". Mint a narrowed token and hand it to the action or the called workflow that needs it; a "
+        "token that has been used cannot be un-used"
     )
 
 
 def test_the_secret_gate_reads_a_secret_it_is_given() -> None:
-    doc: Doc = {"jobs": {"j": {"steps": [{"run": "echo ${{ secrets.TOKEN }}"}]}}}
-    leaked = [
-        path
-        for path, value in strings(doc)
-        for expression in contexts(value)
-        if "secrets." in expression and ".with." not in f"{path}."
-    ]
-    assert leaked == ["jobs.j.steps[0].run"]
-    allowed: Doc = {"jobs": {"j": {"steps": [{"with": {"key": "${{ secrets.TOKEN }}"}}]}}}
-    assert [
-        path
-        for path, value in strings(allowed)
-        for expression in contexts(value)
-        if "secrets." in expression and ".with." not in f"{path}."
-    ] == []
+    # Pre-flight the reader on all three shapes. Its steady state is an empty list, so a change that
+    # stopped it matching would report green over a tree that logs its own tokens.
+    leaked: Doc = {"jobs": {"j": {"steps": [{"run": "echo ${{ secrets.TOKEN }}"}]}}}
+    assert escaped_secrets(leaked) == ["jobs.j.steps[0].run: ${{ secrets.TOKEN }}"]
+    step_input: Doc = {"jobs": {"j": {"steps": [{"with": {"key": "${{ secrets.TOKEN }}"}}]}}}
+    assert escaped_secrets(step_input) == []
+    handed_on: Doc = {"jobs": {"j": {"secrets": {"app-client-id": "${{ secrets.CLIENT_ID }}"}}}}
+    assert escaped_secrets(handed_on) == []

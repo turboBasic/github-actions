@@ -1,15 +1,21 @@
-name: 🌜 release-proposal
+name: 🧩 release-proposal
 
-# Releasing this repository is an act of approval: after a merge, the next version and the exact notes
-# it would publish arrive as a pull request, and merging that is what releases. Nothing here creates a
-# tag — it only proposes the version a later release reads from the manifest.
+# Releasing is an act of approval: after a merge, the next version and the exact notes it would publish
+# arrive as a pull request, and merging that is what releases. Nothing here creates a tag — it only
+# proposes the version a later release reads from the manifest.
+#
+# `workflow_call` and nothing else, so the App credentials are reachable from no event a fork can raise.
 on:
-  push:
-    branches: [main]
-
-concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: false
+  workflow_call:
+    secrets:
+      app-client-id:
+        description: >-
+          The client id of a GitHub App installed on the calling repository with Contents and Pull
+          requests write.
+        required: true
+      app-private-key:
+        description: The private key of that same App, in PEM form.
+        required: true
 
 permissions: {}
 
@@ -21,9 +27,11 @@ jobs:
     name: propose
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Nothing here uses the run's own token. It cannot open a pull request unless the repository allows
-    # its own automation to, and that is a repository-wide loosening bought for one job's convenience.
-    # Every write below goes through an App installation token narrowed to exactly two scopes.
+    # Serialised, and never cancelled: two runs racing would both force-move the proposal branch.
+    # Grouped by repository, because the caller's workflow name is not ours to know.
+    concurrency:
+      group: release-proposal-${{ github.repository }}
+      cancel-in-progress: false
     permissions:
       contents: read # the checkout and the range; every write goes through the App token
     steps:
@@ -39,11 +47,21 @@ jobs:
         with:
           minimum_release_age: 24h
 
+      - name: Pre-flight the tools this capability invokes
+        run: |
+          missing=()
+          command -v git-cliff >/dev/null 2>&1 || missing+=(git-cliff)
+          command -v uv >/dev/null 2>&1 || missing+=(uv)
+          if [ "${#missing[@]}" -ne 0 ]; then
+            echo "::error::release-proposal looked for ${missing[*]} on PATH after installing this repository's pinned tools, and did not find it. Add ${missing[*]} to the [tools] table in mise.toml and commit the change; release-proposal never pins a version this repository does not control." >&2
+            exit 1
+          fi
+
       - id: token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          client-id: ${{ secrets.app-client-id }}
+          private-key: ${{ secrets.app-private-key }}
           permission-contents: write # the proposal branch and the version on it
           permission-pull-requests: write # opening, refreshing and closing the proposal itself
 
@@ -65,8 +83,6 @@ jobs:
             printf '%s\n' "$DELIMITER"
           } >> "$GITHUB_OUTPUT"
 
-      # This repository's own tree, so the decision unit is reached by path. Only the reusable
-      # capability has to name it by ref, and only because it runs against a caller's checkout.
       - id: next
         uses: $/actions/release-decisions
         with:
