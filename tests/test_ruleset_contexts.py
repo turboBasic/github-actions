@@ -93,7 +93,6 @@ def test_cannot_judge_is_set_by_name_for_the_contexts_that_cannot_be_required() 
         return by_context[context]
 
     assert reason_for("advisory / prek-advisory") is not None
-    assert reason_for("describe / pr-description") is not None
     assert reason_for("proposal / propose") is not None
     for context in ("verify / python-ci", "release / tag-and-publish"):
         reason = reason_for(context)

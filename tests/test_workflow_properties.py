@@ -556,32 +556,6 @@ def test_the_scheduled_read_fails_on_any_verdict_but_nothing() -> None:
     )
 
 
-# An input naming which pull request, which repository, which commits, or with what token. The body
-# renderer reads every one of them from the run, which is what removed the shallow-checkout failure
-# mode instead of documenting it — so reintroducing any of these is a regression, not a feature.
-IDENTIFIES_THE_RUN = re.compile(
-    r"token|pull[-_]?request|pr[-_]?number|repo|sha|ref|branch|commit", re.I
-)
-
-
-def test_pr_description_declares_no_input_that_identifies_the_run() -> None:
-    declared = declared_inputs(load(WORKFLOW_DIR / "pr-description.yml"))
-    offending = sorted(name for name in declared if IDENTIFIES_THE_RUN.search(name))
-    assert offending == [], (
-        f"pr-description declares {offending}. A consumer identifies nothing here: every one of those "
-        "is already in the run, and as an input it is a value a call site can get wrong"
-    )
-
-
-def test_the_identifying_input_gate_reads_a_name_it_is_given() -> None:
-    # Pre-flight the matcher, or a rename that stops it matching reports green over a reintroduced input.
-    assert IDENTIFIES_THE_RUN.search("github-token")
-    assert IDENTIFIES_THE_RUN.search("pr-number")
-    assert IDENTIFIES_THE_RUN.search("base-sha")
-    assert not IDENTIFIES_THE_RUN.search("template-path")
-    assert not IDENTIFIES_THE_RUN.search("timeout-minutes")
-
-
 def test_no_workflow_anywhere_triggers_on_pull_request_target() -> None:
     # It runs with this repository's own token while the pull request's text is a fork's to choose,
     # so a trigger added here hands that token whatever the fork wrote.

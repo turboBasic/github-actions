@@ -5,7 +5,10 @@ Everything below renders as prose; these hints disappear.
 
 ## What changed
 
-<!-- pr-description:summary -->
+<!--
+One line per thing this changes. The commits are on the tab next to this one; what belongs here is
+the shape of the change, not a retyping of them.
+-->
 
 ## Why?
 
@@ -32,7 +35,3 @@ What you ran, and what you saw.
 <!--
 What documentation you touched, or `none — no doc describes this`.
 -->
-
-## Commits
-
-<!-- pr-description:changes -->

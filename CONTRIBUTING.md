@@ -71,7 +71,7 @@ Before a change to a capability is done:
 
 Move the compatibility ref only after that.
 
-A workflow no consumer calls — `ci.yml`, `commit-messages.yml`, `describe-pr.yml`, `advisory.yml`,
+A workflow no consumer calls — `ci.yml`, `commit-messages.yml`, `advisory.yml`,
 `dependency-guard.yml`, `release-on-merge.yml`, `propose-on-merge.yml`, `apply-ruleset.yml` — has no
 caller but this repository. Dispatch it, or open a PR that triggers it, and read the run. `release.yml`
 and `release-proposal.yml` have no trigger of their own: dispatch `release-on-merge.yml` to reach the
