@@ -74,24 +74,6 @@ jobs = ["pr-title", "commit-messages"]
 event = "any event but pull_request"
 reason = "there is no title and no range to judge; a consumer must not require these contexts for another event"
 
-[pr-description]
-kind = "workflow"
-published = true
-check_name = ["pr-description"]
-# It renders a body; there is no criterion by which that render passes or fails.
-judges = false
-# Two inputs and nothing else. No token, no pull request number, no repository, no SHA range: the
-# capability owns its own checkout and reads all of it from the run, which is what removes the
-# shallow-checkout failure mode rather than documenting it.
-inputs = ["template-path"]
-permissions = { contents = "read", pull-requests = "write" }
-tool_prerequisites = []
-
-[[pr-description.skips_under]]
-jobs = ["pr-description"]
-event = "any event but pull_request"
-reason = "there is no body to write"
-
 [release]
 kind = "workflow"
 published = true
