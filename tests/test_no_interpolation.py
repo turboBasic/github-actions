@@ -75,10 +75,8 @@ def strings(node: Any, path: str = "") -> list[tuple[str, str]]:
     return [(path, node)] if isinstance(node, str) else []
 
 
-# The two keys that hand a secret to something which consumes it without exposing it: a step's `with:`,
-# which the action reads, and a called workflow's declared `secrets:`, which is the same handover across
-# a dependency edge. Every other key — a `run:`, an `env:`, an artifact path — puts it where something
-# else can read it.
+# The two keys that hand a secret to something which consumes it: a step's `with:`, and a called
+# workflow's declared `secrets:`. Every other key puts it where something else can read it.
 CONSUMES_A_SECRET = re.compile(r"\.(?:with|secrets)\.")
 
 
@@ -110,6 +108,5 @@ def test_the_secret_gate_reads_a_secret_it_is_given() -> None:
     assert escaped_secrets(leaked) == ["jobs.j.steps[0].run: ${{ secrets.TOKEN }}"]
     step_input: Doc = {"jobs": {"j": {"steps": [{"with": {"key": "${{ secrets.TOKEN }}"}}]}}}
     assert escaped_secrets(step_input) == []
-    # A called workflow's declared secret, which is the only way one crosses a dependency edge.
     handed_on: Doc = {"jobs": {"j": {"secrets": {"app-client-id": "${{ secrets.CLIENT_ID }}"}}}}
     assert escaped_secrets(handed_on) == []

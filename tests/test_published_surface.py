@@ -98,8 +98,7 @@ def test_every_published_secret_name_set_matches_the_fixture() -> None:
     for name, committed, actual in paired():
         if actual["kind"] != "workflow" or not committed["published"]:
             continue
-        # An absent row asserts the capability demands none, which is what most of them do — so the
-        # comparison holds in both directions without every row carrying an empty list.
+        # An absent row asserts the capability demands none, so no row needs an empty list.
         expected: list[Any] = sorted(committed.get("secrets") or [])
         assert expected == actual["secrets"], (
             f"{name}: fixture lists secrets {expected}, tree declares {actual['secrets']}. "

@@ -4,16 +4,14 @@ name: 🧩 release-proposal
 # arrive as a pull request, and merging that is what releases. Nothing here creates a tag — it only
 # proposes the version a later release reads from the manifest.
 #
-# `workflow_call` and nothing else. A caller's dependency edge is the only route here, so the App
-# credentials are reachable from no event a fork can raise, and the caller owns which merges propose.
+# `workflow_call` and nothing else, so the App credentials are reachable from no event a fork can raise.
 on:
   workflow_call:
     secrets:
       app-client-id:
         description: >-
           The client id of a GitHub App installed on the calling repository with Contents and Pull
-          requests write. The run's own token cannot do this job: opening a pull request with it needs
-          the repository-wide setting that also lets automation approve one.
+          requests write.
         required: true
       app-private-key:
         description: The private key of that same App, in PEM form.
@@ -29,15 +27,11 @@ jobs:
     name: propose
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Serialised, and never cancelled. Two runs racing would both force-move the proposal branch, and
-    # whichever lost would leave a pull request describing a version nobody computed. Grouped by
-    # repository rather than by workflow, because the caller's workflow name is not ours to know.
+    # Serialised, and never cancelled: two runs racing would both force-move the proposal branch.
+    # Grouped by repository, because the caller's workflow name is not ours to know.
     concurrency:
       group: release-proposal-${{ github.repository }}
       cancel-in-progress: false
-    # Nothing here uses the run's own token. It cannot open a pull request unless the repository allows
-    # its own automation to, and that is a repository-wide loosening bought for one job's convenience.
-    # Every write below goes through an App installation token narrowed to exactly two scopes.
     permissions:
       contents: read # the checkout and the range; every write goes through the App token
     steps:
@@ -89,9 +83,6 @@ jobs:
             printf '%s\n' "$DELIMITER"
           } >> "$GITHUB_OUTPUT"
 
-      # `$/` is resolved from the repository owning this file rather than from the workspace, so this
-      # reaches our own action even though the checkout above is the caller's tree — and it carries no
-      # ref, so there is nothing to pin and nothing to bootstrap.
       - id: next
         uses: $/actions/release-decisions
         with:

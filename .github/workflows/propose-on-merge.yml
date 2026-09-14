@@ -1,7 +1,6 @@
 name: 🌜 propose-on-merge
 
-# This repository's own call site for the proposal capability. It has no dry run and needs none:
-# nothing it does creates a tag or moves a ref, and a proposal that is wrong is closed or edited.
+# This repository's own call site. No dry run: nothing here creates a tag or moves a ref.
 on:
   push:
     branches: [main]
@@ -13,9 +12,8 @@ concurrency:
 permissions: {}
 
 jobs:
-  # Resolves by path at the commit just merged, so this repository is a real consumer of the capability
-  # and a defect fails the pull request that introduces it. The job id composes the first half of the
-  # context, `proposal / propose`.
+  # Resolves by path, so this repository is a real consumer of the capability. The job id composes the
+  # first half of the context, `proposal / propose`.
   proposal:
     permissions:
       contents: read # the capability checks this tree out; every write it makes goes through the App token
