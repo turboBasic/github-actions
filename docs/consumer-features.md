@@ -1,0 +1,115 @@
+# Consumer features
+
+The product boundary this repository is aiming at. It describes the **target**; `README.md` describes
+what currently ships. Where the two differ, the README is right about today and this document is right
+about the intent. This document owns why a capability belongs; the README and the workflow files own
+usage and current detail.
+
+## Purpose
+
+This repository exists so that a handful of repositories under one owner can keep a standard none of
+them would keep alone. Its consumers are that owner's own repositories, in several languages, at least
+one of them pinned by somebody further downstream. Each reaches for the same few results: a version
+number nobody had to choose, a change described the same way it would be described anywhere else, its
+own checks reaching a verdict it can reproduce, and a warning before it starts depending on something
+with a known vulnerability. Asked what they would do without this repository, the answer was not that
+they would rebuild these things — it was that they would drop them. That is the whole justification:
+not that any of this is hard, but that a standard nobody has to re-implement is a standard that
+survives.
+
+## Feature catalogue
+
+### Versions and releases that decide themselves
+
+- **Need:** A maintainer picks a version number by hand and cuts the release around it, and both are
+  easy to get wrong in ways nobody can undo afterwards.
+- **Use case:** When a change is ready to go out, the maintainer uses this to have the next number
+  worked out from what actually changed, and the release published from the same evidence.
+- **Success:** A release exists carrying a number that matches what changed, and nobody typed the
+  number.
+- **Not included:** Putting whatever the project builds anywhere. The release is published; uploading
+  an artefact is deliberately outside it.
+
+Today a consumer can have the release cut but must still choose the number. Closing that is the one
+addition this brief asks for.
+
+### One grammar for describing changes, across every repository
+
+- **Need:** Each repository invents its own habits for describing a change, so the same word means
+  different things in different places and the record of what changed cannot be relied on.
+- **Use case:** When a change is proposed, the maintainer uses this to have its description judged
+  against one grammar they wrote once and reuse everywhere.
+- **Success:** A proposal whose description breaks the grammar is stopped before it merges, and the
+  verdict matches the one the maintainer's own machine gives.
+- **Not included:** Judging whether a description is *accurate* or well written. Only its form is
+  checked.
+
+### A verdict on my own rules that I can reproduce
+
+- **Need:** A maintainer's own checks either do not run before a merge or run differently there than on
+  their own machine, so a red result cannot be reproduced and a green one cannot be trusted.
+- **Use case:** When a change is proposed, the maintainer uses this to have their own checks reach a
+  verdict they could have reached themselves.
+- **Success:** The verdict on a change is the verdict the maintainer gets on the same change locally.
+- **Not included:** Supplying the rules. The checks stay the maintainer's own; this runs them and never
+  decides what they should be.
+
+This is the one feature here a maintainer cannot take in any language: only a Python project can take
+it today. The other three are language-neutral. Nothing here commits to answering this one for other
+languages, and that omission is deliberate.
+
+### No new dependency carrying a known advisory
+
+- **Need:** A change can quietly start depending on something with a publicly known vulnerability, and
+  by the time anyone hears, it has merged.
+- **Use case:** When a change adds or moves a dependency, the maintainer uses this to have it stopped
+  before merge if what it now depends on carries a known advisory of consequence.
+- **Success:** A proposal that would introduce a known advisory is stopped; one that would not passes
+  without comment.
+- **Not included:** Refusing a dependency over its licence, or judging anything already depended on.
+  Only what the change newly introduces is judged.
+
+## Non-features
+
+Each must stay true. None is a reason anyone adopts this repository.
+
+- **A tool version a consumer must control is never pinned centrally.** It is the only reason a local
+  verdict and a published one agree.
+- **A published reference is never withdrawn or moved across a break.** What a consumer pins keeps
+  meaning what it meant.
+- **A check a consumer is told to require never reports success without judging.** A green result
+  nobody investigates is worse than a red one.
+
+## Remove, narrow, close
+
+The only section carrying internal names, because traceability needs them.
+
+| Current offer | Direction | Reason |
+| --- | --- | --- |
+| `pr-description` | remove | No feature names it. It produces content rather than a verdict, and the half of a pull request body worth having — why the change was made — cannot be derived from the commits. |
+| `prek-advisory`, and the changed-files lint it compensates for | remove and narrow together | Judging only the files a change touched was the single thing making a published verdict differ from the maintainer's own full run. Judging the whole tree removes the gap, the second capability, and four inputs. |
+| `release-proposal` | close a gap, not a removal | The capability exists but nothing outside this repository can reach it, which is why half the first feature is unavailable. |
+| `apply-ruleset` | leave alone | Settings drift was considered as a feature and deliberately not adopted as one. This stays as something the repository does for itself, and is not excess for failing to be a feature. |
+
+## Test direction
+
+**Retain.** Coverage of each feature's success statement, and of every constraint above. Three groups
+earn their place beyond argument: the fixture recording each capability's published surface, because a
+renamed input or check name is the one break a consumer cannot absorb; the coverage of the version
+decision, because its refusals are all that stand between a mistake and an immutable tag somebody else
+pinned; and the tests that prove the other checks are not inert, because a check reading nothing
+reports success.
+
+**Reduce.** Three tests, each going with the capability it covers rather than ahead of it. Nothing else
+in the suite was found to document how the code happens to work, which was the failure this review
+looked for.
+
+**Reclassify rather than cut.** Coverage of the settings work protects something real; it stopped being
+a consumer promise and became an internal safeguard, which is not the same as becoming excess.
+
+## Open decisions
+
+None block simplification. Two questions were closed without being answered and neither gates
+anything: how often each result is actually wanted, which no longer changes any verdict; and whether
+four tests encoding internal conventions are worth keeping, which was put to the owner and declined as
+not worth a decision.
