@@ -215,6 +215,13 @@ def declared_input_specs(doc: Doc) -> dict[str, Doc]:
     return {str(name): cast(Doc, spec) for name, spec in cast(Doc, call).get("inputs", {}).items()}
 
 
+def declared_secrets(doc: Doc) -> set[str]:
+    # A required secret a caller does not pass fails the run before any job exists, exactly as a
+    # permission shortfall does, so the names are surface rather than documentation.
+    call: Any = triggers(doc).get("workflow_call") or {}
+    return {str(name) for name in cast(Doc, call).get("secrets", {})}
+
+
 def action_inputs(doc: Doc) -> set[str]:
     return {str(name) for name in cast(Doc, doc.get("inputs", {}))}
 

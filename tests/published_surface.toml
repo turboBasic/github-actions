@@ -17,6 +17,9 @@
 #                       capability publishes two jobs and so two required contexts.
 #   inputs              every declared input, by name. Names only: a default stated here would be a
 #                       second owner of a fact the capability YAML already owns.
+#   secrets             every declared `workflow_call` secret, by name. Absent means none, which is
+#                       most of them. A required secret a caller does not pass fails the run before
+#                       any job exists, for the same reason a permission shortfall does.
 #   permissions         scope to level, as a caller must grant it for the run to *start*. Validated
 #                       before any job exists, so a shortfall yields no job and no log — which is why
 #                       the demand is compared surface and not merely documented.
@@ -98,6 +101,27 @@ inputs = ["dry-run"]
 permissions = { contents = "write" }
 tool_prerequisites = [
   "git-cliff — the notes renderer, invoked to render the range",
+]
+skips_under = []
+
+[release-proposal]
+kind = "workflow"
+published = true
+check_name = ["propose"]
+# It writes a branch and a pull request; there is no criterion by which either passes or fails.
+judges = false
+# No inputs at all. The proposal branch, the manifest and the notes configuration are conventions the
+# release capability already fixes, and a knob on any of them would be a second place the two disagree.
+inputs = []
+# Named rather than inherited: `secrets: inherit` would hand this every secret the caller holds, and a
+# missing one would surface as the App token step failing mid-run instead of the run never starting.
+secrets = ["app-client-id", "app-private-key"]
+# Read only. Every write goes through the App installation token minted inside the job, which is why a
+# caller grants nothing beyond the checkout.
+permissions = { contents = "read" }
+tool_prerequisites = [
+  "git-cliff — the notes renderer, invoked to render the proposed range",
+  "uv — the version write invokes it, and the lockfile has to move with the manifest",
 ]
 skips_under = []
 

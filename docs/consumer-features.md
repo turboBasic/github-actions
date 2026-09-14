@@ -29,8 +29,6 @@ standard that survives.
 - **Not included:** Putting whatever the project builds anywhere. The release is published; uploading
   an artefact is deliberately outside it.
 
-Today a consumer can have the release cut but must still choose the number.
-
 ### One grammar for describing changes, across every repository
 
 - **Need:** Each repository invents its own habits for describing a change, so the same word means
@@ -85,7 +83,6 @@ The only section carrying internal names, because traceability needs them.
 | --- | --- | --- |
 | `pr-description` | remove | No feature names it. It produces content rather than a verdict, and the half of a pull request body worth having — why the change was made — cannot be derived from the commits. |
 | `prek-advisory`, and the changed-files lint it compensates for | remove and narrow together | Judging only the files a change touched is the one thing making a published verdict differ from the maintainer's own full run. Judging the whole tree removes the gap, the second capability, and four inputs. |
-| `release-proposal` | close a gap, not a removal | The capability exists but nothing outside this repository can reach it, which is why half the first feature is unavailable. |
 | `apply-ruleset` | leave alone | Not a consumer feature. It stays as something the repository does for itself. |
 
 ## Test direction

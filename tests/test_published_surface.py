@@ -7,6 +7,7 @@ from capabilities import (
     blanket_permissions,
     check_names,
     declared_inputs,
+    declared_secrets,
     fixture,
     is_capability,
     permission_demand,
@@ -18,7 +19,7 @@ from capabilities import (
 REQUIRED = frozenset(
     {"kind", "published", "inputs", "permissions", "tool_prerequisites", "skips_under"}
 )
-OPTIONAL = frozenset({"check_name", "judges"})
+OPTIONAL = frozenset({"check_name", "judges", "secrets"})
 
 
 def tree_surface() -> dict[str, Doc]:
@@ -29,6 +30,7 @@ def tree_surface() -> dict[str, Doc]:
                 "kind": "workflow",
                 "check_name": check_names(doc),
                 "inputs": sorted(declared_inputs(doc)),
+                "secrets": sorted(declared_secrets(doc)),
                 "permissions": permission_demand(doc),
             }
     for name, doc in action_docs().items():
@@ -89,6 +91,20 @@ def test_every_published_input_name_set_matches_the_fixture() -> None:
         assert expected == actual["inputs"], (
             f"{name}: fixture lists inputs {expected}, tree declares {actual['inputs']}. "
             "Renaming or removing one breaks every call site that names it"
+        )
+
+
+def test_every_published_secret_name_set_matches_the_fixture() -> None:
+    for name, committed, actual in paired():
+        if actual["kind"] != "workflow" or not committed["published"]:
+            continue
+        # An absent row asserts the capability demands none, which is what most of them do — so the
+        # comparison holds in both directions without every row carrying an empty list.
+        expected: list[Any] = sorted(committed.get("secrets") or [])
+        assert expected == actual["secrets"], (
+            f"{name}: fixture lists secrets {expected}, tree declares {actual['secrets']}. "
+            "A required secret a caller does not pass fails the run before any job exists, with no "
+            "log and no annotation to read"
         )
 
 

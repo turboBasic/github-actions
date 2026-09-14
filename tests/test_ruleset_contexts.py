@@ -94,7 +94,8 @@ def test_cannot_judge_is_set_by_name_for_the_contexts_that_cannot_be_required() 
 
     assert reason_for("advisory / prek-advisory") is not None
     assert reason_for("describe / pr-description") is not None
-    for context in ("verify / python-ci", "release / tag-and-publish", "propose"):
+    assert reason_for("proposal / propose") is not None
+    for context in ("verify / python-ci", "release / tag-and-publish"):
         reason = reason_for(context)
         assert reason is not None, f"{context!r} composes a context that judges, unexpectedly"
         assert "pull_request" in reason, (

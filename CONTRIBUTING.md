@@ -72,9 +72,10 @@ Before a change to a capability is done:
 Move the compatibility ref only after that.
 
 A workflow no consumer calls — `ci.yml`, `commit-messages.yml`, `describe-pr.yml`, `advisory.yml`,
-`dependency-guard.yml`, `release-on-merge.yml`, `release-proposal.yml`, `apply-ruleset.yml` — has no
+`dependency-guard.yml`, `release-on-merge.yml`, `propose-on-merge.yml`, `apply-ruleset.yml` — has no
 caller but this repository. Dispatch it, or open a PR that triggers it, and read the run. `release.yml`
-has no trigger of its own: dispatch `release-on-merge.yml` to reach it. A brand-new workflow cannot be
+and `release-proposal.yml` have no trigger of their own: dispatch `release-on-merge.yml` to reach the
+first, and merge to `main` to reach the second. A brand-new workflow cannot be
 dispatched at all — GitHub offers `workflow_dispatch` only for a workflow file already on the default
 branch — so exercising one before merge means a temporary trigger scoped to your branch, removed in the
 same pull request.
@@ -127,8 +128,9 @@ you are still the author of it.
 Merging changes nothing for consumers. They pin the moving ref — see [Versioning][readme-versioning] —
 and it only moves when a release is cut, which is **one step: approve a proposal.**
 
-After any merge to `main` that leaves something worth describing, the [Release
-proposal][release-proposal-workflow] workflow opens a pull request titled `chore: release vX.Y.Z`. Its
+After any merge to `main` that leaves something worth describing, [Propose on
+merge][release-proposal-workflow] calls the `release-proposal` capability, which opens a pull request
+titled `chore: release vX.Y.Z`. Its
 body is the exact notes that release will publish, and its diff is `pyproject.toml`'s `[project].version`
 and `uv.lock`'s matching line, nothing else. Read the notes, and:
 
@@ -170,8 +172,9 @@ requires an approving review not to merge unattended.
 
 The proposal is opened by a GitHub App, `turbobasic-release-proposal`, installed on this repository with
 `Contents` and `Pull requests` write and nothing else. Its client id and private key live in the
-`RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY` Actions secrets, and the token each run mints is
-narrowed to those two permissions and expires in an hour.
+`RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY` Actions secrets, which `propose-on-merge.yml`
+passes into the capability by name, and the token each run mints is narrowed to those two permissions and
+expires in an hour.
 
 `GITHUB_TOKEN` cannot do this job: opening a pull request from Actions requires *Allow GitHub Actions to
 create and approve pull requests*, which is off here and stays off, because it grants approving as well as
@@ -200,5 +203,5 @@ secrets before expecting another proposal.
 [test-consumer]: https://github.com/turboBasic/github-actions-test
 [readme-versioning]: README.md#versioning
 [readme-release]: README.md#release
-[release-proposal-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release-proposal.yml
+[release-proposal-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/propose-on-merge.yml
 [release-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release-on-merge.yml
