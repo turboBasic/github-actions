@@ -9,12 +9,14 @@ Melnyk
 actionlint
 commitizen
 cspell
+govulncheck
 mise
 prek
 pyright
 pytest
 ruff
 speckit
+staticcheck
 taplo
 turboBasic
 zizmor

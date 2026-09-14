@@ -61,6 +61,57 @@ Two things worth knowing, and prose is the only place either fits:
 - **The checkout is shallow.** No stage reads history beyond the head commit, so a task of yours that
   wants a range or a tag will not find one, and no input here changes that.
 
+### 🧩 `go-ci`
+
+One check over a **Go module**: its own lint, build, static-analysis and test tasks, run by its own task
+runner after the module graph has been downloaded, authenticated and checked for tidy drift.
+
+```yaml
+jobs:
+  ci:
+    permissions:
+      contents: read
+    uses: turboBasic/github-actions/.github/workflows/go-ci.yml@v0.2
+```
+
+Required context: `ci / go-ci` — your own job id, then the called job's name.
+
+Reach for it when the repository has a root `go.mod`. Before any stage it runs `go mod download`,
+`go mod verify` and `go mod tidy -diff`: downloaded content must match its checksums, and source and
+module metadata must agree without CI rewriting either. A multi-module repository or one driven by a
+`go.work` file needs a later capability with an explicit workspace contract rather than path guesses
+inside this one.
+
+It needs `go`, `prek` and the tasks it invokes pinned or declared in the calling repository's
+`mise.toml`. A minimal consumer configuration is:
+
+```toml
+[tools]
+go = "1.27.1"
+prek = "0.5.3"
+
+[tasks.lint]
+run = "prek run --all-files --show-diff-on-failure"
+
+[tasks.build]
+run = "go build ./..."
+
+[tasks.static-analysis]
+run = "go vet ./..."
+
+[tasks.test]
+run = "go test ./..."
+```
+
+Those command bodies remain consumer policy. A service may add build tags, put `staticcheck` or
+`govulncheck` behind static analysis, or run tests with `-race`; the capability still invokes only the
+named tasks. Keep each verdict in one stage: if static analysis owns `go vet`, exclude that hook from
+the Prek-backed lint task so CI does not run it twice.
+
+As in `python-ci`, each stage can be switched off or pointed at another task through the inputs
+declared in the workflow file, the Prek cache is unconditional, and the checkout is shallow. A stage
+switch is for a genuinely absent stage, not a way to hide a failing one.
+
 ### 🧩 `conventional-commits`
 
 One grammar over both the pull request title and every commit message in the range, judged by the same

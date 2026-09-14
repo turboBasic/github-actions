@@ -1,0 +1,108 @@
+name: 🧩 go-ci
+
+on:
+  workflow_call:
+    inputs:
+      run-lint:
+        description: Run the lint stage.
+        type: boolean
+        default: true
+      run-build:
+        description: Run the build stage.
+        type: boolean
+        default: true
+      run-static-analysis:
+        description: Run the static analysis stage.
+        type: boolean
+        default: true
+      run-tests:
+        description: Run the test stage.
+        type: boolean
+        default: true
+      lint-task:
+        description: The task this repository's own task runner is asked to run for the lint stage.
+        type: string
+        default: lint
+      build-task:
+        description: The task run for the build stage.
+        type: string
+        default: build
+      static-analysis-task:
+        description: The task run for the static analysis stage.
+        type: string
+        default: static-analysis
+      test-task:
+        description: The task run for the test stage.
+        type: string
+        default: test
+      timeout-minutes:
+        description: How long the job may run before it is cancelled.
+        type: number
+        default: 20
+
+permissions: {}
+
+jobs:
+  go-ci:
+    name: go-ci
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read # the checkout below; no step here writes anywhere
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          minimum_release_age: 24h
+
+      - name: Pre-flight the tools this capability invokes
+        run: |
+          for tool in go prek; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+              echo "::error::go-ci looked for $tool on PATH after installing this repository's pinned tools, and did not find it. Add $tool to the [tools] table in mise.toml and commit the change; go-ci never pins a version this repository does not control." >&2
+              exit 1
+            fi
+          done
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/prek
+          key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - id: modules
+        name: Verify module integrity
+        run: |
+          go mod download
+          go mod verify
+          go mod tidy -diff
+
+      - id: lint
+        name: Lint
+        if: inputs.run-lint
+        env:
+          TASK: ${{ inputs.lint-task }}
+        run: mise run "$TASK"
+
+      - id: build
+        name: Build
+        if: inputs.run-build
+        env:
+          TASK: ${{ inputs.build-task }}
+        run: mise run "$TASK"
+
+      - id: static-analysis
+        name: Static analysis
+        if: inputs.run-static-analysis
+        env:
+          TASK: ${{ inputs.static-analysis-task }}
+        run: mise run "$TASK"
+
+      - id: tests
+        name: Test
+        if: inputs.run-tests
+        env:
+          TASK: ${{ inputs.test-task }}
+        run: mise run "$TASK"

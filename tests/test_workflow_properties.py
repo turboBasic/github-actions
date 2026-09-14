@@ -36,9 +36,12 @@ NAMES_A_DEFAULT = re.compile(r"default", re.IGNORECASE)
 
 GOVERNS_A_CACHE = re.compile(r"cache", re.IGNORECASE)
 
-# The steps of `python-ci` that judge the tree. Named by id rather than by the shape of their `run:`
-# line, so the gate holds whatever the lines become.
-STAGES = ("lint", "typecheck", "tests")
+# The steps of each language CI capability that judge the tree. Named by id rather than by the shape
+# of their `run:` line, so the gate holds whatever the lines become.
+LANGUAGE_STAGES = {
+    "go-ci": ("lint", "build", "static-analysis", "tests"),
+    "python-ci": ("lint", "typecheck", "tests"),
+}
 
 
 def skipping_jobs(doc: Doc) -> set[str]:
@@ -317,6 +320,7 @@ def test_the_cache_input_matcher_reads_a_name_it_is_given() -> None:
 TIMEOUT_INPUT = "timeout-minutes"
 
 MAY_TAKE_A_TIMEOUT = {
+    "go-ci": "runs the caller's own tasks and cannot know how long they take",
     "python-ci": "runs the caller's own tasks and cannot know how long they take",
 }
 
@@ -356,34 +360,70 @@ def test_every_job_of_a_capability_without_the_input_fixes_its_own_timeout() -> 
 
 def test_the_lockfile_check_precedes_every_stage_of_python_ci() -> None:
     ids = [str(step.get("id", "")) for step in steps_of("python-ci", "python-ci")]
-    missing = [step_id for step_id in ("lockfile", *STAGES) if step_id not in ids]
+    missing = [
+        step_id for step_id in ("lockfile", *LANGUAGE_STAGES["python-ci"]) if step_id not in ids
+    ]
     assert missing == [], f"python-ci names no step {missing}, so this gate places nothing"
-    assert ids.index("lockfile") < min(ids.index(stage) for stage in STAGES), (
+    assert ids.index("lockfile") < min(
+        ids.index(stage) for stage in LANGUAGE_STAGES["python-ci"]
+    ), (
         "python-ci runs a stage before installing from the lockfile. A lockfile disagreeing with "
         "its manifest makes every stage a verdict about a tree the maintainer does not have"
     )
 
 
-def test_each_stage_of_python_ci_is_gated_on_its_own_switch_and_nothing_else() -> None:
+def test_the_module_check_precedes_every_stage_of_go_ci() -> None:
+    ids = [str(step.get("id", "")) for step in steps_of("go-ci", "go-ci")]
+    missing = [step_id for step_id in ("modules", *LANGUAGE_STAGES["go-ci"]) if step_id not in ids]
+    assert missing == [], f"go-ci names no step {missing}, so this gate places nothing"
+    assert ids.index("modules") < min(ids.index(stage) for stage in LANGUAGE_STAGES["go-ci"]), (
+        "go-ci runs a stage before checking module integrity. A module graph disagreeing with "
+        "the source makes every stage a verdict about a tree the maintainer does not have"
+    )
+
+
+def test_go_ci_checks_module_consistency_without_rewriting_the_tree() -> None:
+    module_step = next(step for step in steps_of("go-ci", "go-ci") if step.get("id") == "modules")
+    commands = str(module_step.get("run", "")).splitlines()
+    assert commands == ["go mod download", "go mod verify", "go mod tidy -diff"], (
+        f"go-ci's module check runs {commands}. It must download the declared graph, verify cached "
+        "content, and refuse an untidy graph without rewriting the caller's checkout"
+    )
+
+
+def test_go_ci_leaves_prek_invocation_to_the_consumers_lint_task() -> None:
+    invocations = [
+        str(step.get("run", ""))
+        for step in steps_of("go-ci", "go-ci")
+        if "prek run" in str(step.get("run", ""))
+    ]
+    assert invocations == [], (
+        f"go-ci invokes Prek directly in {invocations}. The lint task owns that invocation; a second "
+        "path repeats hooks or lets local lint and CI judge different sets"
+    )
+
+
+def test_each_language_stage_is_gated_on_its_own_switch_and_nothing_else() -> None:
     # An input named for a stage governs that stage entirely, so a second clause is either an input
     # that half-works or a stage that goes quiet under some event while its switch still reads on.
-    for step in steps_of("python-ci", "python-ci"):
-        stage = str(step.get("id", ""))
-        if stage not in STAGES:
-            continue
-        condition = str(step.get("if", ""))
-        consulted = sorted(set(INPUT_REF.findall(condition)))
-        expected = f"run-{stage}"
-        assert consulted == [expected], (
-            f"python-ci's {stage} stage runs under `if: {condition}`, consulting {consulted}. Its own "
-            f"switch is {expected} and nothing else belongs there: an input named for a stage governs "
-            "that stage entirely or it is misnamed"
-        )
-        assert not EVENT_CONDITIONAL.search(condition), (
-            f"python-ci's {stage} stage runs under `if: {condition}`, which reads the event. A stage "
-            "that judges nothing under some events reports success on those events while its switch "
-            "still says it is on"
-        )
+    for capability, stages in LANGUAGE_STAGES.items():
+        for step in steps_of(capability, capability):
+            stage = str(step.get("id", ""))
+            if stage not in stages:
+                continue
+            condition = str(step.get("if", ""))
+            consulted = sorted(set(INPUT_REF.findall(condition)))
+            expected = f"run-{stage}"
+            assert consulted == [expected], (
+                f"{capability}'s {stage} stage runs under `if: {condition}`, consulting {consulted}. "
+                f"Its own switch is {expected} and nothing else belongs there: an input named for a "
+                "stage governs that stage entirely or it is misnamed"
+            )
+            assert not EVENT_CONDITIONAL.search(condition), (
+                f"{capability}'s {stage} stage runs under `if: {condition}`, which reads the event. A "
+                "stage that judges nothing under some events reports success on those events while "
+                "its switch still says it is on"
+            )
 
 
 # What a step does, read from the command it runs rather than from a list this test also keeps. A step

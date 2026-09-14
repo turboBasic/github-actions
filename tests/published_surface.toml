@@ -56,6 +56,29 @@ tool_prerequisites = [
 ]
 skips_under = []
 
+[go-ci]
+kind = "workflow"
+published = true
+check_name = ["go-ci"]
+inputs = [
+  "build-task",
+  "lint-task",
+  "run-build",
+  "run-lint",
+  "run-static-analysis",
+  "run-tests",
+  "static-analysis-task",
+  "test-task",
+  "timeout-minutes",
+]
+permissions = { contents = "read" }
+tool_prerequisites = [
+  "go — module integrity invokes it directly",
+  "prek — the lint task must invoke it",
+  "the tasks named by lint-task, build-task, static-analysis-task and test-task",
+]
+skips_under = []
+
 [conventional-commits]
 kind = "workflow"
 published = true
