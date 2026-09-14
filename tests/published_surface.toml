@@ -41,8 +41,6 @@ kind = "workflow"
 published = true
 check_name = ["python-ci"]
 inputs = [
-  "hook-stage",
-  "lint-changed-only",
   "lint-task",
   "run-lint",
   "run-tests",
@@ -55,7 +53,6 @@ permissions = { contents = "read" }
 tool_prerequisites = [
   "uv — the lockfile check invokes it directly",
   "the tasks named by lint-task, typecheck-task and test-task",
-  "prek — only while lint-changed-only is on",
 ]
 skips_under = []
 
@@ -101,29 +98,6 @@ tool_prerequisites = [
   "uv — the version write invokes it, and the lockfile has to move with the manifest",
 ]
 skips_under = []
-
-[prek-advisory]
-kind = "workflow"
-published = true
-check_name = ["prek-advisory"]
-# Its own lint step swallows a non-zero exit; the job reports success whether or not it found anything.
-judges = false
-# No cache-prek: caching is unconditional. No mise-version: six call sites could have set it and none
-# did, and removing an input is a break where never adding one is not.
-inputs = ["hook-stage", "timeout-minutes"]
-# The write is the whole reason this is a capability of its own. A workflow demanding it anywhere forces
-# every caller to grant it, so keeping it separate is what lets a consumer take python-ci without
-# granting write access to its pull requests.
-permissions = { contents = "read", pull-requests = "write" }
-tool_prerequisites = [
-  "uv — the lockfile check invokes it directly",
-  "prek — the hook runner this capability exists to run",
-]
-
-[[prek-advisory.skips_under]]
-jobs = ["prek-advisory"]
-event = "any event but pull_request"
-reason = "there is no pull request to comment on. This capability is advertised as advisory rather than as a required gate, which is why principle VII exempts it by name — a consumer that requires this context has misread what it is for"
 
 [dependency-review]
 kind = "workflow"

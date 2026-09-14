@@ -4,9 +4,7 @@ on:
   workflow_call:
     inputs:
       run-lint:
-        description: >-
-          Run the lint stage. Off stops every kind of linting this capability performs, the
-          changed-files lint included.
+        description: Run the lint stage.
         type: boolean
         default: true
       run-typecheck:
@@ -29,20 +27,6 @@ on:
         description: The task run for the test stage.
         type: string
         default: test
-      lint-changed-only:
-        description: >-
-          On a pull request, lint the changed set through the hook runner instead of running the
-          lint task. A pull request can then pass while the tree is broken, and prek-advisory is
-          what compensates.
-        type: boolean
-        default: false
-      hook-stage:
-        description: >-
-          The stage the changed-files lint fires. Empty is the hook runner's own default stage, so a
-          repository holding its slow hooks back for a later stage must name that stage here or
-          those hooks never run on a pull request.
-        type: string
-        default: ""
       timeout-minutes:
         description: How long the job may run before it is cancelled.
         type: number
@@ -60,11 +44,10 @@ jobs:
     permissions:
       contents: read # the checkout below; no step here writes anywhere
     steps:
-      # Full history unconditionally: the changed-files lint diffs against the pull request's base
-      # commit, and a shallow clone has not fetched it.
+      # The default depth: every stage judges the tree as it stands rather than a range, so no history
+      # beyond the head commit is read.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
           persist-credentials: false
 
       # Installs what the calling repository's own [tools] table pins, and nothing this capability
@@ -77,22 +60,18 @@ jobs:
         with:
           minimum_release_age: 24h
 
+      # `uv` is the one tool this capability names itself. Whatever the three tasks reach for is theirs
+      # to pin, and theirs to fail over.
       - name: Pre-flight the tools this capability invokes
-        env:
-          NEEDS_HOOK_RUNNER: ${{ inputs.run-lint && inputs.lint-changed-only }}
         run: |
-          missing=()
-          command -v uv >/dev/null 2>&1 || missing+=(uv)
-          if [ "$NEEDS_HOOK_RUNNER" = true ]; then
-            command -v prek >/dev/null 2>&1 || missing+=(prek)
-          fi
-          if [ "${#missing[@]}" -ne 0 ]; then
-            echo "::error::python-ci looked for ${missing[*]} on PATH after installing this repository's pinned tools, and did not find it. Add ${missing[*]} to the [tools] table in mise.toml and commit the change; python-ci never pins a version this repository does not control." >&2
+          if ! command -v uv >/dev/null 2>&1; then
+            echo "::error::python-ci looked for uv on PATH after installing this repository's pinned tools, and did not find it. Add uv to the [tools] table in mise.toml and commit the change; python-ci never pins a version this repository does not control." >&2
             exit 1
           fi
 
-      # Unconditional, and no input governs it: a cache nobody has ever wanted off is not a choice
-      # a call site should have to make.
+      # For the lint task, which is where a hook runner is invoked from now that this capability
+      # invokes none itself. Unconditional, and no input governs it: a cache nobody has ever wanted off
+      # is not a choice a call site should have to make.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/prek
@@ -106,24 +85,10 @@ jobs:
 
       - id: lint
         name: Lint
-        if: inputs.run-lint && !(inputs.lint-changed-only && github.event_name == 'pull_request')
+        if: inputs.run-lint
         env:
           TASK: ${{ inputs.lint-task }}
         run: mise run "$TASK"
-
-      - id: lint-changed
-        name: Lint the changed set
-        if: inputs.run-lint && inputs.lint-changed-only && github.event_name == 'pull_request'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          HOOK_STAGE: ${{ inputs.hook-stage }}
-        run: |
-          if [ -n "$HOOK_STAGE" ]; then
-            prek run --stage "$HOOK_STAGE" --from-ref "$BASE_SHA" --to-ref "$HEAD_SHA"
-          else
-            prek run --from-ref "$BASE_SHA" --to-ref "$HEAD_SHA"
-          fi
 
       - id: typecheck
         name: Typecheck

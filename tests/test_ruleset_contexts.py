@@ -92,7 +92,6 @@ def test_cannot_judge_is_set_by_name_for_the_contexts_that_cannot_be_required() 
         )
         return by_context[context]
 
-    assert reason_for("advisory / prek-advisory") is not None
     assert reason_for("proposal / propose") is not None
     for context in ("verify / python-ci", "release / tag-and-publish"):
         reason = reason_for(context)
@@ -172,17 +171,15 @@ def test_no_required_context_can_skip_under_the_event_it_would_gate() -> None:
 
 
 def test_the_cannot_be_required_message_quotes_the_reason() -> None:
-    message = _cannot_be_required(
-        "protect-default-branch", "advisory / prek-advisory", "it is advisory"
-    )
+    message = _cannot_be_required("protect-default-branch", "proposal / propose", "it only writes")
     assert "protect-default-branch" in message
-    assert "advisory / prek-advisory" in message
-    assert "it is advisory" in message
+    assert "proposal / propose" in message
+    assert "it only writes" in message
 
 
 def test_a_context_the_tree_composes_but_does_not_require_causes_no_failure() -> None:
     # Not every check is a gate: requiring more is a maintainer's decision, not this gate's.
     composed = {c.context for c in composed_contexts()}
     required = {context for doc in ruleset_docs().values() for context in required_contexts(doc)}
-    assert "advisory / prek-advisory" in composed - required
     assert "guard / dependency-review" in composed - required
+    assert "proposal / propose" in composed - required

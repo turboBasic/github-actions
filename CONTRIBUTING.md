@@ -56,7 +56,7 @@ wants a context the runner lacks.
 
 Every capability is called by this repository itself, so opening a pull request here exercises each one
 at the commit under review. That covers the code and not the caller: what turns on caller-side
-configuration — `python-ci`'s `hook-stage` and its stage switches, a consumer with no `mise.toml` — is
+configuration — `python-ci`'s stage switches and its task names, a consumer with no `mise.toml` — is
 only exercised by a real consumer at the ref it pins.
 
 Before a change to a capability is done:
@@ -71,7 +71,7 @@ Before a change to a capability is done:
 
 Move the compatibility ref only after that.
 
-A workflow no consumer calls — `ci.yml`, `commit-messages.yml`, `advisory.yml`,
+A workflow no consumer calls — `ci.yml`, `commit-messages.yml`,
 `dependency-guard.yml`, `release-on-merge.yml`, `propose-on-merge.yml`, `apply-ruleset.yml` — has no
 caller but this repository. Dispatch it, or open a PR that triggers it, and read the run. `release.yml`
 and `release-proposal.yml` have no trigger of their own: dispatch `release-on-merge.yml` to reach the

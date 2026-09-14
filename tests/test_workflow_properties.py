@@ -5,6 +5,7 @@ from typing import cast
 
 from capabilities import (
     CONVENTIONAL_COMMITS,
+    INPUT_REF,
     REPO,
     WORKFLOW_DIR,
     Doc,
@@ -37,7 +38,7 @@ GOVERNS_A_CACHE = re.compile(r"cache", re.IGNORECASE)
 
 # The steps of `python-ci` that judge the tree. Named by id rather than by the shape of their `run:`
 # line, so the gate holds whatever the lines become.
-STAGES = ("lint", "lint-changed", "typecheck", "tests")
+STAGES = ("lint", "typecheck", "tests")
 
 
 def skipping_jobs(doc: Doc) -> set[str]:
@@ -282,9 +283,9 @@ def test_the_exclude_comparison_names_both_directions_it_claims_to_catch() -> No
     # side, and the gate's message promises both.
     unlisted, stale = exclude_disagreement(
         {".github/workflows/ci.yml", ".github/workflows/release.yml"},
-        {".github/workflows/ci.yml", ".github/workflows/advisory.yml"},
+        {".github/workflows/ci.yml", ".github/workflows/propose-on-merge.yml"},
     )
-    assert unlisted == {".github/workflows/advisory.yml"}
+    assert unlisted == {".github/workflows/propose-on-merge.yml"}
     assert stale == {".github/workflows/release.yml"}
 
 
@@ -307,7 +308,7 @@ def test_the_cache_input_matcher_reads_a_name_it_is_given() -> None:
     # it. No capability declares one today, so the gate has nothing else to prove it works.
     assert GOVERNS_A_CACHE.search("cache-key")
     assert GOVERNS_A_CACHE.search("restore-cache")
-    assert not GOVERNS_A_CACHE.search("hook-stage")
+    assert not GOVERNS_A_CACHE.search("lint-task")
 
 
 # An input is worth its place only where the caller knows something the callee cannot. A timeout is that
@@ -317,7 +318,6 @@ TIMEOUT_INPUT = "timeout-minutes"
 
 MAY_TAKE_A_TIMEOUT = {
     "python-ci": "runs the caller's own tasks and cannot know how long they take",
-    "prek-advisory": "reads the caller's whole tree and cannot know how large it is",
 }
 
 
@@ -364,55 +364,26 @@ def test_the_lockfile_check_precedes_every_stage_of_python_ci() -> None:
     )
 
 
-def test_the_changed_files_lint_is_gated_on_the_lint_stage_switch() -> None:
-    condition = next(
-        str(step.get("if", ""))
-        for step in steps_of("python-ci", "python-ci")
-        if step.get("id") == "lint-changed"
-    )
-    assert "inputs.run-lint" in condition, (
-        f"python-ci lints the changed set under `if: {condition}`, which does not consult "
-        "run-lint. An input named for a stage governs that stage entirely or it is misnamed"
-    )
-
-
-# A whole-tree lint, read from the command rather than from which branch of the `if` it sits in, so a
-# third path is covered the moment it is written.
-WHOLE_TREE_LINT = re.compile(r"prek run .*--all-files.*")
-SHOWS_THE_DIFF = "--show-diff-on-failure"
-
-
-def whole_tree_lints() -> list[str]:
-    run = next(
-        str(step.get("run", ""))
-        for step in steps_of("prek-advisory", "prek-advisory")
-        if step.get("id") == "lint"
-    )
-    return WHOLE_TREE_LINT.findall(run)
-
-
-def test_every_whole_tree_lint_reports_the_diff_that_would_fix_it() -> None:
-    found = whole_tree_lints()
-    assert len(found) >= 2, (
-        f"prek-advisory's lint step holds {len(found)} whole-tree invocations, and it has a staged "
-        "path and a default-stage one. This gate is reading the wrong step"
-    )
-    silent = [line for line in found if SHOWS_THE_DIFF not in line]
-    assert silent == [], (
-        f"whole-tree lints running without {SHOWS_THE_DIFF}: {silent}. A hook that rewrites a file "
-        "then reports only its own name, so the comment says which hook failed and not the change "
-        "that satisfies it"
-    )
-
-
-def test_the_whole_tree_lint_reader_finds_a_line_the_flag_is_gone_from() -> None:
-    # Pre-flight: every line above carries the flag, so the gate can never show that it reads a line
-    # by the invocation rather than by the flag it is looking for.
-    stripped = [line.replace(f"{SHOWS_THE_DIFF} ", "") for line in whole_tree_lints()]
-    assert stripped
-    for line in stripped:
-        assert WHOLE_TREE_LINT.fullmatch(line), line
-        assert SHOWS_THE_DIFF not in line
+def test_each_stage_of_python_ci_is_gated_on_its_own_switch_and_nothing_else() -> None:
+    # An input named for a stage governs that stage entirely, so a second clause is either an input
+    # that half-works or a stage that goes quiet under some event while its switch still reads on.
+    for step in steps_of("python-ci", "python-ci"):
+        stage = str(step.get("id", ""))
+        if stage not in STAGES:
+            continue
+        condition = str(step.get("if", ""))
+        consulted = sorted(set(INPUT_REF.findall(condition)))
+        expected = f"run-{stage}"
+        assert consulted == [expected], (
+            f"python-ci's {stage} stage runs under `if: {condition}`, consulting {consulted}. Its own "
+            f"switch is {expected} and nothing else belongs there: an input named for a stage governs "
+            "that stage entirely or it is misnamed"
+        )
+        assert not EVENT_CONDITIONAL.search(condition), (
+            f"python-ci's {stage} stage runs under `if: {condition}`, which reads the event. A stage "
+            "that judges nothing under some events reports success on those events while its switch "
+            "still says it is on"
+        )
 
 
 # What a step does, read from the command it runs rather than from a list this test also keeps. A step

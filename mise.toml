@@ -40,23 +40,18 @@ run = [
   "taplo fmt",
 ]
 
+# Through the hook runner rather than tool by tool: `.pre-commit-config.yaml` already declares every
+# one of these, and a second list here is a second owner that drifts in silence — the run that reddens
+# a pull request and the run a commit fires would then apply different sets.
+#
+# `--skip pyright`: the typecheck task owns it. The hook stays unscoped so a commit still type-checks
+# locally, and skipping it here is what keeps one CI job from running it twice.
+#
+# `--show-diff-on-failure`: a hook that rewrites a file otherwise reports only its own name, leaving a
+# maintainer to reproduce the run to find out what it changed.
 [tasks.lint]
-description = "Lint workflows, prose, spelling, and GitHub config schemas"
-run = [
-  "uv run ruff check .",
-  "uv run yamllint --strict .",
-  "actionlint",
-  # actionlint does not look outside `.github/workflows`, so zizmor is what covers the action tree.
-  "zizmor --pedantic .github/workflows actions",
-  "markdownlint-cli2 \"**/*.md\"",
-  "cspell lint --no-progress .",
-  "uv run check-jsonschema --builtin-schema vendor.github-issue-forms .github/ISSUE_TEMPLATE/[0-9]-*.yml",
-  "uv run check-jsonschema --builtin-schema vendor.github-issue-config .github/ISSUE_TEMPLATE/config.yml",
-  "uv run check-jsonschema --builtin-schema vendor.github-actions actions/*/action.yml",
-  "uv run check-jsonschema --builtin-schema custom.github-workflows-require-timeout .github/workflows/*.yml",
-  "uv run check-jsonschema --builtin-schema vendor.renovate .github/renovate.json",
-  "uv run check-jsonschema --builtin-schema vendor.dependabot .github/dependabot.yml",
-]
+description = "Lint everything the hook runner covers, minus the typecheck task's own hook"
+run = "prek run --all-files --show-diff-on-failure --skip pyright"
 
 [tasks.typecheck]
 description = "Type-check with pyright"
