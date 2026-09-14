@@ -52,6 +52,7 @@ postprocessors
 Tera
 conftest
 testpaths
+pytestmark
 
 # --- Repository jargon ---
 callee

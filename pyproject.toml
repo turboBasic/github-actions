@@ -55,7 +55,10 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["-ra"]
+addopts = ["-ra", "-m", "not live"]
+markers = [
+  "live: needs network and a live GitHub API token; deselected by default, run explicitly by live-state.yml",
+]
 
 # What a consumer of this repository actually resolves, so its release is judged against its own layout
 # rather than an inherited default. The excluded files are this repository's own callers of its
@@ -67,6 +70,7 @@ exclude = [
   ".github/workflows/ci.yml",
   ".github/workflows/commit-messages.yml",
   ".github/workflows/dependency-guard.yml",
+  ".github/workflows/live-state.yml",
   ".github/workflows/release-on-merge.yml",
   "actions/ruleset-decisions",
 ]

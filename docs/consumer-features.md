@@ -82,6 +82,7 @@ The only section carrying internal names, because traceability needs them.
 | Current offer | Direction | Reason |
 | --- | --- | --- |
 | `apply-ruleset` | leave alone | Not a consumer feature. It stays as something the repository does for itself. |
+| `live-state` | leave alone | Not a consumer feature. It stays as something the repository does for itself. |
 
 ## Test direction
 
