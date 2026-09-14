@@ -23,8 +23,3 @@ jobs:
     permissions:
       contents: read # the capability checks this tree out; no step it runs writes anywhere
     uses: $/.github/workflows/python-ci.yml
-    with:
-      # On, so the compensating relationship between the two capabilities is exercised here rather than
-      # only described in the README: this lints the changed set, and `advisory.yml` is what still reads
-      # the whole tree and says so in a comment.
-      lint-changed-only: true

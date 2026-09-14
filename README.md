@@ -48,20 +48,18 @@ switched off, because a verdict from a tree whose lockfile disagrees with its ma
 about neither. The three stage switches are for a Python repository genuinely missing a stage, not a
 route to using this without Python.
 
-It needs, from `mise.toml` in the calling repository: the tasks it is asked to run, `uv`, and `prek`
-if the changed-files lint is on. Those stay yours to pin — that is the only reason a local verdict and
-this one agree — and a missing one fails the run naming the tool and where to declare it, rather than
-with `command not found`.
+It needs, from `mise.toml` in the calling repository: the tasks it is asked to run, and `uv`. Those stay
+yours to pin — that is the only reason a local verdict and this one agree — and a missing `uv` fails the
+run naming the tool and where to declare it, rather than with `command not found`.
 
-Two things worth knowing before setting an input, and prose is the only place either fits:
+Two things worth knowing, and prose is the only place either fits:
 
-- **The changed-files lint lets a pull request pass while the tree is broken.** It reads the pull
-  request's own diff, so a finding in a file the pull request did not touch is never looked for.
-  `prek-advisory` is what compensates — it lints the whole tree on the same pull request and reports
-  in a comment rather than a check.
-- **A repository holding its slow hooks back for a later stage has to name that stage**, or the
-  changed-files lint fires the default stage and those hooks silently stop running on pull requests.
-  Pass `prek-advisory` the same stage.
+- **The lint stage is your own lint task, over whatever your task covers.** This capability owns no
+  linter and reads no diff: it installs what your `mise.toml` pins and runs the task you name, so the
+  verdict is the one your own `mise run lint` gives. What that task judges — and whether it judges the
+  whole tree — is yours, and a task that reads only part of it yields a check that passed over the rest.
+- **The checkout is shallow.** No stage reads history beyond the head commit, so a task of yours that
+  wants a range or a tag will not find one, and no input here changes that.
 
 ### 🧩 `conventional-commits`
 
@@ -238,46 +236,6 @@ release already covers.
 Prerequisites in the calling repository, on top of everything `release` needs: `uv` pinned in
 `mise.toml` alongside `git-cliff`, and a `uv.lock`. The version is written to the manifest and the
 lockfile in one commit, so a proposal never leaves the two disagreeing.
-
-### 🧩 `prek-advisory`
-
-Lints the whole tree and reports it as one pull request comment, edited in place on later pushes rather
-than duplicated, plus a job summary and a warning annotation. It is what compensates for `python-ci`'s
-`lint-changed-only`: that reads the diff, this reads everything.
-
-```yaml
-name: advisory
-
-on:
-  pull_request:
-
-jobs:
-  advisory:
-    permissions:
-      contents: read
-      pull-requests: write
-    uses: turboBasic/github-actions/.github/workflows/prek-advisory.yml@v0.1
-```
-
-Context composed: `advisory / prek-advisory`. **Do not require it in a ruleset** — see below.
-
-**A green check means the lint ran, not that it passed.** Only the lint's verdict is advisory. The
-capability's own setup still fails the check: a missing tool, or a lockfile disagreeing with its
-manifest, reddens it, because a tree that cannot be set up has not been linted. The findings themselves
-never fail anything — they go in the comment.
-
-That is also why requiring this context is a mistake rather than caution: it is green either way, so as
-a required gate it would pass without judging anything, and a green check is the one nobody
-investigates.
-
-**`pull-requests: write` is not optional, and omitting it is the worst failure mode here.** The run
-fails at startup before any job exists — no log, no annotation, nothing to read, and no condition can
-skip past it. That write is the entire reason this is a separate capability from `python-ci`: a workflow
-demanding it anywhere forces every caller to grant it, so keeping the two apart is what lets you take
-CI without handing write access to your pull requests.
-
-**Pass the same `hook-stage` you pass to `python-ci`.** Different stages mean the two runs disagree
-about which checks apply, and the comment then reports on a set of hooks the blocking check never ran.
 
 ### 🧩 `dependency-review`
 
