@@ -1,7 +1,7 @@
 import re
 import tomllib
 from itertools import pairwise
-from typing import cast
+from typing import Any, cast
 
 from capabilities import (
     CONVENTIONAL_COMMITS,
@@ -411,6 +411,157 @@ def test_no_ref_creating_step_precedes_the_refusals() -> None:
                 f"refusals at {decided}. Every refusal runs before any ref exists or none of them mean "
                 "anything"
             )
+
+
+def _job_calling(doc: Doc, capability: str) -> str | None:
+    target = f"$/.github/workflows/{capability}.yml"
+    for job_id, job in jobs(doc).items():
+        if not isinstance(job, dict):
+            continue
+        if str(cast(Doc, job).get("uses", "")) == target:
+            return str(job_id)
+    return None
+
+
+def _needs_of(job: Doc) -> list[str]:
+    needs: Any = job.get("needs") or []
+    return (
+        [str(needs)] if isinstance(needs, str) else [str(need) for need in cast(list[Any], needs)]
+    )
+
+
+def _depends_on(doc: Doc, job_id: str, target: str) -> bool:
+    frontier = [job_id]
+    seen: set[str] = set()
+    while frontier:
+        current = frontier.pop()
+        job = jobs(doc).get(current)
+        if not isinstance(job, dict):
+            continue
+        for need in _needs_of(cast(Doc, job)):
+            if need == target:
+                return True
+            if need not in seen:
+                seen.add(need)
+                frontier.append(need)
+    return False
+
+
+def _pushes_to_main(doc: Doc) -> bool:
+    push = triggers(doc).get("push")
+    return isinstance(push, dict) and "main" in (cast(Doc, push).get("branches") or [])
+
+
+def test_release_and_release_proposal_never_reach_one_push_unordered() -> None:
+    # The race #50 measured twice: release-proposal reads the tag list at checkout, so calling it
+    # beside release rather than behind it on the same push computes against a tag that does not exist
+    # yet, on every release merge — the loser is whichever side does less work, which is always
+    # release-proposal.
+    release_site: tuple[str, str] | None = None
+    proposal_site: tuple[str, Doc, str] | None = None
+    for name, doc in workflow_docs().items():
+        if is_capability(doc) or not _pushes_to_main(doc):
+            continue
+        release_job = _job_calling(doc, "release")
+        if release_job:
+            release_site = (name, release_job)
+        proposal_job = _job_calling(doc, "release-proposal")
+        if proposal_job:
+            proposal_site = (name, doc, proposal_job)
+
+    assert release_site is not None and proposal_site is not None, (
+        "no caller on push: branches: [main] calls both release and release-proposal. Either this "
+        "repository stopped calling one of them, or the readers above have stopped finding it — check "
+        "that before reading this as the race being fixed"
+    )
+
+    release_name, release_job_id = release_site
+    proposal_name, proposal_doc, proposal_job_id = proposal_site
+
+    assert release_name == proposal_name, (
+        f"release is called from {release_name}.yml and release-proposal from {proposal_name}.yml, two "
+        "separate workflow files that both fire on push: branches: [main]. needs: cannot order jobs "
+        "across workflow files, so nothing stops release-proposal from reading the tag list before the "
+        "same push's release job has written to it. Fold both calls into one workflow file"
+    )
+    assert _depends_on(proposal_doc, proposal_job_id, release_job_id), (
+        f"{proposal_name}.yml's {proposal_job_id!r} job calls release-proposal without depending on "
+        f"{release_job_id!r}, which calls release. release-proposal reads the tag list at checkout, so "
+        f"without `needs: {release_job_id}` it can run before a same-push release has tagged anything. "
+        f"Add `needs: {release_job_id}` to the {proposal_job_id!r} job in "
+        f".github/workflows/{proposal_name}.yml"
+    )
+
+
+def test_the_ordering_readers_find_the_calls_and_the_dependency_they_are_given() -> None:
+    # Pre-flight the three readers above. Their steady state on this tree is "found and ordered", so a
+    # reader that stopped matching a `uses:` or a `needs:` would report green over the exact race #50
+    # measured.
+    given: Doc = {
+        "on": {"push": {"branches": ["main"]}},
+        "jobs": {
+            "release": {"uses": "$/.github/workflows/release.yml"},
+            "gate": {"needs": "release"},
+            "proposal": {"needs": ["gate"], "uses": "$/.github/workflows/release-proposal.yml"},
+        },
+    }
+    assert _pushes_to_main(given)
+    assert not _pushes_to_main({"on": {"push": {"branches": ["staging"]}}})
+    assert _job_calling(given, "release") == "release"
+    assert _job_calling(given, "release-proposal") == "proposal"
+    assert _depends_on(given, "proposal", "release")
+    assert not _depends_on(given, "release", "proposal")
+
+
+GUARD_OUTPUT = "steps.guard.outputs.already-released"
+
+# The one step between `guard` and `close` that must stay unconditional, with why: `close` still needs
+# a token to shut a stale open proposal even on a run the guard has already declined.
+RUNS_REGARDLESS_OF_THE_GUARD = {"token"}
+
+
+def test_every_step_between_the_guard_and_the_close_is_gated_on_it() -> None:
+    # release-proposal's backstop (#50): a run that lands on a commit a release already tagged has to
+    # skip every step that would otherwise read a stale tag list or write a wrong proposal — not just
+    # the writes at the end, which `close` already gates on an empty range.
+    steps = steps_of("release-proposal", "propose")
+    ids = [str(step.get("id", "")) for step in steps]
+    assert "guard" in ids and "close" in ids, (
+        "release-proposal names no step id 'guard' or no step id 'close', so this gate places nothing"
+    )
+    start, end = ids.index("guard") + 1, ids.index("close")
+    assert start < end, "release-proposal's 'guard' step does not precede its 'close' step"
+    not_gated = [
+        step.get("id") or step.get("name")
+        for step in steps[start:end]
+        if step.get("id") not in RUNS_REGARDLESS_OF_THE_GUARD
+        and GUARD_OUTPUT not in str(step.get("if", ""))
+    ]
+    assert not_gated == [], (
+        f"release-proposal steps {not_gated} run between 'guard' and 'close' with no `if:` reading "
+        f"{GUARD_OUTPUT} — a run that already declined still pays for them"
+    )
+
+
+def test_the_step_range_finder_reports_the_step_nothing_gates() -> None:
+    # Pre-flight the slice above with a synthetic step list, or a rename of either id would report
+    # green over a step nothing gates.
+    steps: list[Doc] = [
+        {"id": "guard"},
+        {"id": "loud", "if": f"{GUARD_OUTPUT} != 'true'"},
+        {"id": "token"},
+        {"name": "quiet"},
+        {"id": "close"},
+    ]
+    ids = [str(step.get("id", "")) for step in steps]
+    start, end = ids.index("guard") + 1, ids.index("close")
+    not_gated = [
+        step.get("id") or step.get("name")
+        for step in steps[start:end]
+        if step.get("id") not in RUNS_REGARDLESS_OF_THE_GUARD
+        and GUARD_OUTPUT not in str(step.get("if", ""))
+    ]
+    assert not_gated == ["quiet"]
 
 
 def test_every_ref_creating_step_is_gated_on_the_verdict_and_on_the_dry_run() -> None:

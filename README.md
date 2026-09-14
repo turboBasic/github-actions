@@ -139,9 +139,28 @@ jobs:
     uses: turboBasic/github-actions/.github/workflows/release.yml@v0.1
     with:
       dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+
+  proposal:
+    needs: release
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+    uses: turboBasic/github-actions/.github/workflows/release-proposal.yml@v0.1
+    secrets:
+      app-client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+      app-private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 ```
 
 Required context: `release / tag-and-publish`.
+
+**`proposal` is ordered behind `release`, in the same workflow, not beside it in one of its own.**
+`release-proposal` reads the tag list at checkout, and a push that releases has to have finished
+tagging before it reads that list, or it computes its own next version's range against a tag that does
+not exist yet — the wrong side of that race is always the one with less work to do, so `proposal`
+running unordered beside `release` loses it on every release merge, not occasionally. `needs: release`
+is what makes the tag visible first; `if: github.event_name == 'push'` keeps it off the dispatch path,
+which promises nothing is created and would otherwise gain a write. See `release-proposal` below for
+what a caller that cannot offer this ordering still gets.
 
 **Dry-run it before you trust it with a tag.** Every refusal runs, the real notes render, and nothing
 is created. This is the only safe way to exercise the capability, because a version tag is immutable
@@ -193,27 +212,23 @@ request is what releases: `release` only tags what the manifest already declares
 the number there — so nobody types one.
 
 Like `release` it has **no trigger of its own**, and for a second reason: the App credentials below are
-then reachable from no event a fork can raise.
-
-```yaml
-name: propose-on-merge
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  proposal:
-    permissions:
-      contents: read
-    uses: turboBasic/github-actions/.github/workflows/release-proposal.yml@v0.1
-    secrets:
-      app-client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
-      app-private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-```
+then reachable from no event a fork can raise. Its call site is the `proposal` job shown under
+`release` above, in the same `release-on-merge.yml` — not a workflow of its own — so that it can be
+ordered behind the release it must not race.
 
 Context composed: `proposal / propose`. There is nothing here for a ruleset to require — it runs on a
 push, and it writes rather than judges.
+
+**It also declines on its own when the commit it would propose from already carries a release tag**,
+whatever called it and however that call is ordered — nothing since a release already published is
+proposed again. This is a backstop, not the ordering: it cannot make a run wait for a tag that does not
+exist yet, so a caller racing this against its own release job can still lose that race on the first
+push, the same way `release-on-merge`'s own two jobs would without `needs:`. What it does close is every
+other way the same wrong proposal could recur once the tag exists — a delayed run, a retry, a caller
+whose release job happens to finish first without any explicit ordering at all. A caller that cannot
+offer `needs:` — two workflows that cannot see each other — is not safe by construction on the first
+race, but is not stuck rediscovering it either: the standing self-heal (below) plus this backstop is what
+it gets instead.
 
 **It needs a GitHub App, and the run's own token cannot stand in.** Opening a pull request with
 `GITHUB_TOKEN` requires *Allow GitHub Actions to create and approve pull requests*, which grants

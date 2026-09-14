@@ -36,3 +36,18 @@ jobs:
       # A push is never a dry run and a dispatch defaults to one, so the destructive path is the one
       # that has to be asked for.
       dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+
+  # Ordered behind release, never beside it: release-proposal reads the tag list at checkout, and a
+  # push that releases has to have finished tagging before this reads it, or the proposal computes its
+  # range against a tag that does not exist yet. Never on a dispatch — that path promises nothing is
+  # created, and this writes a branch and a pull request unconditionally. Job id `proposal` composes
+  # the first half of `proposal / propose`.
+  proposal:
+    needs: release
+    if: github.event_name == 'push'
+    permissions:
+      contents: read # the capability checks this tree out; every write it makes goes through the App token
+    uses: $/.github/workflows/release-proposal.yml
+    secrets:
+      app-client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+      app-private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
