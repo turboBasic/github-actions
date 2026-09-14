@@ -35,7 +35,6 @@ and reaches the rule layers by link. Layer 3 is read on demand by both.
 | `SECURITY.md` | how something exploitable is reported, and what counts as in scope |
 | `CODE_OF_CONDUCT.md` | what taking part requires |
 | `docs/technical-debt.md` | which shortcuts are deliberate, and the condition that clears each |
-| `docs/consumer-features.md` | which consumer outcomes this repository is aiming to offer, and why each belongs |
 | `docs/instruction-layers.md` | the layering itself, explained for another repository to adopt |
 | `tests/` | every rule a gate holds |
 | `mise.toml` | every tool version, and the task names |
