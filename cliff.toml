@@ -46,12 +46,12 @@ tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
 # again. Groups are sorted by their string, so without a number the order is alphabetical and
 # retitling a section silently moves it.
 commit_parsers = [
-  { message = "^feat", group = "<!--1-->Added" },
-  { message = "^fix", group = "<!--2-->Fixed" },
-  { message = "^perf", group = "<!--3-->Performance" },
-  { message = "^refactor", group = "<!--4-->Changed" },
-  { message = "^revert", group = "<!--5-->Reverted" },
-  { message = "^docs", group = "<!--6-->Documentation" },
+  { message = "^feat", group = "<!--1-->🚀 Added" },
+  { message = "^fix", group = "<!--2-->🐛 Fixed" },
+  { message = "^perf", group = "<!--3-->⚡ Performance" },
+  { message = "^refactor", group = "<!--4-->♻️ Changed" },
+  { message = "^revert", group = "<!--5-->⏪ Reverted" },
+  { message = "^docs", group = "<!--6-->📚 Documentation" },
   # Nothing a consumer resolving a ref can observe. A range holding only these renders no notes, and
   # the release is refused for having nothing to publish — which is the right answer, not a gap.
   { message = "^(build|bump|chore|ci|style|test)", skip = true },

@@ -69,12 +69,12 @@ def test_every_allowed_type_reaches_a_destination() -> None:
 # There is no seventh. A breaking change keeps its own type's section and is marked on its own item,
 # so a breaking-changes section appearing here is a change to what a release publishes.
 SECTIONS = (
-    (1, "Added"),
-    (2, "Fixed"),
-    (3, "Performance"),
-    (4, "Changed"),
-    (5, "Reverted"),
-    (6, "Documentation"),
+    (1, "🚀 Added"),
+    (2, "🐛 Fixed"),
+    (3, "⚡ Performance"),
+    (4, "♻️ Changed"),
+    (5, "⏪ Reverted"),
+    (6, "📚 Documentation"),
 )
 
 # Tera sorts groups by their string, so the number is what puts a section in its place, and a
