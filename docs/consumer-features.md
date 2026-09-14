@@ -82,7 +82,7 @@ The only section carrying internal names, because traceability needs them.
 | Current offer | Direction | Reason |
 | --- | --- | --- |
 | `pr-description` | remove | No feature names it. It produces content rather than a verdict, and the half of a pull request body worth having — why the change was made — cannot be derived from the commits. |
-| `prek-advisory`, and the changed-files lint it compensates for | remove and narrow together | Judging only the files a change touched is the one thing making a published verdict differ from the maintainer's own full run. Judging the whole tree removes the gap, the second capability, and four inputs. |
+| `prek-advisory`, and the changed-files lint it compensates for | remove and narrow together, once the lint task absorbs prek | Judging only the files a change touched is the one thing making a published verdict differ from the maintainer's own full run. Judging the whole tree removes the gap, the second capability, and four inputs. The order is load-bearing: `prek-advisory` runs `prek run --all-files`, and a consumer's lint task need not run prek at all — where it does not, removing the capability leaves whatever prek alone covers checked by nothing in CI, formatting among it, with the local git hook the only thing left and any commit made through the API bypassing that. |
 | `apply-ruleset` | leave alone | Not a consumer feature. It stays as something the repository does for itself. |
 
 ## Test direction
