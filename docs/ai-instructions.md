@@ -109,6 +109,9 @@ The workflows and actions a consumer calls. Each rule below was held against the
 admission bar and is a convention rather than a principle: a reviewer catches the breach and a revert
 restores the world.
 
+- **A capability is bounded by the component it judges, never by a language.** No capability names a
+  language, a framework or a runtime in its file name, its inputs or its steps — why in
+  [ADR 0004](decisions/0004-bound-a-ci-capability-by-the-component.md).
 - **A failure names what to change.** What was read, what it was compared against, and what a
   maintainer should do about it. An exit code on its own is not a result.
 - **A tool the consumer's configuration must pin is checked before it is invoked**, and the failure

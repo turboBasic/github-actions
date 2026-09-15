@@ -44,7 +44,7 @@ ADMITTED = Request(
     notes="- feat: something a consumer can see",
     breaking=False,
     feature=True,
-    changed_paths=(".github/workflows/python-ci.yml",),
+    changed_paths=(".github/workflows/project-ci.yml",),
     surface=Surface(include=(), exclude=(), declared=True),
 )
 
@@ -264,7 +264,7 @@ def test_a_declaration_narrows_to_what_it_declares() -> None:
     )
     assert isinstance(surface, Surface)
     assert touches_surface(surface, ["README.md"]) is False
-    assert touches_surface(surface, [".github/workflows/python-ci.yml"]) is True
+    assert touches_surface(surface, [".github/workflows/project-ci.yml"]) is True
     assert touches_surface(surface, [".github/workflows/ci.yml"]) is False
 
 

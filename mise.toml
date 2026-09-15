@@ -25,9 +25,15 @@ _.python.venv = { path = ".venv", create = true }
 description = "Install tools, dependencies and git hooks"
 run = [
   "mise install",
-  "uv sync --locked",
+  "mise run deps",
   "prek install",
 ]
+
+# A dependency of every stage below rather than a step in `project-ci`: the capability invokes a task and
+# prepares nothing, so a stage that cannot judge without the dependencies installed says so itself.
+[tasks.deps]
+description = "Install the locked dependencies"
+run = "uv sync --locked"
 
 [tasks.fmt]
 description = "Format code with ruff, TOML with taplo"
@@ -51,14 +57,17 @@ run = [
 # maintainer to reproduce the run to find out what it changed.
 [tasks.lint]
 description = "Lint everything the hook runner covers, minus the typecheck task's own hook"
+depends = ["deps"]
 run = "prek run --all-files --show-diff-on-failure --skip pyright"
 
 [tasks.typecheck]
 description = "Type-check with pyright"
+depends = ["deps"]
 run = "uv run pyright"
 
 [tasks.test]
 description = "Run the test suite"
+depends = ["deps"]
 run = "uv run pytest"
 
 # Not in `ci`, and not because of the network: it needs a full clone with tags, since the renderer

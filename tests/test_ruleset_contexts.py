@@ -23,11 +23,11 @@ def test_required_contexts_finds_a_context_it_is_given() -> None:
         "rules": [
             {
                 "type": "required_status_checks",
-                "parameters": {"required_status_checks": [{"context": "ci / python-ci"}]},
+                "parameters": {"required_status_checks": [{"context": "python / project-ci"}]},
             }
         ]
     }
-    assert required_contexts(given) == ["ci / python-ci"]
+    assert required_contexts(given) == ["python / project-ci"]
 
 
 def test_required_contexts_returns_nothing_for_a_ruleset_with_no_such_rule() -> None:
@@ -71,9 +71,9 @@ def test_every_required_context_is_composed_by_the_tree() -> None:
 def test_the_unresolved_message_names_the_ruleset_the_context_and_what_to_do() -> None:
     # FR-010, asserted on the message content rather than only the failure — an exit code alone is
     # not a result.
-    message = _unresolved("protect-default-branch", "gates / python-ci")
+    message = _unresolved("protect-default-branch", "gates / project-ci")
     assert "protect-default-branch" in message
-    assert "gates / python-ci" in message
+    assert "gates / project-ci" in message
     assert ".github/rulesets/protect-default-branch.json" in message
 
 
@@ -93,14 +93,14 @@ def test_cannot_judge_is_set_by_name_for_the_contexts_that_cannot_be_required() 
         return by_context[context]
 
     assert reason_for("proposal / propose") is not None
-    for context in ("verify / python-ci", "release / tag-and-publish"):
+    for context in ("verify / project-ci", "release / tag-and-publish"):
         reason = reason_for(context)
         assert reason is not None, f"{context!r} composes a context that judges, unexpectedly"
         assert "pull_request" in reason, (
             f"{context!r} cannot judge, but not for the event: {reason}"
         )
-    assert reason_for("ci / python-ci") is None, (
-        "'ci / python-ci' is the one context this repository's own ruleset requires, so it has to be "
+    assert reason_for("python / project-ci") is None, (
+        "'python / project-ci' is the one context this repository's own ruleset requires, so it has to be "
         "able to judge. A reason appearing here means the required gate now reports green regardless"
     )
 

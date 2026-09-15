@@ -16,7 +16,10 @@
         "filePath": "tmp/ad-hoc-prompts.md",
         "group": "Default"
       }
-    ]
+    ],
+    "chat.tools.terminal.autoApprove": {
+      "mise": true
+    }
   },
   "extensions": {
     "recommendations": [

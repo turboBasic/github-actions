@@ -25,7 +25,7 @@ COMMITTED: Doc = {
         {"type": "deletion"},
         {
             "type": "required_status_checks",
-            "parameters": {"required_status_checks": [{"context": "ci / python-ci"}]},
+            "parameters": {"required_status_checks": [{"context": "python / project-ci"}]},
         },
     ],
     "bypass_actors": [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}],
@@ -160,7 +160,7 @@ def test_reordered_rules_and_contexts_still_read_as_nothing_to_change() -> None:
         rules=[
             {
                 "type": "required_status_checks",
-                "parameters": {"required_status_checks": [{"context": "ci / python-ci"}]},
+                "parameters": {"required_status_checks": [{"context": "python / project-ci"}]},
             },
             {"type": "deletion"},
         ]

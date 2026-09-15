@@ -49,7 +49,7 @@ jobs:
           exit 1
 
       - name: Install from the lockfile
-        run: uv sync --locked
+        run: mise run deps
 
       - name: Check the public-visibility and release-ref conditions
         env:

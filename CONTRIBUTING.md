@@ -56,8 +56,8 @@ wants a context the runner lacks.
 
 Every capability is called by this repository itself, so opening a pull request here exercises each one
 at the commit under review. That covers the code and not the caller: what turns on caller-side
-configuration — `python-ci`'s stage switches and its task names, a consumer with no `mise.toml` — is
-only exercised by a real consumer at the ref it pins.
+configuration — `project-ci`'s stage switches, a component whose tasks prepare their own dependencies, a
+consumer with no `mise.toml` — is only exercised by a real consumer at the ref it pins.
 
 Before a change to a capability is done:
 

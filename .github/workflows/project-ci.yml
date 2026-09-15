@@ -1,0 +1,94 @@
+name: 🧩 project-ci
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: The component's directory — where its own task configuration lives.
+        type: string
+        default: .
+      run-lint:
+        description: Run the lint stage.
+        type: boolean
+        default: true
+      run-build:
+        description: Run the build stage.
+        type: boolean
+        default: true
+      run-typecheck:
+        description: Run the typecheck stage.
+        type: boolean
+        default: true
+      run-test:
+        description: Run the test stage.
+        type: boolean
+        default: true
+      timeout-minutes:
+        description: How long the job may run before it is cancelled.
+        type: number
+        default: 20
+
+# Nothing at workflow level, so the job below is the only thing that names a scope — and a caller
+# reading the diff sees the whole demand in one place.
+permissions: {}
+
+jobs:
+  project-ci:
+    name: project-ci
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read # the checkout below; no step here writes anywhere
+    steps:
+      # A stage switched off is a step skipped, and a job of nothing but skipped steps is green
+      # (principle VII).
+      - id: stages
+        name: Refuse a call with no stage on
+        if: >-
+          !inputs.run-lint && !inputs.run-build && !inputs.run-typecheck && !inputs.run-test
+        run: |
+          echo "::error::project-ci was called with run-lint, run-build, run-typecheck and run-test all false, so it has nothing to judge. Switch on the stages this component has, or drop the call and the context requiring it together." >&2
+          exit 1
+
+      # No depth: a stage judges the tree as it stands, never a range.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # `minimum_release_age` rather than a version: a task-runner release whose tag exists before its
+      # assets do breaks every consumer at once, and a pin would go stale where this does not.
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          minimum_release_age: 24h
+
+      # For the lint task's hook runner. No input governs it: nobody has wanted a cache off.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/prek
+          key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      # On the stages and on nothing above them: a component's task configuration is resolved from the
+      # working directory, while the tree and the tools are the repository's.
+      - id: lint
+        name: Lint
+        if: inputs.run-lint
+        working-directory: ${{ inputs.working-directory }}
+        run: mise run lint
+
+      - id: build
+        name: Build
+        if: inputs.run-build
+        working-directory: ${{ inputs.working-directory }}
+        run: mise run build
+
+      - id: typecheck
+        name: Typecheck
+        if: inputs.run-typecheck
+        working-directory: ${{ inputs.working-directory }}
+        run: mise run typecheck
+
+      - id: test
+        name: Test
+        if: inputs.run-test
+        working-directory: ${{ inputs.working-directory }}
+        run: mise run test

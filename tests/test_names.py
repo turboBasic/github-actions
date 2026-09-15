@@ -54,7 +54,7 @@ def test_every_workflow_name_is_its_marker_and_its_filename() -> None:
 def test_the_kebab_matcher_refuses_the_shapes_a_consumer_would_have_to_copy() -> None:
     # Pre-flight the matcher, or a rename reports green over a context nobody can type from memory.
     assert KEBAB.match("pr-title")
-    assert KEBAB.match("python-ci")
+    assert KEBAB.match("project-ci")
     assert KEBAB.match("ci")
     assert not KEBAB.match("Python_CI")
     assert not KEBAB.match("pr title")
@@ -68,5 +68,5 @@ def test_the_expected_name_follows_the_trigger_set_rather_than_a_list() -> None:
     # names the new expectation instead of a maintainer having to remember a table.
     assert is_call_only({"on": {"workflow_call": None}})
     assert not is_call_only({"on": {"workflow_call": None, "pull_request": None}})
-    assert expected_name("python-ci", True) == f"{CALL_ONLY} python-ci"
+    assert expected_name("project-ci", True) == f"{CALL_ONLY} project-ci"
     assert expected_name("ci", False) == f"{SELF_TRIGGERING} ci"

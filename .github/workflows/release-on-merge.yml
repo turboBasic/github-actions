@@ -25,7 +25,9 @@ jobs:
   verify:
     permissions:
       contents: read # the capability checks this tree out; no step it runs writes anywhere
-    uses: $/.github/workflows/python-ci.yml
+    uses: $/.github/workflows/project-ci.yml
+    with:
+      run-build: false # nothing is published from here, as in ci.yml
 
   release:
     needs: verify
