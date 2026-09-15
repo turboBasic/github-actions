@@ -36,13 +36,18 @@ language, and there is no selector to tell it one.
 
 ```yaml
 jobs:
-  ci:
+  api:
     permissions:
       contents: read
     uses: turboBasic/github-actions/.github/workflows/project-ci.yml@v0.3
 ```
 
-Required context: `ci / project-ci` — your own job id, then the called job's name.
+Required context: `api / project-ci` — your own job id, then the called job's name.
+
+**Name the job after the component, not after the workflow it sits in.** One capability judges every
+component, so the called half of every context is the same word and your job id is the only thing telling
+one component's check from another's — a `ci` job in a `ci` workflow reads `ci / project-ci` and has spent
+that word on nothing. This repository's own call site is `python`.
 
 **The four task names are a port, and what runs behind each is yours.** A Python component and a Go one
 call the same workflow and differ only in a file neither this repository nor a reviewer of it ever needs
@@ -102,8 +107,9 @@ Four things that follow from the shape, and prose is the only place any of them 
 **`python-ci` was retired for this.** Its contract stands unchanged on `@v0.1` and `@v0.2`, which is
 where a consumer that has not migrated stays. Migrating means renaming
 your task if it was not called `typecheck` or `test`, moving `uv sync --locked` into a task of your own,
-and editing the required context in your ruleset from `ci / python-ci` to `ci / project-ci` — that last
-one blocks every pull request in your repository until it is done, so do it in the same sitting.
+and editing the required context in your ruleset to whatever your call site now composes — that last one
+blocks every pull request in your repository until it is done, so do it in the same sitting. Renaming the
+job to the component's name while you are there costs the same edit.
 
 ### 🧩 `conventional-commits`
 

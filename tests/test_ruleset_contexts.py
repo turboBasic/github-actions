@@ -23,11 +23,11 @@ def test_required_contexts_finds_a_context_it_is_given() -> None:
         "rules": [
             {
                 "type": "required_status_checks",
-                "parameters": {"required_status_checks": [{"context": "ci / project-ci"}]},
+                "parameters": {"required_status_checks": [{"context": "python / project-ci"}]},
             }
         ]
     }
-    assert required_contexts(given) == ["ci / project-ci"]
+    assert required_contexts(given) == ["python / project-ci"]
 
 
 def test_required_contexts_returns_nothing_for_a_ruleset_with_no_such_rule() -> None:
@@ -99,8 +99,8 @@ def test_cannot_judge_is_set_by_name_for_the_contexts_that_cannot_be_required() 
         assert "pull_request" in reason, (
             f"{context!r} cannot judge, but not for the event: {reason}"
         )
-    assert reason_for("ci / project-ci") is None, (
-        "'ci / project-ci' is the one context this repository's own ruleset requires, so it has to be "
+    assert reason_for("python / project-ci") is None, (
+        "'python / project-ci' is the one context this repository's own ruleset requires, so it has to be "
         "able to judge. A reason appearing here means the required gate now reports green regardless"
     )
 
