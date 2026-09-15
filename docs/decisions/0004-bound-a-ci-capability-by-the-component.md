@@ -17,17 +17,16 @@ an independent verdict, not where it changes language.
 
 ## Context
 
-`python-ci` shipped in `0.1.0`. Writing the second one showed what a third would have cost: stripped of
-comments, `go-ci` differed from it in six hunks, and only two of them named anything Go — the module
-integrity step and the pre-flight tool list. The rest was a stage renamed. Every stack after that would
-have re-authored the same checkout, the same task-runner install, the same cache and the same stage
-switches to reach a `run:` line the consumer already owned.
+`python-ci` at `@v0.2` runs eight steps, of which two name Python: a `uv` pre-flight and a lockfile
+install. The other six — the checkout, the task-runner install, the hook cache, and one per stage — say
+nothing about any language, and a capability for a second stack re-authors all six to reach a `run:`
+line the consumer already owns.
 
 What constrains the answer is that consumers describe how their code is checked in `mise.toml` already.
-A capability naming a language therefore does not add a policy — it forks one, and the copy in this
-repository is the one nobody consuming it can edit. A polyglot component made that visible: it has no
-language to select, and composing its checks per language would split a single verdict for a reason its
-maintainer does not have.
+A capability naming a language therefore does not add a policy, it forks one, and the copy here is the
+one nobody consuming it can edit. A polyglot component has no language for such a capability to select
+at all: composing its checks per language would split a single verdict for a reason its maintainer does
+not have.
 
 ## Options
 
@@ -74,6 +73,6 @@ a step that must run before any task and cannot be a task's dependency.
 
 ## Links
 
-[Issue #61](https://github.com/turboBasic/github-actions/issues/61) holds the evidence; #60 is the
-`go-ci` it supersedes. Sits beside [ADR 0003](0003-judge-compatibility-from-the-surface.md), which rules
-how the retirement of `python-ci` is judged as a break.
+[Issue #61](https://github.com/turboBasic/github-actions/issues/61) holds the evidence. Sits beside
+[ADR 0003](0003-judge-compatibility-from-the-surface.md), which rules how retiring `python-ci` is judged
+as a break.

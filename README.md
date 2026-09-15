@@ -95,8 +95,8 @@ Four things that follow from the shape, and prose is the only place any of them 
 - **The checkout is shallow.** No stage reads history beyond the head commit, so a task of yours that
   wants a range or a tag will not find one, and no input here changes that.
 
-**`python-ci` was retired for this**, and `go-ci` was never published. Its contract stands unchanged on
-`@v0.1` and `@v0.2`, which is where a consumer that has not migrated stays. Migrating means renaming
+**`python-ci` was retired for this.** Its contract stands unchanged on `@v0.1` and `@v0.2`, which is
+where a consumer that has not migrated stays. Migrating means renaming
 your task if it was not called `typecheck` or `test`, moving `uv sync --locked` into a task of your own,
 and editing the required context in your ruleset from `ci / python-ci` to `ci / project-ci` — that last
 one blocks every pull request in your repository until it is done, so do it in the same sitting.
