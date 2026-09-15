@@ -29,11 +29,8 @@ run = [
   "prek install",
 ]
 
-# Every stage below depends on this rather than on a step inside `project-ci`: the capability checks the
-# tree out and invokes a task, so a task is where its own preparation belongs — and a stage runnable
-# from a clean checkout is what makes CI's verdict and a maintainer's the same one. `--locked` refuses a
-# lockfile disagreeing with the manifest instead of quietly resolving something else; every tool the
-# hooks and the type checker run arrives through it.
+# A dependency of every stage below rather than a step in `project-ci`: the capability invokes a task and
+# prepares nothing, so a stage that cannot judge without the dependencies installed says so itself.
 [tasks.deps]
 description = "Install the locked dependencies"
 run = "uv sync --locked"

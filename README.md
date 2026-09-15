@@ -29,10 +29,9 @@ ref where it is. Versioning says which ref to pin.
 
 ### 🧩 `project-ci`
 
-One check over **one component**, in whatever language it is written: its own `lint`, `build`,
-`typecheck` and `test` tasks, run by its own task runner. Those four names are the whole interface. This
-capability checks the tree out, installs what your `mise.toml` pins, and runs them — it knows no
-language, and there is no selector to tell it one.
+One check over **one component**: its own `lint`, `build`, `typecheck` and `test` tasks, run by its own
+task runner. Those four names are the whole interface. It checks the tree out, installs what your
+`mise.toml` pins, and runs them — it knows no language, and there is no selector to tell it one.
 
 ```yaml
 jobs:
@@ -44,14 +43,11 @@ jobs:
 
 Required context: `api / project-ci` — your own job id, then the called job's name.
 
-**Name the job after the component, not after the workflow it sits in.** One capability judges every
-component, so the called half of every context is the same word and your job id is the only thing telling
-one component's check from another's — a `ci` job in a `ci` workflow reads `ci / project-ci` and has spent
-that word on nothing. This repository's own call site is `python`.
+**Name the job after the component, not after the workflow it sits in.** The called half is the same word
+for every component, so your job id is the only thing telling one component's check from another's.
 
-**The four task names are a port, and what runs behind each is yours.** A Python component and a Go one
-call the same workflow and differ only in a file neither this repository nor a reviewer of it ever needs
-to read:
+**The four names are a port, and what runs behind each is yours.** A Go component and a Python one call
+this identically and differ only here:
 
 ```toml
 [tools]
@@ -78,38 +74,31 @@ depends = ["deps"]
 run = "go test ./..."
 ```
 
-**Every task must be runnable from a clean checkout, and each owns the preparation it needs.** No stage
-here installs anything, locks anything or verifies anything on a task's behalf: a lockfile install, a
-module download, a checksum check is a `depends` of the task that cannot judge without it — as above.
-That is also the only reason your own `mise run test` and this check reach the same verdict.
+**Every task runs from a clean checkout and owns the preparation it needs.** No stage here installs,
+locks or verifies anything on a task's behalf: a lockfile install or a module download is a `depends` of
+the task that cannot judge without it, as above. That is why your own run and this one agree.
 
-Four things that follow from the shape, and prose is the only place any of them fits:
+Four things a call site cannot show:
 
-- **A stage you do not have is switched off at the call site**, through the inputs declared in the
-  workflow file. All four default on, so an absent task fails the run naming itself; `run-build: false`
-  in your `with:` block is the answer, and it is visible in review where a `build` task existing only to
-  exit zero would not be. A call with all four off is refused outright — a check that judges nothing
-  must not report success. A switch is for a genuinely absent stage, never a way to quiet a failing one.
-- **Prek is reached through `lint` and nowhere else.** This capability owns no linter and invokes no hook
-  runner: the verdict is the one your own `mise run lint` gives, over whatever your task covers. A task
-  reading only part of the tree yields a check that passed over the rest, and that is yours to fix.
-- **A monorepo calls this once per component**, each with its own job id and so its own required context,
-  and each passing `working-directory:` — the stages run there, so the task runner reads that
-  component's own `mise.toml`. Split only where a component deserves an independent verdict, not per
-  language: a single polyglot component's four tasks already cover several. Two things follow from how
-  task configuration nests. Tools are installed from the root, before any stage, so a component's
-  toolchain is pinned in the `[tools]` table the repository root holds. And a component **defines all
-  four task names itself** — one it leaves out is inherited from the root, and a stage judging the root
-  while the check name says otherwise is the one failure mode nobody reads a green check for.
-- **The checkout is shallow.** No stage reads history beyond the head commit, so a task of yours that
-  wants a range or a tag will not find one, and no input here changes that.
+- **A stage you do not have is switched off at the call site.** An absent task fails the run naming
+  itself, and `run-build: false` in your `with:` block is visible in review where a `build` task that
+  only exits zero would not be. A call with every stage off is refused. A switch is for a stage you
+  genuinely lack, never a way to quiet a failing one.
+- **Prek is reached through `lint` and nowhere else.** This capability owns no linter, so the verdict is
+  your own `mise run lint`'s, over whatever your task covers — a task reading part of the tree yields a
+  check that passed over the rest.
+- **A monorepo calls this once per component**, each with its own job id and its own
+  `working-directory`. Split where a component deserves an independent verdict, not per language: one
+  polyglot component's four tasks already cover several. Because task configuration nests, a component
+  **defines all four names itself** — one it leaves out is inherited from the root, and a check named for
+  your component would then report on another. Tools are installed at the root, so pin the component's
+  toolchain in the root `[tools]` table.
+- **The checkout is shallow.** A task of yours wanting a range or a tag will not find one.
 
-**`python-ci` was retired for this.** Its contract stands unchanged on `@v0.1` and `@v0.2`, which is
-where a consumer that has not migrated stays. Migrating means renaming
-your task if it was not called `typecheck` or `test`, moving `uv sync --locked` into a task of your own,
-and editing the required context in your ruleset to whatever your call site now composes — that last one
-blocks every pull request in your repository until it is done, so do it in the same sitting. Renaming the
-job to the component's name while you are there costs the same edit.
+**`python-ci` was retired for this**, and stands unchanged on `@v0.1` and `@v0.2`. Migrating means
+renaming any task not called `typecheck` or `test`, moving `uv sync --locked` into a task of your own,
+and editing your ruleset to the context your call site now composes — that last one blocks every pull
+request in your repository until it is done.
 
 ### 🧩 `conventional-commits`
 

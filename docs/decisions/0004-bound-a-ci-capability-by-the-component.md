@@ -18,15 +18,13 @@ an independent verdict, not where it changes language.
 ## Context
 
 `python-ci` at `@v0.2` runs eight steps, of which two name Python: a `uv` pre-flight and a lockfile
-install. The other six — the checkout, the task-runner install, the hook cache, and one per stage — say
-nothing about any language, and a capability for a second stack re-authors all six to reach a `run:`
-line the consumer already owns.
+install. The other six say nothing about any language, and a capability for a second stack re-authors all
+six to reach a `run:` line the consumer already owns.
 
 What constrains the answer is that consumers describe how their code is checked in `mise.toml` already.
 A capability naming a language therefore does not add a policy, it forks one, and the copy here is the
-one nobody consuming it can edit. A polyglot component has no language for such a capability to select
-at all: composing its checks per language would split a single verdict for a reason its maintainer does
-not have.
+one nobody consuming it can edit. A polyglot component has no language for such a capability to select at
+all.
 
 ## Options
 
@@ -60,16 +58,15 @@ not have.
 ## Consequences
 
 A capability may not name a language, a framework or a runtime, and may not install, lock or verify
-anything on a task's behalf — `tests/test_workflow_properties.py` holds the second half by asserting
-`project-ci` runs its stages and nothing else. Dependency integrity is a `depends` of the task that
-cannot judge without it, in the consumer's own configuration.
+anything on a task's behalf; `tests/test_workflow_properties.py` holds the second half. Dependency
+integrity becomes a `depends` of the task that cannot judge without it, in the consumer's configuration.
 
 Every future request for a stack-specific workflow is answered with a task name and this record. What
 this repository can still ship for a language is a capability judging something no task can — a surface,
-a dependency graph, a published artifact — and that is not this shape.
+a dependency graph, a published artifact.
 
-Reopened if a stack cannot express a stage as a task at all, or if a component's verdict genuinely needs
-a step that must run before any task and cannot be a task's dependency.
+Reopened if a stack cannot express a stage as a task, or if a verdict needs a step that must precede
+every task and cannot be a task's dependency.
 
 ## Links
 

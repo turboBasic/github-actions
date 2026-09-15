@@ -36,9 +36,8 @@ NAMES_A_DEFAULT = re.compile(r"default", re.IGNORECASE)
 
 GOVERNS_A_CACHE = re.compile(r"cache", re.IGNORECASE)
 
-# The steps of `project-ci` that judge the tree, which are also the task names it invokes: the stage
-# id, the switch that governs it and the task behind it are one word, so a caller reading the check
-# knows what to declare.
+# The steps of `project-ci` that judge the tree, which are also the tasks it invokes: the stage id, its
+# switch and the task behind it are one word.
 STAGES = ("lint", "build", "typecheck", "test")
 
 
@@ -356,10 +355,6 @@ def test_every_job_of_a_capability_without_the_input_fixes_its_own_timeout() -> 
 
 
 def test_project_ci_invokes_the_fixed_contract_and_prepares_nothing() -> None:
-    # Equality in both directions. A stage invoking anything but its like-named task means the contract
-    # is no longer readable from the check name; an extra command means this capability has taken over a
-    # preparation step — a lockfile install, a module download — that belongs to the task needing it,
-    # and taking one over is how a language crept back in here last time.
     commands = {
         str(step.get("id", "")): str(step.get("run", "")).strip()
         for step in steps_of("project-ci", "project-ci")
@@ -367,12 +362,9 @@ def test_project_ci_invokes_the_fixed_contract_and_prepares_nothing() -> None:
     }
     expected = {stage: f"mise run {stage}" for stage in STAGES}
     assert {name: run for name, run in commands.items() if name in expected} == expected, (
-        f"project-ci runs {commands}. Each stage invokes the task of its own name and nothing else: a "
-        "task name is never an input, because caller-chosen text on a command line is what principle VI "
-        "forbids and a fixed name is what makes this one contract rather than one per language"
+        f"project-ci runs {commands}. Each stage invokes the task of its own name: a task name is never "
+        "an input, because caller-chosen text on a command line is what principle VI forbids"
     )
-    # Every stage in the component's directory, or a check named for one component reports on another.
-    # The steps above them stay at the root deliberately: the tree and the tools are the repository's.
     elsewhere = {
         name: step.get("working-directory")
         for step in steps_of("project-ci", "project-ci")
@@ -381,28 +373,22 @@ def test_project_ci_invokes_the_fixed_contract_and_prepares_nothing() -> None:
     }
     assert elsewhere == {}, (
         f"project-ci stages not running in the component's directory: {elsewhere}. A stage left at the "
-        "root judges a different component than the check name says, and reports green for the one it "
-        "never read"
+        "root reports on a component the check name does not say"
     )
     assert set(commands) - set(expected) == {"stages"}, (
-        f"project-ci runs {sorted(set(commands) - set(expected))} besides its stages and the refusal. It "
-        "checks the tree out, installs what the caller pins, and invokes the contract — a lockfile "
-        "install or a module download here is a preparation belonging to the task that needs it, and "
-        "taking one over is how a language gets back in"
+        f"project-ci runs {sorted(set(commands) - set(expected))} besides its stages and the refusal. A "
+        "lockfile install or a module download here is a preparation belonging to the task that needs it"
     )
 
 
 def test_the_refusal_fires_when_every_stage_is_off_and_not_before() -> None:
-    # Read as one string, so a stage added to the contract without joining the refusal fails here — and
-    # so does an `||`, which would refuse every call, or a dropped clause, which would refuse none.
     refusal = next(
         step for step in steps_of("project-ci", "project-ci") if step.get("id") == "stages"
     )
     condition = " ".join(str(refusal.get("if", "")).split())
     assert condition == " && ".join(f"!inputs.run-{stage}" for stage in STAGES), (
-        f"project-ci's refusal runs under `if: {condition}`. It fires when every stage is off and at no "
-        "other time: a narrower condition lets a call judging nothing report success, a wider one "
-        "refuses a call that would have judged something"
+        f"project-ci's refusal runs under `if: {condition}`. Every stage joins it: a narrower condition "
+        "lets a call judging nothing report success, a wider one refuses a call that would have judged"
     )
 
 

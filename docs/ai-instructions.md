@@ -110,8 +110,7 @@ admission bar and is a convention rather than a principle: a reviewer catches th
 restores the world.
 
 - **A capability is bounded by the component it judges, never by a language.** No capability names a
-  language, a framework or a runtime in its file name, its inputs or its steps; what a stage runs is a
-  task the consumer implements — why in
+  language, a framework or a runtime in its file name, its inputs or its steps — why in
   [ADR 0004](decisions/0004-bound-a-ci-capability-by-the-component.md).
 - **A failure names what to change.** What was read, what it was compared against, and what a
   maintainer should do about it. An exit code on its own is not a result.

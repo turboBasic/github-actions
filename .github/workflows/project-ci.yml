@@ -40,9 +40,8 @@ jobs:
     permissions:
       contents: read # the checkout below; no step here writes anywhere
     steps:
-      # A call with every stage off would report success having read nothing, and a consumer requiring
-      # the context it composes would never hear about it (principle VII). First step, and before the
-      # checkout, so the refusal is not buried under a run that looks like it did some work.
+      # A stage switched off is a step skipped, and a job of nothing but skipped steps is green
+      # (principle VII).
       - id: stages
         name: Refuse a call with no stage on
         if: >-
@@ -51,44 +50,25 @@ jobs:
           echo "::error::project-ci was called with run-lint, run-build, run-typecheck and run-test all false, so it has nothing to judge. Switch on the stages this component has, or drop the call and the context requiring it together." >&2
           exit 1
 
-      # The default depth: every stage judges the tree as it stands rather than a range, so no history
-      # beyond the head commit is read.
+      # No depth: a stage judges the tree as it stands, never a range.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      # Installs what the calling repository's own [tools] table pins, and nothing this capability
-      # chose for it — which is the whole reason a local verdict and this one agree.
-      #
-      # `minimum_release_age` rather than a pinned version: a task-runner release whose tag exists
-      # before its assets do breaks every consumer at once, and waiting a day for one costs nothing.
-      # A pinned version would go stale; this does not.
+      # `minimum_release_age` rather than a version: a task-runner release whose tag exists before its
+      # assets do breaks every consumer at once, and a pin would go stale where this does not.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           minimum_release_age: 24h
 
-      # For the lint task, which is where a hook runner is invoked from — this capability invokes none
-      # itself. Unconditional, and no input governs it: a cache nobody has ever wanted off is not a
-      # choice a call site should have to make.
+      # For the lint task's hook runner. No input governs it: nobody has wanted a cache off.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/prek
           key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
-      # The four task names below are this capability's entire interface, and each is written out
-      # rather than taken as an input. A caller-chosen task name is a command line this repository
-      # never sees; a fixed one is a port, and what runs behind it — the language, the tools, the flags
-      # — stays the caller's to write and the caller's to pin.
-      #
-      # No step prepares the tree for another, and none is added for a language. Whatever a task needs
-      # installed, locked or verified before it can judge anything, it installs, locks or verifies
-      # itself, or depends on a task that does — so every stage is runnable from a clean checkout and
-      # gives the same verdict the maintainer's own run gives.
-      #
-      # `working-directory` on every stage and on none of the steps above it: the task runner resolves a
-      # component's own configuration from the directory it runs in, while the tree it reads and the
-      # tools it installs are the repository's. A stage left at the root would judge a different
-      # component than the one the check name says.
+      # On the stages and on nothing above them: a component's task configuration is resolved from the
+      # working directory, while the tree and the tools are the repository's.
       - id: lint
         name: Lint
         if: inputs.run-lint

@@ -50,7 +50,7 @@ inputs = [
 ]
 permissions = { contents = "read" }
 tool_prerequisites = [
-  "the tasks lint, build, typecheck and test — the fixed contract, minus whichever stages the caller switches off",
+  "the tasks lint, build, typecheck and test, minus whichever stages the caller switches off",
 ]
 skips_under = []
 

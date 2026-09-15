@@ -14,12 +14,8 @@ permissions: {}
 
 jobs:
   # Resolves at the commit under review rather than at a release, so this repository is a real
-  # consumer of the capability and a defect fails the pull request that introduces it.
-  #
-  # The id names the component, and composes the first half of `python / project-ci`. One capability
-  # judges every component now, so the called half is the same word for all of them and the caller's
-  # job id is the only thing telling one component's check from another's — an id naming the workflow
-  # it already sits in spends that word on nothing.
+  # consumer of the capability and a defect fails the pull request that introduces it. The id names the
+  # component and composes `python / project-ci`; the README says why the component and not the workflow.
   #
   # `$/` carries no `@ref` by design, and actionlint does not know the form yet — .github/actionlint.yaml
   # says why that one message is ignored rather than the reference respelled.
@@ -28,6 +24,4 @@ jobs:
       contents: read # the capability checks this tree out; no step it runs writes anywhere
     uses: $/.github/workflows/project-ci.yml
     with:
-      # Nothing is published from here, so there is no target to compile or package. A stage switched
-      # off at the call site is visible in review; a `build` task existing only to exit zero is not.
-      run-build: false
+      run-build: false # nothing is published from here, so there is nothing to compile or package
