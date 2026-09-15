@@ -3,6 +3,10 @@ name: 🧩 project-ci
 on:
   workflow_call:
     inputs:
+      working-directory:
+        description: The component's directory — where its own task configuration lives.
+        type: string
+        default: .
       run-lint:
         description: Run the lint stage.
         type: boolean
@@ -80,22 +84,31 @@ jobs:
       # installed, locked or verified before it can judge anything, it installs, locks or verifies
       # itself, or depends on a task that does — so every stage is runnable from a clean checkout and
       # gives the same verdict the maintainer's own run gives.
+      #
+      # `working-directory` on every stage and on none of the steps above it: the task runner resolves a
+      # component's own configuration from the directory it runs in, while the tree it reads and the
+      # tools it installs are the repository's. A stage left at the root would judge a different
+      # component than the one the check name says.
       - id: lint
         name: Lint
         if: inputs.run-lint
+        working-directory: ${{ inputs.working-directory }}
         run: mise run lint
 
       - id: build
         name: Build
         if: inputs.run-build
+        working-directory: ${{ inputs.working-directory }}
         run: mise run build
 
       - id: typecheck
         name: Typecheck
         if: inputs.run-typecheck
+        working-directory: ${{ inputs.working-directory }}
         run: mise run typecheck
 
       - id: test
         name: Test
         if: inputs.run-test
+        working-directory: ${{ inputs.working-directory }}
         run: mise run test

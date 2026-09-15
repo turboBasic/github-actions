@@ -89,9 +89,13 @@ Four things that follow from the shape, and prose is the only place any of them 
   runner: the verdict is the one your own `mise run lint` gives, over whatever your task covers. A task
   reading only part of the tree yields a check that passed over the rest, and that is yours to fix.
 - **A monorepo calls this once per component**, each with its own job id and so its own required context,
-  and each component's `mise.toml` naming the same four tasks. Split only where a component deserves an
-  independent verdict — not per language, which is what a single polyglot component's four tasks already
-  handle.
+  and each passing `working-directory:` — the stages run there, so the task runner reads that
+  component's own `mise.toml`. Split only where a component deserves an independent verdict, not per
+  language: a single polyglot component's four tasks already cover several. Two things follow from how
+  task configuration nests. Tools are installed from the root, before any stage, so a component's
+  toolchain is pinned in the `[tools]` table the repository root holds. And a component **defines all
+  four task names itself** — one it leaves out is inherited from the root, and a stage judging the root
+  while the check name says otherwise is the one failure mode nobody reads a green check for.
 - **The checkout is shallow.** No stage reads history beyond the head commit, so a task of yours that
   wants a range or a tag will not find one, and no input here changes that.
 

@@ -371,6 +371,19 @@ def test_project_ci_invokes_the_fixed_contract_and_prepares_nothing() -> None:
         "task name is never an input, because caller-chosen text on a command line is what principle VI "
         "forbids and a fixed name is what makes this one contract rather than one per language"
     )
+    # Every stage in the component's directory, or a check named for one component reports on another.
+    # The steps above them stay at the root deliberately: the tree and the tools are the repository's.
+    elsewhere = {
+        name: step.get("working-directory")
+        for step in steps_of("project-ci", "project-ci")
+        if (name := str(step.get("id", ""))) in expected
+        and step.get("working-directory") != "${{ inputs.working-directory }}"
+    }
+    assert elsewhere == {}, (
+        f"project-ci stages not running in the component's directory: {elsewhere}. A stage left at the "
+        "root judges a different component than the check name says, and reports green for the one it "
+        "never read"
+    )
     assert set(commands) - set(expected) == {"stages"}, (
         f"project-ci runs {sorted(set(commands) - set(expected))} besides its stages and the refusal. It "
         "checks the tree out, installs what the caller pins, and invokes the contract — a lockfile "

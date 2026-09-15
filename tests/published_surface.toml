@@ -46,6 +46,7 @@ inputs = [
   "run-test",
   "run-typecheck",
   "timeout-minutes",
+  "working-directory",
 ]
 permissions = { contents = "read" }
 tool_prerequisites = [
