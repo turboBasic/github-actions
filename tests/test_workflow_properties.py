@@ -36,9 +36,10 @@ NAMES_A_DEFAULT = re.compile(r"default", re.IGNORECASE)
 
 GOVERNS_A_CACHE = re.compile(r"cache", re.IGNORECASE)
 
-# The steps of `python-ci` that judge the tree. Named by id rather than by the shape of their `run:`
-# line, so the gate holds whatever the lines become.
-STAGES = ("lint", "typecheck", "tests")
+# The steps of `project-ci` that judge the tree, which are also the task names it invokes: the stage
+# id, the switch that governs it and the task behind it are one word, so a caller reading the check
+# knows what to declare.
+STAGES = ("lint", "build", "typecheck", "test")
 
 
 def skipping_jobs(doc: Doc) -> set[str]:
@@ -317,7 +318,7 @@ def test_the_cache_input_matcher_reads_a_name_it_is_given() -> None:
 TIMEOUT_INPUT = "timeout-minutes"
 
 MAY_TAKE_A_TIMEOUT = {
-    "python-ci": "runs the caller's own tasks and cannot know how long they take",
+    "project-ci": "runs the caller's own tasks and cannot know how long they take",
 }
 
 
@@ -354,20 +355,48 @@ def test_every_job_of_a_capability_without_the_input_fixes_its_own_timeout() -> 
     )
 
 
-def test_the_lockfile_check_precedes_every_stage_of_python_ci() -> None:
-    ids = [str(step.get("id", "")) for step in steps_of("python-ci", "python-ci")]
-    missing = [step_id for step_id in ("lockfile", *STAGES) if step_id not in ids]
-    assert missing == [], f"python-ci names no step {missing}, so this gate places nothing"
-    assert ids.index("lockfile") < min(ids.index(stage) for stage in STAGES), (
-        "python-ci runs a stage before installing from the lockfile. A lockfile disagreeing with "
-        "its manifest makes every stage a verdict about a tree the maintainer does not have"
+def test_project_ci_invokes_the_fixed_contract_and_prepares_nothing() -> None:
+    # Equality in both directions. A stage invoking anything but its like-named task means the contract
+    # is no longer readable from the check name; an extra command means this capability has taken over a
+    # preparation step — a lockfile install, a module download — that belongs to the task needing it,
+    # and taking one over is how a language crept back in here last time.
+    commands = {
+        str(step.get("id", "")): str(step.get("run", "")).strip()
+        for step in steps_of("project-ci", "project-ci")
+        if "run" in step
+    }
+    expected = {stage: f"mise run {stage}" for stage in STAGES}
+    assert {name: run for name, run in commands.items() if name in expected} == expected, (
+        f"project-ci runs {commands}. Each stage invokes the task of its own name and nothing else: a "
+        "task name is never an input, because caller-chosen text on a command line is what principle VI "
+        "forbids and a fixed name is what makes this one contract rather than one per language"
+    )
+    assert set(commands) - set(expected) == {"stages"}, (
+        f"project-ci runs {sorted(set(commands) - set(expected))} besides its stages and the refusal. It "
+        "checks the tree out, installs what the caller pins, and invokes the contract — a lockfile "
+        "install or a module download here is a preparation belonging to the task that needs it, and "
+        "taking one over is how a language gets back in"
     )
 
 
-def test_each_stage_of_python_ci_is_gated_on_its_own_switch_and_nothing_else() -> None:
+def test_the_refusal_fires_when_every_stage_is_off_and_not_before() -> None:
+    # Read as one string, so a stage added to the contract without joining the refusal fails here — and
+    # so does an `||`, which would refuse every call, or a dropped clause, which would refuse none.
+    refusal = next(
+        step for step in steps_of("project-ci", "project-ci") if step.get("id") == "stages"
+    )
+    condition = " ".join(str(refusal.get("if", "")).split())
+    assert condition == " && ".join(f"!inputs.run-{stage}" for stage in STAGES), (
+        f"project-ci's refusal runs under `if: {condition}`. It fires when every stage is off and at no "
+        "other time: a narrower condition lets a call judging nothing report success, a wider one "
+        "refuses a call that would have judged something"
+    )
+
+
+def test_each_stage_of_project_ci_is_gated_on_its_own_switch_and_nothing_else() -> None:
     # An input named for a stage governs that stage entirely, so a second clause is either an input
     # that half-works or a stage that goes quiet under some event while its switch still reads on.
-    for step in steps_of("python-ci", "python-ci"):
+    for step in steps_of("project-ci", "project-ci"):
         stage = str(step.get("id", ""))
         if stage not in STAGES:
             continue
@@ -375,12 +404,12 @@ def test_each_stage_of_python_ci_is_gated_on_its_own_switch_and_nothing_else() -
         consulted = sorted(set(INPUT_REF.findall(condition)))
         expected = f"run-{stage}"
         assert consulted == [expected], (
-            f"python-ci's {stage} stage runs under `if: {condition}`, consulting {consulted}. Its own "
+            f"project-ci's {stage} stage runs under `if: {condition}`, consulting {consulted}. Its own "
             f"switch is {expected} and nothing else belongs there: an input named for a stage governs "
             "that stage entirely or it is misnamed"
         )
         assert not EVENT_CONDITIONAL.search(condition), (
-            f"python-ci's {stage} stage runs under `if: {condition}`, which reads the event. A stage "
+            f"project-ci's {stage} stage runs under `if: {condition}`, which reads the event. A stage "
             "that judges nothing under some events reports success on those events while its switch "
             "still says it is on"
         )

@@ -27,39 +27,79 @@ Every call site below pins the moving ref. It resolves, but a capability merged 
 is not on it until a release moves it there — and a break starts a new line instead, leaving the old
 ref where it is. Versioning says which ref to pin.
 
-### 🧩 `python-ci`
+### 🧩 `project-ci`
 
-One check over a **Python project**: its own lint, typecheck and test tasks, run by its own task
-runner, after installing from its own lockfile.
+One check over **one component**, in whatever language it is written: its own `lint`, `build`,
+`typecheck` and `test` tasks, run by its own task runner. Those four names are the whole interface. This
+capability checks the tree out, installs what your `mise.toml` pins, and runs them — it knows no
+language, and there is no selector to tell it one.
 
 ```yaml
 jobs:
   ci:
     permissions:
       contents: read
-    uses: turboBasic/github-actions/.github/workflows/python-ci.yml@v0.1
+    uses: turboBasic/github-actions/.github/workflows/project-ci.yml@v0.3
 ```
 
-Required context: `ci / python-ci` — your own job id, then the called job's name.
+Required context: `ci / project-ci` — your own job id, then the called job's name.
 
-Reach for it when the repository has a `pyproject.toml` and a current `uv.lock`. A repository without
-a lockfile is out of scope rather than badly served: the lockfile check is not a stage that can be
-switched off, because a verdict from a tree whose lockfile disagrees with its manifest is a verdict
-about neither. The three stage switches are for a Python repository genuinely missing a stage, not a
-route to using this without Python.
+**The four task names are a port, and what runs behind each is yours.** A Python component and a Go one
+call the same workflow and differ only in a file neither this repository nor a reviewer of it ever needs
+to read:
 
-It needs, from `mise.toml` in the calling repository: the tasks it is asked to run, and `uv`. Those stay
-yours to pin — that is the only reason a local verdict and this one agree — and a missing `uv` fails the
-run naming the tool and where to declare it, rather than with `command not found`.
+```toml
+[tools]
+go = "1.27.1"
+prek = "0.5.3"
 
-Two things worth knowing, and prose is the only place either fits:
+[tasks.deps]
+run = "go mod download && go mod verify && go mod tidy -diff"
 
-- **The lint stage is your own lint task, over whatever your task covers.** This capability owns no
-  linter and reads no diff: it installs what your `mise.toml` pins and runs the task you name, so the
-  verdict is the one your own `mise run lint` gives. What that task judges — and whether it judges the
-  whole tree — is yours, and a task that reads only part of it yields a check that passed over the rest.
+[tasks.lint]
+depends = ["deps"]
+run = "prek run --all-files --show-diff-on-failure"
+
+[tasks.build]
+depends = ["deps"]
+run = "go build ./..."
+
+[tasks.typecheck]
+depends = ["deps"]
+run = "go vet ./..."
+
+[tasks.test]
+depends = ["deps"]
+run = "go test ./..."
+```
+
+**Every task must be runnable from a clean checkout, and each owns the preparation it needs.** No stage
+here installs anything, locks anything or verifies anything on a task's behalf: a lockfile install, a
+module download, a checksum check is a `depends` of the task that cannot judge without it — as above.
+That is also the only reason your own `mise run test` and this check reach the same verdict.
+
+Four things that follow from the shape, and prose is the only place any of them fits:
+
+- **A stage you do not have is switched off at the call site**, through the inputs declared in the
+  workflow file. All four default on, so an absent task fails the run naming itself; `run-build: false`
+  in your `with:` block is the answer, and it is visible in review where a `build` task existing only to
+  exit zero would not be. A call with all four off is refused outright — a check that judges nothing
+  must not report success. A switch is for a genuinely absent stage, never a way to quiet a failing one.
+- **Prek is reached through `lint` and nowhere else.** This capability owns no linter and invokes no hook
+  runner: the verdict is the one your own `mise run lint` gives, over whatever your task covers. A task
+  reading only part of the tree yields a check that passed over the rest, and that is yours to fix.
+- **A monorepo calls this once per component**, each with its own job id and so its own required context,
+  and each component's `mise.toml` naming the same four tasks. Split only where a component deserves an
+  independent verdict — not per language, which is what a single polyglot component's four tasks already
+  handle.
 - **The checkout is shallow.** No stage reads history beyond the head commit, so a task of yours that
   wants a range or a tag will not find one, and no input here changes that.
+
+**`python-ci` was retired for this**, and `go-ci` was never published. Its contract stands unchanged on
+`@v0.1` and `@v0.2`, which is where a consumer that has not migrated stays. Migrating means renaming
+your task if it was not called `typecheck` or `test`, moving `uv sync --locked` into a task of your own,
+and editing the required context in your ruleset from `ci / python-ci` to `ci / project-ci` — that last
+one blocks every pull request in your repository until it is done, so do it in the same sitting.
 
 ### 🧩 `conventional-commits`
 
@@ -130,7 +170,7 @@ jobs:
   verify:
     permissions:
       contents: read
-    uses: turboBasic/github-actions/.github/workflows/python-ci.yml@v0.1
+    uses: turboBasic/github-actions/.github/workflows/project-ci.yml@v0.3
 
   release:
     needs: verify

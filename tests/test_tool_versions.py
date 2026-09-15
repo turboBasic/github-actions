@@ -61,10 +61,10 @@ def whole_tree_lints() -> list[str]:
 
 def test_the_lint_task_lints_the_whole_tree() -> None:
     # The one thing making a published verdict differ from the maintainer's own run was judging part of
-    # the tree. `python-ci` delegates the lint stage to this task, so this is where that is held.
+    # the tree. `project-ci` delegates the lint stage to this task, so this is where that is held.
     assert whole_tree_lints(), (
         f"{MANIFEST.name}'s lint task runs {lint_commands()}, none of which lints the whole tree. A "
-        "consumer requiring the check python-ci composes would then be told a change is clean on the "
+        "consumer requiring the check project-ci composes would then be told a change is clean on the "
         "strength of a run that read part of the tree"
     )
 

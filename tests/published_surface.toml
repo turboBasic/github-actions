@@ -36,23 +36,20 @@
 #
 # Each row arrives in the same change as the capability it describes.
 
-[python-ci]
+[project-ci]
 kind = "workflow"
 published = true
-check_name = ["python-ci"]
+check_name = ["project-ci"]
 inputs = [
-  "lint-task",
+  "run-build",
   "run-lint",
-  "run-tests",
+  "run-test",
   "run-typecheck",
-  "test-task",
   "timeout-minutes",
-  "typecheck-task",
 ]
 permissions = { contents = "read" }
 tool_prerequisites = [
-  "uv — the lockfile check invokes it directly",
-  "the tasks named by lint-task, typecheck-task and test-task",
+  "the tasks lint, build, typecheck and test — the fixed contract, minus whichever stages the caller switches off",
 ]
 skips_under = []
 

@@ -25,9 +25,18 @@ _.python.venv = { path = ".venv", create = true }
 description = "Install tools, dependencies and git hooks"
 run = [
   "mise install",
-  "uv sync --locked",
+  "mise run deps",
   "prek install",
 ]
+
+# Every stage below depends on this rather than on a step inside `project-ci`: the capability checks the
+# tree out and invokes a task, so a task is where its own preparation belongs — and a stage runnable
+# from a clean checkout is what makes CI's verdict and a maintainer's the same one. `--locked` refuses a
+# lockfile disagreeing with the manifest instead of quietly resolving something else; every tool the
+# hooks and the type checker run arrives through it.
+[tasks.deps]
+description = "Install the locked dependencies"
+run = "uv sync --locked"
 
 [tasks.fmt]
 description = "Format code with ruff, TOML with taplo"
@@ -51,14 +60,17 @@ run = [
 # maintainer to reproduce the run to find out what it changed.
 [tasks.lint]
 description = "Lint everything the hook runner covers, minus the typecheck task's own hook"
+depends = ["deps"]
 run = "prek run --all-files --show-diff-on-failure --skip pyright"
 
 [tasks.typecheck]
 description = "Type-check with pyright"
+depends = ["deps"]
 run = "uv run pyright"
 
 [tasks.test]
 description = "Run the test suite"
+depends = ["deps"]
 run = "uv run pytest"
 
 # Not in `ci`, and not because of the network: it needs a full clone with tags, since the renderer
