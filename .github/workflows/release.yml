@@ -42,11 +42,10 @@ jobs:
           minimum_release_age: 24h
 
       - name: Pre-flight the notes renderer
-        run: |
-          command -v git-cliff >/dev/null 2>&1 || {
-            echo "::error::release looked for git-cliff on PATH after installing this repository's pinned tools, and did not find it. Add git-cliff to the [tools] table in mise.toml and commit the change; release never pins a version the repository being released does not control." >&2
-            exit 1
-          }
+        uses: $/actions/preflight
+        with:
+          capability: release
+          tools: git-cliff
 
       # Everything the refusals read, and the real notes, gathered before anything exists. The default
       # branch is read from the repository itself rather than compared against a literal name: a

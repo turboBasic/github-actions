@@ -3,11 +3,12 @@ import sys
 from collections.abc import Sequence
 from typing import cast
 
-from . import release, rulesets
+from . import preflight, release, rulesets
 
 RULESET_VERDICT = "ruleset-verdict"
+PREFLIGHT = "preflight"
 
-COMMANDS = (*release.DECISIONS, RULESET_VERDICT)
+COMMANDS = (*release.DECISIONS, RULESET_VERDICT, PREFLIGHT)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -22,6 +23,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     command = cast(str, parser.parse_args(argv).command)
     if command == RULESET_VERDICT:
         return rulesets.run()
+    if command == PREFLIGHT:
+        return preflight.run()
     return release.run(command)
 
 

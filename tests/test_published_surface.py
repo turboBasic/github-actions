@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 from capabilities import (
     Doc,
@@ -153,3 +153,54 @@ def test_check_name_is_absent_for_an_action_and_present_for_a_published_workflow
             assert composed is None, f"{name}: an action composes no check name"
         elif row["published"]:
             assert composed, f"{name}: a published workflow with no check name cannot be required"
+
+
+# Where a pre-flight names a tool, and the prefix a `tool_prerequisites` entry states it under. Each
+# entry reads `<tool> — why`, so the name is what precedes the dash.
+PREFLIGHT = "$/actions/preflight"
+
+
+def preflight_calls() -> list[tuple[str, str]]:
+    found: list[tuple[str, str]] = []
+    for name, doc in workflow_docs().items():
+        for job in cast(dict[str, Doc], doc.get("jobs", {})).values():
+            for step in cast(list[Doc], job.get("steps", [])):
+                if str(step.get("uses", "")) != PREFLIGHT:
+                    continue
+                inputs = cast(dict[str, Any], step.get("with", {}))
+                for tool in str(inputs.get("tools", "")).split():
+                    found.append((name, tool))
+    return sorted(found)
+
+
+def prerequisite_names(capability: str) -> set[str]:
+    stated = cast(list[Any], fixture().get(capability, {}).get("tool_prerequisites", []))
+    return {str(entry).split("—")[0].strip() for entry in stated}
+
+
+def test_every_pre_flighted_tool_is_a_declared_prerequisite() -> None:
+    calls = preflight_calls()
+    assert calls, (
+        f"no workflow reaches {PREFLIGHT}, so this gate ties no tool to anything. Either the reader "
+        "stopped matching the step, or a capability invokes a tool it never checks for"
+    )
+    undeclared = [
+        f"{capability} pre-flights {tool!r}, which its tool_prerequisites does not state"
+        for capability, tool in calls
+        if tool not in prerequisite_names(capability)
+    ]
+    assert undeclared == [], (
+        f"{undeclared}. A consumer reads tool_prerequisites to know what its own configuration must "
+        "pin, and a pre-flight is what fails when it has not — so a tool checked for but never declared "
+        "is a run that refuses for a reason the surface never told anybody about"
+    )
+
+
+def test_the_pre_flight_readers_read_the_shapes_they_are_given() -> None:
+    # Pre-flight both. Every tool is declared today, which is the point, so the gate above can never
+    # otherwise show that it still reads a step's input or splits a prerequisite entry.
+    assert ("release", "git-cliff") in preflight_calls()
+    assert ("release-proposal", "uv") in preflight_calls()
+    assert prerequisite_names("release") == {"git-cliff"}
+    assert prerequisite_names("release-proposal") == {"git-cliff", "uv"}
+    assert prerequisite_names("dependency-review") == set()

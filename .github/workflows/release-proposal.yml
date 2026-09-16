@@ -64,14 +64,10 @@ jobs:
 
       - name: Pre-flight the tools this capability invokes
         if: steps.guard.outputs.already-released != 'true'
-        run: |
-          missing=()
-          command -v git-cliff >/dev/null 2>&1 || missing+=(git-cliff)
-          command -v uv >/dev/null 2>&1 || missing+=(uv)
-          if [ "${#missing[@]}" -ne 0 ]; then
-            echo "::error::release-proposal looked for ${missing[*]} on PATH after installing this repository's pinned tools, and did not find it. Add ${missing[*]} to the [tools] table in mise.toml and commit the change; release-proposal never pins a version this repository does not control." >&2
-            exit 1
-          fi
+        uses: $/actions/preflight
+        with:
+          capability: release-proposal
+          tools: git-cliff uv
 
       - id: token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
