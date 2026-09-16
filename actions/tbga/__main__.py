@@ -8,8 +8,20 @@ from . import grammar, preflight, release, rulesets, writes
 RULESET_VERDICT = "ruleset-verdict"
 PREFLIGHT = "preflight"
 COMPILE_GRAMMAR = "compile-grammar"
+LIST_RULESETS = "list-rulesets"
+READ_RULESETS = "read-rulesets"
+APPLY_RULESET = "apply-ruleset"
 
-COMMANDS = (*release.DECISIONS, RULESET_VERDICT, PREFLIGHT, COMPILE_GRAMMAR, *writes.WRITES)
+COMMANDS = (
+    *release.DECISIONS,
+    RULESET_VERDICT,
+    LIST_RULESETS,
+    READ_RULESETS,
+    APPLY_RULESET,
+    PREFLIGHT,
+    COMPILE_GRAMMAR,
+    *writes.WRITES,
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -24,6 +36,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     command = cast(str, parser.parse_args(argv).command)
     if command == RULESET_VERDICT:
         return rulesets.run()
+    if command == LIST_RULESETS:
+        return rulesets.run_list()
+    if command == READ_RULESETS:
+        return rulesets.run_read()
+    if command == APPLY_RULESET:
+        return rulesets.run_apply()
     if command == PREFLIGHT:
         return preflight.run()
     if command == COMPILE_GRAMMAR:

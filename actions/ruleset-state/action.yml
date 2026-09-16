@@ -1,0 +1,56 @@
+name: ruleset-state
+description: >-
+  Reads what exists — the committed ruleset names in the tree, or the live rulesets in full. Internal
+  surface: it carries no stability promise and composes no check name. Reads only, and separate from
+  ruleset-write for that reason: a read is safe to reach from a schedule and a write is not.
+
+inputs:
+  command:
+    description: Which read to perform — list-rulesets, or read-rulesets.
+    required: true
+  token:
+    description: >-
+      The token the read runs with, for read-rulesets. Passed rather than inherited: a step's own `env:` is not
+      the environment a composite action's steps see.
+    required: false
+    default: ""
+  repository:
+    description: The owner/name whose live rulesets are read, for read-rulesets.
+    required: false
+    default: ""
+  named:
+    description: >-
+      A single ruleset name, for list-rulesets. Empty lists every committed file instead — hardcoding a name for
+      the scheduled path would fork the fact the directory owns.
+    required: false
+    default: ""
+  live-path:
+    description: Where read-rulesets writes the live rulesets, as a JSON array of full details.
+    required: false
+    default: ""
+
+outputs:
+  rulesets:
+    description: >-
+      The committed names as a JSON array, for list-rulesets. Empty for read-rulesets, whose result is the
+      file the caller named.
+    value: ${{ steps.state.outputs.rulesets }}
+
+runs:
+  using: composite
+  steps:
+    - id: state
+      shell: bash
+      env:
+        # `$/` puts the whole repository beside this action, so the package resolves from the action
+        # path's parent — which exists because the action directory does. Nothing is installed here and
+        # nothing needs to be: the package imports the standard library only.
+        PYTHONPATH: ${{ github.action_path }}/..
+        GH_TOKEN: ${{ inputs.token }}
+        GH_REPO: ${{ inputs.repository }}
+        NAMED: ${{ inputs.named }}
+        LIVE_PATH: ${{ inputs.live-path || format('{0}/live.json', runner.temp) }}
+        COMMAND: ${{ inputs.command }}
+      # The read reaches argparse as an environment value the shell expands into one argument, so no
+      # caller's text is part of this line.
+      run: python3 -m tbga "$COMMAND"

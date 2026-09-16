@@ -110,6 +110,26 @@ jobs = ["dependency-review"]
 event = "any event but pull_request"
 reason = "there is no base and no head to difference, so there is nothing to judge"
 
+[ruleset-state]
+kind = "action"
+# Internal surface, as the other actions here are: no stability promise, no check name, and inputs
+# nothing outside this repository names. Reads only, which is what lets a schedule reach it.
+published = false
+inputs = []
+permissions = {}
+tool_prerequisites = []
+skips_under = []
+
+[ruleset-write]
+kind = "action"
+# Internal surface. Separate from ruleset-state because a ruleset write has no revert: the conditions
+# permitting it stay in apply-ruleset.yml, where a reviewer reads them, and a gate holds them there.
+published = false
+inputs = []
+permissions = {}
+tool_prerequisites = []
+skips_under = []
+
 [ruleset-decisions]
 kind = "action"
 # Internal surface, for the same reason release-decisions is: no stability promise, no check name, and

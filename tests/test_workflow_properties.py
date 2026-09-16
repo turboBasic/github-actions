@@ -679,9 +679,15 @@ def test_the_version_writing_markers_match_a_step_that_authors_one() -> None:
     )
 
 
-# A ruleset write, read from the command rather than from a list this test also keeps. Only a write
-# sends a body, so `--input` is what separates the two calls in this workflow from the read above them.
+# A ruleset write, read from what a step invokes. Only a write sends a body, so the write action and the
+# `--input` a bare call would use are what separate it from the read above it — both are read, so a step
+# reverting to calling gh itself cannot slip past a gate that only knows about the action.
+RULESET_WRITE = "$/actions/ruleset-write"
 SENDS_A_BODY = "--input"
+
+
+def sends_a_body(step: Doc) -> bool:
+    return str(step.get("uses", "")) == RULESET_WRITE or SENDS_A_BODY in str(step.get("run", ""))
 
 
 def apply_steps() -> list[Doc]:
@@ -703,7 +709,7 @@ def test_every_ruleset_writing_step_is_gated_on_the_event_the_dry_run_and_the_ve
     # of the three clauses gives a cron that writes, a dry run that writes, or a write over a refusal.
     found = 0
     for step in apply_steps():
-        if SENDS_A_BODY not in str(step.get("run", "")):
+        if not sends_a_body(step):
             continue
         found += 1
         condition = str(step.get("if", ""))
@@ -724,6 +730,15 @@ def test_every_ruleset_writing_step_is_gated_on_the_event_the_dry_run_and_the_ve
         f"{found} ruleset-writing steps found in apply-ruleset.yml, expected exactly one — this gate "
         "is reading the wrong thing, or a second write appeared beside the gated one"
     )
+
+
+def test_the_body_sending_reader_finds_both_the_action_and_a_bare_call() -> None:
+    # Pre-flight the reader on both shapes. The write goes through the action today, so the `run:` half
+    # would otherwise never be exercised and a step reverting to gh would pass unread.
+    assert sends_a_body({"uses": RULESET_WRITE})
+    assert sends_a_body({"run": 'gh api "repos/$GH_REPO/rulesets" --input "$BODY"'})
+    assert not sends_a_body({"uses": "$/actions/ruleset-state"})
+    assert not sends_a_body({"run": 'gh api "repos/$GH_REPO/rulesets" --jq .id'})
 
 
 def test_the_scheduled_read_fails_on_any_verdict_but_nothing() -> None:

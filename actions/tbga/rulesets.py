@@ -3,7 +3,7 @@ import json
 import os
 from typing import Any, NamedTuple, cast
 
-from . import ERROR, NOTICE, annotate, emit, read_text
+from . import ERROR, NOTICE, annotate, emit, github, read_text
 
 Doc = dict[str, Any]
 
@@ -220,3 +220,74 @@ def run() -> int:
     )
     annotate(ERROR if verdict.verdict == REFUSE else NOTICE, verdict.message)
     return 1 if verdict.verdict == REFUSE else 0
+
+
+def committed_names(directory: str) -> list[str]:
+    return sorted(name[: -len(".json")] for name in os.listdir(directory) if name.endswith(".json"))
+
+
+def run_list() -> int:
+    where = read_text("REPO_DIR") or read_text("GITHUB_WORKSPACE") or os.getcwd()
+    directory = os.path.join(where, read_text("RULESET_DIR") or ".github/rulesets")
+    named = read_text("NAMED").strip()
+    if named:
+        emit(rulesets=json.dumps([named]))
+        return 0
+    if not os.path.isdir(directory):
+        annotate(ERROR, f"no committed ruleset to read under {directory}")
+        return 1
+    names = committed_names(directory)
+    if not names:
+        # An empty matrix skips the job below, and a skipped job reports success — so a scheduled run
+        # that listed nothing would be a green check that read no ruleset at all.
+        annotate(ERROR, f"no committed ruleset to read under {directory}")
+        return 1
+    emit(rulesets=json.dumps(names))
+    return 0
+
+
+def run_read() -> int:
+    # In full, because a list-endpoint summary carries no rules, conditions or bypass_actors — nothing
+    # could be compared against the committed file. `includes_parents=false` leaves out an organisation's,
+    # which this repository cannot write.
+    repository = read_text("GH_REPO").strip()
+    destination = read_text("LIVE_PATH").strip()
+    if not repository or not destination:
+        annotate(ERROR, "reading the live rulesets needs both GH_REPO and LIVE_PATH")
+        return 1
+    listed = github.gh(
+        ("gh", "api", f"repos/{repository}/rulesets?includes_parents=false", "--jq", ".[].id")
+    )
+    live: list[Doc] = []
+    for identifier in (line.strip() for line in listed.splitlines()):
+        if not identifier:
+            continue
+        live.append(
+            cast(
+                Doc,
+                json.loads(github.gh(("gh", "api", f"repos/{repository}/rulesets/{identifier}"))),
+            )
+        )
+    with open(destination, "w", encoding="utf-8") as handle:
+        json.dump(live, handle)
+    return 0
+
+
+def run_apply() -> int:
+    repository = read_text("GH_REPO").strip()
+    verdict = read_text("VERDICT").strip()
+    body = read_text("BODY").strip()
+    identifier = read_text("RULESET_ID").strip()
+    if not repository or not body or verdict not in {CREATE, UPDATE}:
+        annotate(ERROR, f"applying a ruleset needs a body and a {CREATE} or {UPDATE} verdict")
+        return 1
+    if verdict == CREATE:
+        github.gh(("gh", "api", f"repos/{repository}/rulesets", "--input", body))
+    else:
+        if not identifier:
+            annotate(ERROR, f"an {UPDATE} needs the live ruleset's id, and none was given")
+            return 1
+        github.gh(
+            ("gh", "api", "-X", "PUT", f"repos/{repository}/rulesets/{identifier}", "--input", body)
+        )
+    return 0

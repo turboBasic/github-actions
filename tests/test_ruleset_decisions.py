@@ -3,6 +3,7 @@ from typing import Any
 
 import pytest
 
+from tbga import rulesets
 from tbga.rulesets import (
     CREATE,
     NOTHING,
@@ -230,3 +231,44 @@ def test_a_value_holding_the_delimiter_cannot_close_the_block_early(
     assert opening.startswith("difference<<")
     delimiter = opening.removeprefix("difference<<")
     assert delimiter not in hostile
+
+
+def test_the_committed_names_are_every_json_file_without_its_suffix(tmp_path: Path) -> None:
+    # The matrix is read from the directory rather than from a list a workflow also keeps: hardcoding
+    # names for the scheduled path would fork the fact `.github/rulesets/` owns.
+    for name in (
+        "protect-default-branch.json",
+        "immutable-release-tags.json",
+        "notes.md",
+        "README",
+    ):
+        (tmp_path / name).write_text("{}", encoding="utf-8")
+    assert rulesets.committed_names(tmp_path.as_posix()) == [
+        "immutable-release-tags",
+        "protect-default-branch",
+    ]
+
+
+def test_applying_refuses_a_verdict_that_is_neither_create_nor_update(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # `nothing` and `refuse` both reach this code path only through a bug, and a ruleset write has no
+    # revert — so an unrecognised verdict refuses rather than falling through to an update.
+    for verdict in (NOTHING, REFUSE, "", "CREATE"):
+        monkeypatch.setenv("GH_REPO", "owner/repo")
+        monkeypatch.setenv("VERDICT", verdict)
+        monkeypatch.setenv("BODY", "/tmp/body.json")
+        monkeypatch.setenv("RULESET_ID", "1")
+        assert rulesets.run_apply() == 1, verdict
+
+
+def test_an_update_without_the_live_id_refuses_rather_than_creating_a_second(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # An update whose id went missing must not fall back to a create: the API does not make names
+    # unique, so it would leave two rulesets of one name and no way to tell which is applied.
+    monkeypatch.setenv("GH_REPO", "owner/repo")
+    monkeypatch.setenv("VERDICT", UPDATE)
+    monkeypatch.setenv("BODY", "/tmp/body.json")
+    monkeypatch.setenv("RULESET_ID", "")
+    assert rulesets.run_apply() == 1
