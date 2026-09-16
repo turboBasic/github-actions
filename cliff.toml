@@ -1,26 +1,25 @@
-# What a release's notes say, and where they come from: the commit types in the range, never a label
-# on a pull request. A label is applied after the fact by whoever is looking, and two people label
-# differently; a commit type was chosen by the person who made the change and is already gated.
+# The notes are built from the commit types in the range, never a label on a pull request. A label is
+# applied after the fact and two people label differently; a commit type was chosen by whoever made the
+# change and is already gated.
 #
-# git-cliff publishes no schema for this file, so `tests/test_release_notes.py` is the whole of what
-# holds it: every type the grammar admits reaches a section or a deliberate skip, the six sections keep
-# their titles and their order, the breaking block leads the body, and the tag pattern matches an exact
-# version and never a moving ref. The rules about a rendered item are asserted by rendering into a
-# throwaway repository, because a pattern that has stopped matching leaves this file valid and the body
-# wrong.
+# git-cliff publishes no schema for this file. `tests/test_release_notes.py` holds all of it: every type
+# the grammar admits reaches a section or a deliberate skip; the six sections keep their titles and order;
+# the breaking block leads the body; the tag pattern matches an exact version and never a moving ref. Item
+# rules are asserted by rendering into a throwaway repository — a pattern that stopped matching leaves
+# this file valid and the body wrong.
 
 [changelog]
 header = ""
-# A literal string, so the reference test's `\(` reaches Tera rather than being read as a TOML escape.
+# A literal string, so the reference test's `\(` reaches Tera rather than reading as a TOML escape.
 # Every item ends in a reference a reader can follow: the `(#N)` GitHub appends to a squash subject, or
-# the commit's short id where the subject has none — which is not hypothetical, since a rebase merge
-# and a hand-edited squash subject both arrive without one.
+# the commit's short id. A rebase merge and a hand-edited squash subject both arrive without the `(#N)`.
 #
-# A breaking change leads the body in a block of its own and stays in its type's section as well: the
-# block says a consumer cannot absorb this by moving a ref, the section says what the change was. The
-# block is the only place the `BREAKING CHANGE:` footer is published, and only its first paragraph, on
-# one line. The reference rule is written twice because Tera has no macro reachable from an inline
-# template — the two lines are one rule and change together.
+# A breaking change leads the body in its own block and stays in its type's section. The block says a
+# consumer cannot absorb this by moving a ref; the section says what the change was. Only the block
+# publishes the `BREAKING CHANGE:` footer, and only its first paragraph, on one line.
+#
+# The reference rule appears twice: Tera has no macro reachable from an inline template. One rule, two
+# lines, changed together.
 body = '''
 {%- set breaking = commits | filter(attribute="breaking", value=true) -%}
 {% if breaking | length > 0 %}
@@ -39,7 +38,7 @@ footer = ""
 trim = true
 postprocessors = [
   { pattern = '<!--[0-9]+-->', replace = "" },
-  # A bare `@v5` in a release body is an @-mention: GitHub resolves it to whoever holds that login,
+  # A bare `@v5` in a release body is an @-mention. GitHub resolves it to whoever holds that login,
   # credits them under Contributors and notifies them. Backticks make it inert and still read as a ref
   # pin. Anchored on a preceding space or bracket, so an address is left alone.
   { pattern = '(?m)(^|[\s(\[])@([A-Za-z0-9][A-Za-z0-9-]*)', replace = '${1}`@${2}`' },
@@ -47,13 +46,13 @@ postprocessors = [
 
 [git]
 conventional_commits = true
-# A commit that is not conventional cannot be in the range: both grammar checks are required gates, so
-# one arriving here means a gate was bypassed rather than that the notes should paper over it.
+# A non-conventional commit cannot be in the range: both grammar checks are required gates. One arriving
+# here means a gate was bypassed, not that the notes should paper over it.
 filter_unconventional = true
 filter_commits = true
 protect_breaking_commits = true
-# Version tags only. A moving ref is a tag too, and matching one would start the range at whatever the
-# last release moved it to rather than at the last release.
+# Version tags only. A moving ref is also a tag, and matching one starts the range wherever the last
+# release moved it rather than at the last release.
 tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
 
 # The `<!--N-->` prefix is the only statement of a section's position, and a postprocessor strips it

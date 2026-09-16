@@ -101,9 +101,8 @@ def renovate_cz_pattern() -> str:
 
 
 def test_renovates_reader_finds_the_version_the_test_finds() -> None:
-    # renovate.json is a second reader of the same CZ_VERSION line, held to nothing until now.
-    # Pre-flight it the same way the test's own reader is pre-flighted above, or a quoting change
-    # nothing here rejects could pass this suite while leaving Renovate extracting nothing.
+    # renovate.json is a second reader of the same CZ_VERSION line. Pre-flighted like the reader above,
+    # or a quoting change nothing here rejects passes this suite while Renovate extracts nothing.
     match = re.search(renovate_cz_pattern(), CONVENTIONAL_COMMITS.read_text(encoding="utf-8"))
     assert match is not None, (
         f"{RENOVATE.name}'s commitizen customManagers pattern does not match anything in "

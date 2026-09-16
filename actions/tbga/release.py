@@ -10,15 +10,13 @@ from .repository import RECORD
 
 Version = tuple[int, int, int]
 
-# The one statement of the compatibility boundary. `compatibility_line` is the only function that
-# reads it, and a test asserts that. Below this version a break is signalled by the minor, so reading
-# the boundary off the major number alone is wrong — and wrong permissively, which would let a break
-# move a ref consumers pin.
+# The compatibility boundary, stated once. `compatibility_line` is its only reader, and a test holds
+# that. Below this version the minor signals a break, so reading the boundary off the major is wrong —
+# and wrong permissively, which lets a break move a ref consumers pin.
 FIRST_STABLE: Version = (1, 0, 0)
 
-# The baseline a repository with no releases is measured against, which is what makes this version
-# mean "not released yet": it is not ahead of itself, so every merge declines while it stands. A
-# repository can sit here for as long as it takes to have something worth publishing.
+# The baseline for a repository with no releases. It is not ahead of itself, so every merge declines
+# while it stands, and a repository may sit here indefinitely.
 UNRELEASED: Version = (0, 0, 0)
 
 # No leading zero, no pre-release, no build metadata, no leading `v`.
@@ -112,9 +110,8 @@ def increment(version: Version, breaking: bool, feature: bool) -> Version:
 
 
 def find_last_computed(messages: Iterable[str]) -> str:
-    # Walked newest-first: the trailer sought is on the newest commit that carries one, however many
-    # commits without it — a person's edits — sit on top. Reading only the tip would miss it entirely
-    # the moment a person's own commit becomes the tip, which is the ordinary shape of an override.
+    # Newest first, past however many of a person's edits sit on top. Reading only the tip finds no
+    # trailer the moment their commit becomes the tip, which is the ordinary shape of an override.
     for message in messages:
         for line in message.splitlines():
             if line.startswith("Computed-Version: "):
@@ -123,23 +120,20 @@ def find_last_computed(messages: Iterable[str]) -> str:
 
 
 def settle_proposal_version(computed: str, on_branch: str, last_computed: str) -> tuple[str, bool]:
-    # The branch's version differs from what this workflow last computed only because a person edited
-    # it — comparing against a stored computation, read off the branch itself, survives every rewrite
-    # of the branch and every replacement of the pull request body, because neither carries it.
+    # The branch's version differs from the last computed one only because a person edited it. The
+    # comparison is against a stored computation read off the branch, so it survives every rewrite of the
+    # branch and every replacement of the pull request body.
     #
-    # A missing LAST_COMPUTED is not evidence of an override: a branch this workflow never wrote a
-    # trailer to — one from before this comparison existed, or one a person created by hand — has
-    # nothing to compare against, and treating that absence as a difference would freeze the branch's
-    # current content forever on the next run, which is the wrong side of "not sure" to fail on.
+    # A missing trailer is not evidence of an override: a branch this workflow never wrote to has nothing
+    # to compare against. Treating that absence as a difference would freeze the branch forever.
     if on_branch and last_computed and parse_version(on_branch) and on_branch != last_computed:
         return on_branch, True
     return computed, False
 
 
 def range_verdicts(messages: Iterable[str]) -> tuple[bool, bool]:
-    # The two verdicts the increment and the last refusal both read. Decided here rather than in a
-    # `run:` block because getting either wrong puts a release on the wrong compatibility line, and a
-    # version tag cannot be withdrawn.
+    # The two verdicts the increment and the last refusal both read. Getting either wrong puts a release
+    # on the wrong compatibility line, and a version tag cannot be withdrawn.
     breaking = False
     feature = False
     for message in messages:
@@ -296,13 +290,12 @@ def decide(request: Request) -> Verdict:
     if not found:
         return Verdict(True, NOTICE, f"every refusal passed for {request.version_text}")
     if request.occasion == ROUTINE and ALREADY_RELEASED in [r.key for r in found]:
-        # A version that is not ahead of the highest release has not been bumped yet, which makes it
-        # provisional — so nothing below it can be assessed. A break "on a released line" then only says
-        # the bump has not happened, and a default branch must not redden for that.
+        # A version not ahead of the highest release has not been bumped yet. It is provisional, so
+        # nothing below it can be assessed, and a break "on a released line" only says the bump has not
+        # happened. A default branch must not redden for that.
         #
-        # This softens only while the version is behind. A version that *is* ahead has been asserted by
-        # a merged change, so anything wrong with it is a real mistake and stays an error however the
-        # run was reached — including a break that would move a ref consumers pin.
+        # Softened only while the version is behind. A version that is ahead was asserted by a merged
+        # change, so anything wrong with it stays an error however the run was reached.
         return Verdict(False, NOTICE, reported)
     return Verdict(False, ERROR, reported)
 
@@ -426,9 +419,8 @@ def answer_release_verdict() -> int:
 
 
 def answer_proposal_version() -> int:
-    # Read off the branch itself, never a pull request body: a template change, a hand edit or a reopen
-    # cannot lose what is stored here. Every commit unique to the branch rather than only its tip,
-    # because a person's edit becomes the tip and carries no trailer of its own.
+    # The branch, never a pull request body: a template change, a hand edit or a reopen cannot lose what
+    # is stored here. Every commit unique to the branch, not only its tip.
     where = repository_directory()
     proposal_ref = read_text("PROPOSAL_REF").strip()
     base = read_text("BASE_COMMIT").strip()

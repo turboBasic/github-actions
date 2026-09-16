@@ -493,10 +493,9 @@ def _pushes_to_main(doc: Doc) -> bool:
 
 
 def test_release_and_release_proposal_never_reach_one_push_unordered() -> None:
-    # The race #50 measured twice: release-proposal reads the tag list at checkout, so calling it
-    # beside release rather than behind it on the same push computes against a tag that does not exist
-    # yet, on every release merge — the loser is whichever side does less work, which is always
-    # release-proposal.
+    # release-proposal reads the tag list at checkout. Called beside release on the same push rather than
+    # behind it, it measures against a tag that does not exist yet, on every release merge — the loser is
+    # whichever side does less work, which is always release-proposal.
     release_site: tuple[str, str] | None = None
     proposal_site: tuple[str, Doc, str] | None = None
     for name, doc in workflow_docs().items():
@@ -534,9 +533,8 @@ def test_release_and_release_proposal_never_reach_one_push_unordered() -> None:
 
 
 def test_the_ordering_readers_find_the_calls_and_the_dependency_they_are_given() -> None:
-    # Pre-flight the three readers above. Their steady state on this tree is "found and ordered", so a
-    # reader that stopped matching a `uses:` or a `needs:` would report green over the exact race #50
-    # measured.
+    # Pre-flight the three readers above. Their steady state here is "found and ordered", so a reader
+    # that stopped matching a `uses:` or a `needs:` would report green over the race itself.
     given: Doc = {
         "on": {"push": {"branches": ["main"]}},
         "jobs": {
@@ -561,9 +559,9 @@ RUNS_REGARDLESS_OF_THE_GUARD = {"token"}
 
 
 def test_every_step_between_the_guard_and_the_close_is_gated_on_it() -> None:
-    # release-proposal's backstop (#50): a run that lands on a commit a release already tagged has to
-    # skip every step that would otherwise read a stale tag list or write a wrong proposal — not just
-    # the writes at the end, which `close` already gates on an empty range.
+    # release-proposal's backstop. A run landing on a commit a release already tagged must skip every
+    # step that would read a stale tag list or write a wrong proposal, not only the writes at the end —
+    # `close` already gates those on an empty range.
     steps = steps_of("release-proposal", "propose")
     ids = [str(step.get("id", "")) for step in steps]
     assert "guard" in ids and "close" in ids, (

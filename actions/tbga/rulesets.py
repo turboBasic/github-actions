@@ -72,9 +72,8 @@ def shape_problem(committed: Doc) -> str | None:
 
 
 def normalize(doc: Doc) -> Doc:
-    # R4: a read orders lists as it pleases and fills defaults the file may omit. Sorting both sides
-    # the same way, and comparing only the six writable fields, is what keeps a dispatch from reporting
-    # drift it did not cause.
+    # R4. A read orders lists as it pleases and fills defaults the file omits. Both sides are sorted the
+    # same way and only the six writable fields compared, or a dispatch reports drift it did not cause.
     projected: Doc = {field: doc.get(field) for field in WRITABLE_FIELDS}
 
     rules = sorted(
@@ -113,9 +112,8 @@ def normalize(doc: Doc) -> Doc:
 
 
 def render_difference(committed: Doc, live: Doc) -> str:
-    # A line per differing field put the whole value on that line, so changing one required context
-    # printed both `rules` arrays end to end. This is the last thing read before a write that has no
-    # revert, so it is a diff of the two documents rather than a summary of which fields moved.
+    # A diff of the two documents, not a summary of which fields moved. This is the last thing read
+    # before a write with no revert, and a per-field summary puts a whole `rules` array on one line.
     def rendered(doc: Doc) -> list[str]:
         projected = {field: doc.get(field) for field in sorted(WRITABLE_FIELDS)}
         return json.dumps(projected, indent=2, sort_keys=True).splitlines()
@@ -247,9 +245,8 @@ def run_list() -> int:
 
 
 def run_read() -> int:
-    # In full, because a list-endpoint summary carries no rules, conditions or bypass_actors — nothing
-    # could be compared against the committed file. `includes_parents=false` leaves out an organisation's,
-    # which this repository cannot write.
+    # In full: a list-endpoint summary carries no rules, conditions or bypass_actors, so there would be
+    # nothing to compare. `includes_parents=false` excludes an organisation's, which this cannot write.
     repository = read_text("GH_REPO").strip()
     destination = read_text("LIVE_PATH").strip()
     if not repository or not destination:

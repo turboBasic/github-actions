@@ -1,9 +1,8 @@
 name: 🌜 live-state
 
-# GitHub's own state can drift from what the tree assumes with nobody watching: the release App's
-# credentials can rotate silently, the compatibility ref can lag a release whose move-ref step never
-# ran, and the repository can flip private under a setting nobody meant to touch. A schedule is what
-# notices all three without reporting a release in progress as a symptom of itself.
+# GitHub's own state drifts from what the tree assumes, with nobody watching. Three ways: the release
+# App's credentials rotate, the compatibility ref lags a release whose move-ref step never ran, the
+# repository flips private. A schedule notices all three without reading a release in progress as a fault.
 on:
   schedule:
     - cron: "9 7 * * 1" # Monday morning, offset from apply-ruleset's own weekly read

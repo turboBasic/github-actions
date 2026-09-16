@@ -28,10 +28,10 @@ jobs:
         with:
           fail-on-severity: ${{ inputs.fail-on-severity }}
 
-      # The action's own 403 already names the setting and its settings/security_analysis path; it
-      # cannot know that a called workflow has no way to switch that setting on for its caller, so this
-      # step says the one thing it doesn't. `dependency-changes` is set only once the comparison has
-      # actually been read, so this cannot fire on a run that failed over a real advisory.
+      # The action's own 403 names the setting and its settings/security_analysis path. What it cannot
+      # know is that a called workflow cannot switch that setting on for its caller. This step says so.
+      # `dependency-changes` is set only once the comparison has been read, so this cannot fire on a run
+      # that failed over a real advisory.
       - id: graph-off
         if: failure() && steps.review.outputs.dependency-changes == ''
         run: |

@@ -76,9 +76,8 @@ def test_the_config_silences_one_message_per_probe() -> None:
 
 @pytest.mark.parametrize("what", sorted(PROBES))
 def test_every_silenced_message_is_still_the_wrong_verdict(what: str, tmp_path: Path) -> None:
-    # This gate fails when the outside world gets better, which is the only way an expiry can work: the
-    # ignore exists because two tools contradict each other, and nothing else would announce the day
-    # that stopped being true.
+    # This gate fails when the outside world improves, which is the only way an expiry works. The ignore
+    # exists because two tools contradict each other; nothing else announces the day that ends.
     output = verdicts(PROBES[what], tmp_path)
     matched = [pattern for pattern in silenced() if re.search(pattern, output)]
     assert matched, (

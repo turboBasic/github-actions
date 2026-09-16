@@ -1,10 +1,10 @@
 name: 🧩 release-proposal
 
-# Releasing is an act of approval: after a merge, the next version and the exact notes it would publish
-# arrive as a pull request, and merging that is what releases. Nothing here creates a tag — it only
-# proposes the version a later release reads from the manifest.
+# Releasing is an act of approval. After a merge, the next version and the exact notes arrive as a pull
+# request; merging that releases. Nothing here creates a tag — it proposes the version a later release
+# reads from the manifest.
 #
-# `workflow_call` and nothing else, so the App credentials are reachable from no event a fork can raise.
+# `workflow_call` and nothing else: no event a fork can raise reaches the App credentials.
 on:
   workflow_call:
     secrets:
@@ -40,11 +40,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # A backstop, not the ordering itself: a caller racing this against its own release job can still
-      # start this before that job's tag exists, and no check made here can wait for a tag that is not
-      # there yet — only a `needs:` edge in the caller does that. What this catches is any run, however
-      # reached, that lands on a commit a release has already tagged: nothing since that release is
-      # proposed twice.
+      # A backstop, not the ordering. Only a `needs:` edge in the caller can make this wait for a tag; no
+      # check here can. What this catches is any run landing on a commit a release already tagged, so
+      # nothing since that release is proposed twice.
       - id: guard
         name: Decline when this commit already carries a release tag
         run: |
@@ -54,9 +52,6 @@ jobs:
             echo "::notice::HEAD already carries the release tag $tag; nothing since that release is proposed"
           fi
 
-      # `minimum_release_age` rather than a pinned version: a task-runner release whose tag exists
-      # before its assets do breaks every consumer at once, and waiting a day for one costs nothing.
-      # A pinned version would go stale; this does not.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         if: steps.guard.outputs.already-released != 'true'
         with:
@@ -86,9 +81,8 @@ jobs:
         with:
           decision: next-version
 
-      # An empty range means the last release already covers the default branch, so a standing proposal
-      # is stale rather than pending — the same state a commit already carrying a release tag leaves
-      # `gather` never having run in, and so never having written `notes.md` at all.
+      # An empty range means the last release already covers the default branch: a standing proposal is
+      # stale, not pending. A run the guard declined reaches this with no notes path, which reads the same.
       - id: close
         name: Close a proposal whose range has become empty
         env:

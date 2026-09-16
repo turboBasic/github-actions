@@ -88,9 +88,9 @@ def test_the_line_is_the_major_and_the_minor_below_it() -> None:
 
 
 def test_exactly_one_function_reads_the_boundary() -> None:
-    # Principle I, and the thing principle V turns on. Reading the boundary off the major number is
-    # wrong below the first stable version and wrong permissively — it would let a break move a ref
-    # consumers pin — so the refusal, the increment and the ref name all read the line instead.
+    # Principle I, and what principle V turns on. Below the first stable version, reading the boundary off
+    # the major is wrong and permissively so: it lets a break move a ref consumers pin. The refusal, the
+    # increment and the ref name all read the line instead.
     module = ast.parse(SOURCE)
     readers = sorted(
         node.name
@@ -119,9 +119,9 @@ def test_the_moving_ref_above_the_boundary_spans_a_major() -> None:
 
 
 def test_the_moving_ref_is_total_and_never_bare_v_zero() -> None:
-    # This replaces the superseded repository's guard against an empty ref rather than reproducing it:
-    # the ref has at least one component for every version, so that branch could not be reached. `v0`
-    # would span every pre-1.0 break at once, which is the one thing a moving ref exists to prevent.
+    # The ref has at least one component for every version, so an empty one is unreachable. What matters
+    # is that `v0` never appears: it would span every pre-1.0 break at once, which is the one thing a
+    # moving ref exists to prevent.
     for major in range(4):
         for minor in range(4):
             for patch in range(4):
@@ -136,9 +136,8 @@ def test_below_the_boundary_a_break_advances_the_minor() -> None:
 
 
 def test_below_the_boundary_a_feature_advances_only_the_patch() -> None:
-    # The reading the naive version gets wrong. A consumer pinned to v0.1 has to be able to receive a
-    # feature without crossing into v0.2, so a feature may only advance a component the line does not
-    # own.
+    # A consumer pinned to v0.1 must be able to receive a feature without crossing into v0.2. So a
+    # feature advances only a component the line does not own.
     assert increment((0, 1, 4), breaking=False, feature=True) == (0, 1, 5)
 
 
@@ -442,9 +441,8 @@ def test_a_branch_disagreeing_with_the_last_computation_is_kept() -> None:
 
 
 def test_a_branch_with_no_stored_computation_is_not_an_override() -> None:
-    # A branch this workflow never wrote a trailer to — one from before this comparison existed, or one
-    # a person created by hand — has nothing to compare against. Treating that absence as a difference
-    # would freeze the branch's current content forever on the very next run.
+    # A branch this workflow never wrote a trailer to has nothing to compare against. Treating that
+    # absence as a difference would freeze the branch's content forever on the next run.
     version, overridden = release.settle_proposal_version(
         computed="0.1.1", on_branch="0.2.0", last_computed=""
     )

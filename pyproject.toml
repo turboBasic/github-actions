@@ -17,8 +17,8 @@ dev = [
   "commitizen>=4.17",
   "yamllint>=1.35",
   "check-jsonschema>=0.33",
-  # The gates read the workflows and actions as structures. Declared rather than taken from
-  # yamllint's own dependency tree, which would drop it the day yamllint stopped needing it.
+  # The gates read the workflows and actions as structures. Declared here rather than inherited from
+  # yamllint, which would drop it the day yamllint stopped needing it.
   "pyyaml>=6.0",
 ]
 
@@ -47,12 +47,12 @@ include = ["actions", "tests"]
 # and the `tbga` package both composite actions run. pytest reaches the first by the test file's own
 # directory and the second through `tests/conftest.py`; pyright needs both named here.
 extraPaths = ["tests", "actions"]
-# The runner's interpreter rather than the one mise pins, and the default rather than an exception. What
-# a composite action runs executes on whichever `python3` the caller's own configuration left on the
-# runner — 3.12.3 where they pinned none — so a directory added under `actions/` inherits the floor
-# instead of needing an entry to be remembered for it. Stating it as a scoped `executionEnvironments`
-# version would be weaker: that gates syntax and whether a module exists, but a symbol inside a module
-# both versions have is resolved against this top-level value.
+# The runner's interpreter, not mise's, and the default rather than an exception — so a directory added
+# under `actions/` inherits the floor instead of needing an entry remembered for it. A composite action
+# runs on whichever `python3` the caller left there, 3.12.3 where they pinned none.
+#
+# A scoped `executionEnvironments` version is the weaker reading: it gates syntax and whether a module
+# exists, but a symbol inside a module both versions carry resolves against this top-level value.
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 venvPath = "."
@@ -70,9 +70,9 @@ markers = [
   "live: needs network and a live GitHub API token; deselected by default, run explicitly by live-state.yml",
 ]
 
-# What a consumer of this repository actually resolves, so its release is judged against its own layout
-# rather than an inherited default. The excluded files are this repository's own callers of its
-# capabilities: changing one cannot break anybody, because nobody outside names them.
+# What a consumer actually resolves, so a release is judged against this layout rather than an inherited
+# default. The exclusions are this repository's own call sites: nobody outside names them, so changing one
+# breaks nobody.
 [tool.turbobasic-release]
 include = [".github/workflows", "actions"]
 exclude = [

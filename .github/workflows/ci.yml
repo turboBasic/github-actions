@@ -13,12 +13,12 @@ concurrency:
 permissions: {}
 
 jobs:
-  # Resolves at the commit under review rather than at a release, so this repository is a real
-  # consumer of the capability and a defect fails the pull request that introduces it. The id names the
-  # component and composes `python / project-ci`; the README says why the component and not the workflow.
+  # Resolves at the commit under review, not at a release: this repository is a real consumer, so a
+  # defect fails the pull request introducing it. The id names the component and composes
+  # `python / project-ci`; the README says why the component and not the workflow.
   #
-  # `$/` carries no `@ref` by design, and actionlint does not know the form yet — .github/actionlint.yaml
-  # says why that one message is ignored rather than the reference respelled.
+  # `$/` carries no `@ref` by design. actionlint does not know the form; `.github/actionlint.yaml` says
+  # why that message is ignored rather than the reference respelled.
   python:
     permissions:
       contents: read # the capability checks this tree out; no step it runs writes anywhere

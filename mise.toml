@@ -1,18 +1,16 @@
 [tools]
 actionlint = "1.7.12"
-# The notes renderer. This repository is its own consumer of the release capability, so it pins the
-# renderer here for the same reason a consumer's configuration must: the capability never pins a
-# version the repository being released does not control.
+# The notes renderer, pinned here because this repository is its own consumer of the release capability.
+# A capability never pins a version the repository being released does not control.
 git-cliff = "2.14.1"
 "npm:cspell" = "10.2.2"
 "npm:markdownlint-cli2" = "0.23.2"
 "pipx:specify-cli" = "1.0.4"
 prek = "0.5.2"
 python = "3.14"
-# actionlint shells out to shellcheck for every `run:` block when it is on PATH, and skips that
-# analysis without a word when it is not. Most of what this repository executes is shell inside YAML,
-# so an absent pin would leave `mise run lint` and the `actionlint-system` hook both reading less than
-# they appear to.
+# actionlint shells out to shellcheck for every `run:` block when it is on PATH, and silently skips that
+# analysis when it is not. Without this pin, `mise run lint` and the `actionlint-system` hook both read
+# less than they appear to.
 shellcheck = "0.11.0"
 taplo = "0.10.0"
 uv = "0.12.10"
@@ -29,8 +27,8 @@ run = [
   "prek install",
 ]
 
-# A dependency of every stage below rather than a step in `project-ci`: the capability invokes a task and
-# prepares nothing, so a stage that cannot judge without the dependencies installed says so itself.
+# A dependency of every stage below, not a step in `project-ci`. The capability invokes a task and
+# prepares nothing, so a stage that cannot judge without dependencies says so itself.
 [tasks.deps]
 description = "Install the locked dependencies"
 run = "uv sync --locked"
@@ -39,22 +37,20 @@ run = "uv sync --locked"
 description = "Format code with ruff, TOML with taplo"
 run = [
   "uv run ruff format .",
-  # No `.`: a positional is a glob taplo then filters against `include` (default `**/*.toml`),
-  # never a directory it walks. `.` matches one path — the directory — which is not a `.toml`,
-  # so taplo drops it and formats nothing, silently. Bare `taplo fmt` uses `include` directly,
-  # which is what the `taplo-fmt` hook relies on too.
+  # No `.`. A positional is a glob taplo filters against `include` (default `**/*.toml`), never a
+  # directory it walks: `.` matches the directory, which is not a `.toml`, so taplo formats nothing and
+  # says nothing. Bare `taplo fmt` uses `include` directly, as the `taplo-fmt` hook does.
   "taplo fmt",
 ]
 
-# Through the hook runner rather than tool by tool: `.pre-commit-config.yaml` already declares every
-# one of these, and a second list here is a second owner that drifts in silence — the run that reddens
-# a pull request and the run a commit fires would then apply different sets.
+# Through the hook runner, not tool by tool. `.pre-commit-config.yaml` already declares every one of
+# these; a second list here is a second owner, and the run that reddens a pull request would apply a
+# different set from the one a commit fires.
 #
 # `--skip pyright`: the typecheck task owns it. The hook stays unscoped so a commit still type-checks
-# locally, and skipping it here is what keeps one CI job from running it twice.
+# locally, and this keeps one CI job from running it twice.
 #
-# `--show-diff-on-failure`: a hook that rewrites a file otherwise reports only its own name, leaving a
-# maintainer to reproduce the run to find out what it changed.
+# `--show-diff-on-failure`: a hook that rewrites a file otherwise reports only its own name.
 [tasks.lint]
 description = "Lint everything the hook runner covers, minus the typecheck task's own hook"
 depends = ["deps"]
@@ -70,16 +66,16 @@ description = "Run the test suite"
 depends = ["deps"]
 run = "uv run pytest"
 
-# The same entry point both composite actions reach, against this tree. `PYTHONPATH` rather than an
-# installed console script: nothing is published from here, so a `[project.scripts]` entry would force a
-# build backend for an alias.
+# The entry point every composite action reaches, run against this tree. `PYTHONPATH` rather than a
+# console script: nothing is published from here, so `[project.scripts]` would force a build backend for
+# an alias.
 [tasks.cli]
 description = "Run the CLI a composite action runs — `mise run cli -- release-verdict`"
 run = "PYTHONPATH=actions python3 -m tbga"
 
-# Not in `ci`, and not because of the network: it needs a full clone with tags, since the renderer
-# measures the range from the newest version tag and renders an empty one without complaining on a
-# shallow checkout. `mise run ci` has to pass there.
+# Not in `ci`, and not because of the network. It needs a full clone with tags: the renderer measures the
+# range from the newest version tag and renders an empty one on a shallow checkout without complaining.
+# `mise run ci` has to pass there.
 [tasks.release-notes]
 description = "Render the notes for the unreleased range, offline, creating nothing — needs a full clone with tags"
 run = "git-cliff --config cliff.toml --unreleased"

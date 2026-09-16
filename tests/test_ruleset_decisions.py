@@ -192,8 +192,8 @@ def test_render_difference_is_empty_when_the_two_documents_agree() -> None:
 
 
 def test_render_difference_keeps_a_nested_change_to_the_line_it_happened_on() -> None:
-    # The failure this replaces: one changed context printed both `rules` arrays on a single line,
-    # leaving the reader to diff them by eye before an irreversible write.
+    # One changed context must not print both `rules` arrays on a single line: this is the last thing
+    # read before an irreversible write.
     live = normalize(_detail())
     committed = normalize(COMMITTED)
     difference = render_difference(committed, live)
