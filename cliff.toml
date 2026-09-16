@@ -4,9 +4,10 @@
 #
 # git-cliff publishes no schema for this file, so `tests/test_release_notes.py` is the whole of what
 # holds it: every type the grammar admits reaches a section or a deliberate skip, the six sections keep
-# their titles and their order, and the tag pattern matches an exact version and never a moving ref.
-# The two rules about a rendered item are asserted by rendering into a throwaway repository, because a
-# pattern that has stopped matching leaves this file valid and the body wrong.
+# their titles and their order, the breaking block leads the body, and the tag pattern matches an exact
+# version and never a moving ref. The rules about a rendered item are asserted by rendering into a
+# throwaway repository, because a pattern that has stopped matching leaves this file valid and the body
+# wrong.
 
 [changelog]
 header = ""
@@ -14,11 +15,24 @@ header = ""
 # Every item ends in a reference a reader can follow: the `(#N)` GitHub appends to a squash subject, or
 # the commit's short id where the subject has none — which is not hypothetical, since a rebase merge
 # and a hand-edited squash subject both arrive without one.
+#
+# A breaking change leads the body in a block of its own and stays in its type's section as well: the
+# block says a consumer cannot absorb this by moving a ref, the section says what the change was. The
+# block is the only place the `BREAKING CHANGE:` footer is published, and only its first paragraph, on
+# one line. The reference rule is written twice because Tera has no macro reachable from an inline
+# template — the two lines are one rule and change together.
 body = '''
+{%- set breaking = commits | filter(attribute="breaking", value=true) -%}
+{% if breaking | length > 0 %}
+### 💥 Breaking changes
+{% for commit in breaking %}
+- {{ commit.message | upper_first }}{% if commit.message is not matching("\(#[0-9]+\)") %} ({{ commit.id | truncate(length=7, end="") }}){% endif %}{% if commit.breaking_description and commit.breaking_description != commit.message %} — {{ commit.breaking_description | split(pat="\n\n") | first | split(pat="\n") | join(sep=" ") | trim }}{% endif %}
+{%- endfor %}
+{% endif %}
 {% for group, commits in commits | group_by(attribute="group") %}
 ### {{ group }}
 {% for commit in commits %}
-- {{ commit.message | upper_first }}{% if commit.message is not matching("\(#[0-9]+\)") %} ({{ commit.id | truncate(length=7, end="") }}){% endif %}{% if commit.breaking %} — **breaking**{% endif %}
+- {{ commit.message | upper_first }}{% if commit.message is not matching("\(#[0-9]+\)") %} ({{ commit.id | truncate(length=7, end="") }}){% endif %}
 {%- endfor %}
 {% endfor %}'''
 footer = ""

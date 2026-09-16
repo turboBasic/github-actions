@@ -62,12 +62,16 @@ def test_every_allowed_type_reaches_a_destination() -> None:
     )
 
 
-# The published shape of a release body: six sections, these titles, this order. Written out rather
-# than read from the order the parsers happen to be declared in — a gate taking its expectation from
-# the artefact it judges would follow a reorder instead of failing it.
+# The published shape of a release body: the breaking block where there is one, then six sections,
+# these titles, this order. Written out rather than read from the order the parsers happen to be
+# declared in — a gate taking its expectation from the artefact it judges would follow a reorder
+# instead of failing it.
 #
-# There is no seventh. A breaking change keeps its own type's section and is marked on its own item,
-# so a breaking-changes section appearing here is a change to what a release publishes.
+# The block is not a parser group: a breaking commit keeps its own type's section and is lifted into
+# the block as well. So the parsers declare six groups, and a seventh appearing there is a change to
+# what a release publishes.
+BREAKING_SECTION = "💥 Breaking changes"
+
 SECTIONS = (
     (1, "🚀 Added"),
     (2, "🐛 Fixed"),
@@ -172,6 +176,14 @@ SUBJECTS = (
 
 NO_NUMBER = "subject with no number"
 
+# A breaking change, planted with the footer whose first paragraph the block publishes. Its type is one
+# the parsers place, so the rendering shows both halves of the rule: lifted into the block, kept in
+# 🚀 Added.
+BREAKING_SUBJECT = "feat!: retire the old input (#30)"
+BREAKING_FOOTER = "BREAKING CHANGE: the mise-version input is gone,\npin it in mise.toml instead"
+BREAKING_DESCRIPTION = "the mise-version input is gone, pin it in mise.toml instead"
+BREAKING_ITEM = "- Retire the old input (#30)"
+
 
 def _git(repo: Path, *args: str) -> str:
     # A list, never a shell string: a subject here is text this test chose, and the habit of handing it
@@ -191,6 +203,9 @@ def plant(repo: Path) -> None:
         (repo / "f").write_text(str(index), encoding="utf-8")
         _git(repo, "add", "f")
         _git(repo, "commit", "-qm", subject)
+    (repo / "f").write_text("breaking", encoding="utf-8")
+    _git(repo, "add", "f")
+    _git(repo, "commit", "-qm", BREAKING_SUBJECT, "-m", BREAKING_FOOTER)
 
 
 def short_id(repo: Path, grep: str) -> str:
@@ -223,10 +238,11 @@ def test_the_rendered_sections_are_the_committed_titles_in_order(tmp_path: Path)
     headings = [
         line.removeprefix("### ") for line in rendered.splitlines() if line.startswith("### ")
     ]
-    assert headings == [title for _, title in SECTIONS], (
-        f"a release body rendered its sections as {headings}, and a release publishes "
-        f"{[title for _, title in SECTIONS]}. Either a section moved, or an ordering prefix is no "
-        f"longer being stripped and is now visible to every reader. Rendered:\n{rendered}"
+    expected = [BREAKING_SECTION, *(title for _, title in SECTIONS)]
+    assert headings == expected, (
+        f"a release body rendered its sections as {headings}, and a release publishes {expected}. Either "
+        f"a section moved, or an ordering prefix is no longer being stripped and is now visible to every "
+        f"reader. Rendered:\n{rendered}"
     )
     assert "Not published" not in rendered, (
         f"a skipped type reached the notes, so a commit a consumer cannot observe is being published as "
@@ -246,6 +262,21 @@ def test_an_item_without_a_pull_request_number_carries_its_commit_id(tmp_path: P
     assert "- A numbered subject (#12)\n" in rendered, (
         f"an item that already carries `(#12)` was given a second reference as well, so every such line "
         f"now ends in two. Rendered:\n{rendered}"
+    )
+
+
+def test_a_breaking_change_leads_the_body_and_stays_in_its_own_section(tmp_path: Path) -> None:
+    plant(tmp_path)
+    rendered = render(tmp_path)
+    assert f"{BREAKING_ITEM} — {BREAKING_DESCRIPTION}\n" in rendered, (
+        f"a breaking change rendered without the first paragraph of its `BREAKING CHANGE:` footer on one "
+        f"line, so the body names the change and not what a consumer has to do about it. Expected "
+        f"`{BREAKING_DESCRIPTION}`. Rendered:\n{rendered}"
+    )
+    assert rendered.count(BREAKING_ITEM) == 2, (
+        f"a breaking change is published twice — in the block that leads the body, and in "
+        f"{SECTIONS[0][1]}, where a reader looks for what the release changed. It rendered "
+        f"{rendered.count(BREAKING_ITEM)} times. Rendered:\n{rendered}"
     )
 
 
