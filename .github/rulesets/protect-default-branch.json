@@ -52,6 +52,10 @@
           {
             "context": "commits / commit-messages",
             "integration_id": 15368
+          },
+          {
+            "context": "own-helpers",
+            "integration_id": 15368
           }
         ]
       }

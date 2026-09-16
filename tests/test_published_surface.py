@@ -160,6 +160,19 @@ def test_check_name_is_absent_for_an_action_and_present_for_a_published_workflow
 PREFLIGHT = "$/actions/preflight"
 
 
+def preflight_capabilities() -> list[tuple[str, str]]:
+    # Workflow to the capability its pre-flight names itself as.
+    found: list[tuple[str, str]] = []
+    for name, doc in workflow_docs().items():
+        for job in cast(dict[str, Doc], doc.get("jobs", {})).values():
+            for step in cast(list[Doc], job.get("steps", [])):
+                if str(step.get("uses", "")) != PREFLIGHT:
+                    continue
+                inputs = cast(dict[str, Any], step.get("with", {}))
+                found.append((name, str(inputs.get("capability", ""))))
+    return sorted(found)
+
+
 def preflight_calls() -> list[tuple[str, str]]:
     found: list[tuple[str, str]] = []
     for name, doc in workflow_docs().items():
@@ -204,3 +217,19 @@ def test_the_pre_flight_readers_read_the_shapes_they_are_given() -> None:
     assert prerequisite_names("release") == {"git-cliff"}
     assert prerequisite_names("release-proposal") == {"git-cliff", "uv"}
     assert prerequisite_names("dependency-review") == set()
+
+
+def test_every_pre_flight_names_the_capability_it_sits_in() -> None:
+    # The name reaches the failure message and nothing else reads it, so a typo produces a refusal
+    # attributed to a capability no fixture row holds.
+    named = preflight_capabilities()
+    assert named, f"no workflow reaches {PREFLIGHT}, so this gate ties no name to anything"
+    wrong = sorted(
+        f"{workflow} pre-flights as {capability!r}"
+        for workflow, capability in named
+        if capability != workflow
+    )
+    assert wrong == [], (
+        f"{wrong}. The pre-flight names the capability a consumer has to fix its configuration for, so it "
+        "is the workflow's own name"
+    )
