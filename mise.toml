@@ -70,6 +70,13 @@ description = "Run the test suite"
 depends = ["deps"]
 run = "uv run pytest"
 
+# The same entry point both composite actions reach, against this tree. `PYTHONPATH` rather than an
+# installed console script: nothing is published from here, so a `[project.scripts]` entry would force a
+# build backend for an alias.
+[tasks.cli]
+description = "Run the CLI a composite action runs — `mise run cli -- release-verdict`"
+run = "PYTHONPATH=actions python3 -m tbga"
+
 # Not in `ci`, and not because of the network: it needs a full clone with tags, since the renderer
 # measures the range from the newest version tag and renders an empty one without complaining on a
 # shallow checkout. `mise run ci` has to pass there.

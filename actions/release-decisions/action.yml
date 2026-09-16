@@ -6,11 +6,27 @@ description: >-
   cannot interpolate its own ref — so it can reach neither its own files nor the ref a consumer pinned.
 
 inputs:
+  repository:
+    description: >-
+      The tree to read the range from. Every value the refusals compare comes from here, so nothing about
+      the range travels through an output and back.
+    required: false
+    default: ""
+  cliff-config:
+    description: The notes renderer's config, relative to the repository.
+    required: false
+    default: cliff.toml
+  notes-path:
+    description: Where to write the rendered notes. The release body is read from this file, never an output.
+    required: false
+    default: ""
   decision:
     description: Which question to answer — moving-ref, next-version, release-verdict, or proposal-version.
     required: true
   version:
-    description: The version the manifest declares, as a plain N.N.N with no leading v.
+    description: >-
+      The version the manifest declares, as a plain N.N.N with no leading v. Read from the repository for
+      release-verdict; still passed for the decisions that judge a version the tree does not hold.
     required: false
     default: ""
   branch:
@@ -71,6 +87,9 @@ inputs:
     default: ""
 
 outputs:
+  notes-path:
+    description: The file the rendered notes were written to. Empty when nothing was rendered.
+    value: ${{ steps.decide.outputs.notes-path }}
   ref:
     description: The moving ref the version belongs to.
     value: ${{ steps.decide.outputs.ref }}
@@ -101,6 +120,9 @@ runs:
         # nothing needs to be: the package imports the standard library only.
         PYTHONPATH: ${{ github.action_path }}/..
         DECISION: ${{ inputs.decision }}
+        REPO_DIR: ${{ inputs.repository || github.workspace }}
+        CLIFF_CONFIG: ${{ inputs.cliff-config }}
+        NOTES_PATH: ${{ inputs.notes-path || format('{0}/release-notes.md', runner.temp) }}
         VERSION: ${{ inputs.version }}
         BRANCH: ${{ inputs.branch }}
         DEFAULT_BRANCH: ${{ inputs.default-branch }}

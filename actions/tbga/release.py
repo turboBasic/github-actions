@@ -5,7 +5,8 @@ from collections.abc import Iterable
 from fnmatch import fnmatch
 from typing import Any, NamedTuple, cast
 
-from . import ERROR, NOTICE, annotate, emit, read_text
+from . import ERROR, NOTICE, annotate, emit, read_text, repository
+from .repository import RECORD
 
 Version = tuple[int, int, int]
 
@@ -28,9 +29,6 @@ VERSION = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 BREAKING_SUBJECT = re.compile(r"^[a-zA-Z]+(\([^)]*\))?!:")
 BREAKING_FOOTER = re.compile(r"^BREAKING[ -]CHANGE:", re.MULTILINE)
 FEATURE_SUBJECT = re.compile(r"^feat(\([^)]*\))?!?:")
-
-# A commit message holds newlines, so messages arrive separated by this rather than by lines.
-RECORD = "\x1e"
 
 # How the run was reached. The already-released condition means something different for each, which is
 # why it is an occasion rather than a boolean.
@@ -318,10 +316,20 @@ def read_lines(name: str) -> tuple[str, ...]:
 
 
 def read_released_versions(name: str) -> tuple[Version, ...]:
+    return released_versions(read_lines(name))
+
+
+def released_versions(tags: Iterable[str]) -> tuple[Version, ...]:
     # A tag that is not a plain version is not a release of any line here — a moving ref is one, and a
     # repository is allowed to carry tags this scheme never made — so it is skipped, not refused.
-    parsed = (parse_version(line.removeprefix("v")) for line in read_lines(name))
+    parsed = (parse_version(tag.removeprefix("v")) for tag in tags)
     return tuple(version for version in parsed if version is not None)
+
+
+def repository_directory() -> str:
+    # The tree to read, which is the caller's checkout on a runner and the working directory locally.
+    # Never the module's own location: a composite action's files arrive as an export with no `.git`.
+    return read_text("REPO_DIR") or read_text("GITHUB_WORKSPACE") or os.getcwd()
 
 
 def surface_from_manifest(path: str) -> Surface | Refusal:
@@ -360,26 +368,33 @@ def answer_next_version() -> int:
 
 
 def answer_release_verdict() -> int:
-    surface = surface_from_manifest(read_text("MANIFEST"))
+    # Everything the refusals read comes from the repository itself, so nothing about the range travels
+    # through an output and back. Only the occasion and the branch are the run's to state.
+    where = repository_directory()
+    manifest = read_text("MANIFEST") or "pyproject.toml"
+    surface = surface_from_manifest(f"{where}/{manifest}")
     if isinstance(surface, Refusal):
         # A malformed declaration is refused before any ref exists rather than read as an absent one.
-        emit(proceed="false", severity=ERROR, message=surface.message, ref="")
+        emit(proceed="false", severity=ERROR, message=surface.message, ref="", **{"notes-path": ""})
         annotate(ERROR, surface.message)
         return 1
     notice = surface_notice(surface)
     if notice:
         annotate(NOTICE, notice)
-    breaking, feature = range_verdicts(read_records("COMMIT_MESSAGES"))
+    notes_path = read_text("NOTES_PATH") or f"{where}/release-notes.md"
+    notes = repository.render_notes(where, read_text("CLIFF_CONFIG") or "cliff.toml", notes_path)
+    breaking, feature = range_verdicts(repository.commit_messages(where))
+    version_text = repository.declared_version(where, manifest)
     request = Request(
-        version_text=read_text("VERSION").strip(),
+        version_text=version_text,
         branch=read_text("BRANCH").strip(),
         default_branch=read_text("DEFAULT_BRANCH").strip(),
         occasion=read_text("OCCASION").strip() or DELIBERATE,
-        existing=read_released_versions("RELEASED_VERSIONS"),
-        notes=read_text("NOTES"),
+        existing=released_versions(repository.release_tags(where)),
+        notes=notes,
         breaking=breaking,
         feature=feature,
-        changed_paths=read_lines("CHANGED_PATHS"),
+        changed_paths=repository.changed_paths(where),
         surface=surface,
     )
     verdict = decide(request)
@@ -389,6 +404,10 @@ def answer_release_verdict() -> int:
         severity=verdict.severity,
         message=verdict.message,
         ref=moving_ref(version) if version else "",
+        # What the tag is named after. Read from the manifest here rather than passed in, so the version
+        # tagged and the version judged cannot differ.
+        version=version_text,
+        **{"notes-path": notes_path},
     )
     annotate(verdict.severity, verdict.message)
     # A decline is not a failure: a default branch must not redden for a merge that did nothing wrong.

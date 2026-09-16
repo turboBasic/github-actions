@@ -47,68 +47,47 @@ jobs:
           capability: release
           tools: git-cliff
 
-      # Everything the refusals read, and the real notes, gathered before anything exists. The default
-      # branch is read from the repository itself rather than compared against a literal name: a
-      # literal is right for one repository by coincidence and wrong for the next in silence.
-      - id: gather
-        name: Read the range and render its notes
+      # The one thing about this run the tree cannot answer. Read from the repository itself rather than
+      # compared against a literal name: a literal is right for one repository by coincidence and wrong
+      # for the next in silence.
+      - id: repository
+        name: Read the default branch from the repository itself
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          DELIMITER: __RELEASE_GATHER__
-        run: |
-          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')
-          default_branch=$(gh api "repos/$GH_REPO" --jq .default_branch)
-          git tag --list --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' > "$RUNNER_TEMP/releases" || true
-          last=$(head -1 "$RUNNER_TEMP/releases" || true)
-          if [ -n "$last" ]; then span=("$last..HEAD"); else span=(HEAD); fi
-          git log --format= --name-only "${span[@]}" | sort -u | grep -v '^$' > "$RUNNER_TEMP/paths" || true
-          git log --format=%B%x1e "${span[@]}" > "$RUNNER_TEMP/messages"
-          git-cliff --config cliff.toml --unreleased > "$RUNNER_TEMP/notes.md"
-          {
-            printf 'version=%s\n' "$version"
-            printf 'default-branch=%s\n' "$default_branch"
-            for name in releases paths messages; do
-              printf '%s<<%s\n' "$name" "$DELIMITER"
-              cat "$RUNNER_TEMP/$name"
-              printf '%s\n' "$DELIMITER"
-            done
-            printf 'notes<<%s\n' "$DELIMITER"
-            cat "$RUNNER_TEMP/notes.md"
-            printf '%s\n' "$DELIMITER"
-          } >> "$GITHUB_OUTPUT"
+        run: printf 'default-branch=%s\n' "$(gh api "repos/$GH_REPO" --jq .default_branch)" >> "$GITHUB_OUTPUT"
 
       # `$/` is resolved from the repository owning this file rather than from the workspace, so this
       # reaches our own action even though the checkout above is the caller's tree — and it carries no
       # ref, so there is nothing to pin and nothing to bootstrap.
+      #
+      # The range, the tags, the paths, the declared version and the notes are all read from the
+      # checkout by the module itself. Nothing about them is marshalled through an output, which is four
+      # rounds of quoting for text rendered from commit messages.
       - id: decide
         name: Run every refusal, before any ref exists
         uses: $/actions/release-decisions
         with:
           decision: release-verdict
-          version: ${{ steps.gather.outputs.version }}
           branch: ${{ github.ref_name }}
-          default-branch: ${{ steps.gather.outputs.default-branch }}
+          default-branch: ${{ steps.repository.outputs.default-branch }}
           occasion: ${{ inputs.dry-run && 'dry-run' || (github.event_name == 'push' && 'routine' || 'deliberate') }}
-          released-versions: ${{ steps.gather.outputs.releases }}
-          notes: ${{ steps.gather.outputs.notes }}
-          commit-messages: ${{ steps.gather.outputs.messages }}
-          changed-paths: ${{ steps.gather.outputs.paths }}
           manifest: pyproject.toml
 
       - name: Report what a dry run would have done
         if: inputs.dry-run
         env:
           VERDICT: ${{ steps.decide.outputs.message }}
-          VERSION: ${{ steps.gather.outputs.version }}
+          VERSION: ${{ steps.decide.outputs.version }}
           MOVING_REF: ${{ steps.decide.outputs.ref }}
+          NOTES: ${{ steps.decide.outputs.notes-path }}
         run: |
           {
             printf '## Dry run — nothing was created\n\n'
             printf 'Would tag v%s and move %s.\n\n' "$VERSION" "$MOVING_REF"
             printf '%s\n\n' "$VERDICT"
             printf '### The notes it would publish\n\n'
-            cat "$RUNNER_TEMP/notes.md"
+            cat "$NOTES"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # An annotated tag object, then the ref that names it. Created once and never force-updated: this
@@ -119,7 +98,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          VERSION: ${{ steps.gather.outputs.version }}
+          VERSION: ${{ steps.decide.outputs.version }}
           COMMIT: ${{ github.sha }}
         run: |
           tag_sha=$(gh api "repos/$GH_REPO/git/tags" \
@@ -132,10 +111,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          VERSION: ${{ steps.gather.outputs.version }}
+          VERSION: ${{ steps.decide.outputs.version }}
+          NOTES: ${{ steps.decide.outputs.notes-path }}
         run: |
           gh release create "v$VERSION" --title "v$VERSION" \
-            --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
+            --notes-file "$NOTES" --verify-tag
 
       - id: move-ref
         name: Force-move the compatibility ref, last
