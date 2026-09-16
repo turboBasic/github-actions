@@ -10,9 +10,10 @@ name: 🌜 refresh-proposal
 on:
   workflow_dispatch:
 
-# Grouped with release-proposal's own group so a refresh and a merge cannot both force-move the branch.
+# Its own group. The called job serialises every route into it on a group keyed by repository, and a
+# caller claiming that same name would leave the job waiting on a lock its own run already holds.
 concurrency:
-  group: release-proposal-${{ github.repository }}
+  group: ${{ github.workflow }}
   cancel-in-progress: false
 
 permissions: {}

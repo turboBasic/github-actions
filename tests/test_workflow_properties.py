@@ -871,3 +871,59 @@ def test_no_step_in_the_proposal_path_re_derives_the_verdict() -> None:
         f"{inspecting} decides in shell what the decision already emits. `next-version` reads the range "
         "once and says whether it renders anything"
     )
+
+
+def concurrency_group(doc: Doc) -> str:
+    return str(cast(dict[str, Any], doc.get("concurrency", {})).get("group", ""))
+
+
+SELF_CALL = "$/.github/workflows/"
+
+
+def called_capability(uses: str) -> str:
+    return uses.removeprefix(SELF_CALL).removesuffix(".yml") if uses.startswith(SELF_CALL) else ""
+
+
+def called_job_groups(capability: str) -> set[str]:
+    path = WORKFLOW_DIR / f"{capability}.yml"
+    if not path.exists():
+        return set()
+    return {
+        group
+        for job in jobs(load(path)).values()
+        if isinstance(job, dict) and (group := concurrency_group(cast(Doc, job)))
+    }
+
+
+def test_no_caller_claims_a_concurrency_group_a_called_job_also_claims() -> None:
+    # A called job waiting on a group its own run already holds never starts, and reports no step and no
+    # log — so the run fails with nothing to read.
+    clashing: list[str] = []
+    for name, doc in workflow_docs().items():
+        group = concurrency_group(doc)
+        if not group:
+            continue
+        for job in jobs(doc).values():
+            if not isinstance(job, dict):
+                continue
+            capability = called_capability(str(cast(Doc, job).get("uses", "")))
+            if capability and group in called_job_groups(capability):
+                clashing.append(f"{name} holds {group!r}, which {capability}'s own job asks for")
+    assert clashing == [], (
+        f"{clashing}. A caller's group is its own; serialising every route into a capability is the called "
+        "job's group, which is why that one is keyed by repository and not by workflow name"
+    )
+
+
+def test_the_concurrency_readers_find_the_groups_they_are_given() -> None:
+    # Pre-flight both. No workflow clashes today, so the gate above cannot otherwise show that it still
+    # reads a group at all.
+    assert (
+        concurrency_group({"concurrency": {"group": "x-${{ github.ref }}"}})
+        == "x-${{ github.ref }}"
+    )
+    assert concurrency_group({}) == ""
+    assert "release-proposal-${{ github.repository }}" in called_job_groups("release-proposal")
+    assert called_job_groups("project-ci") == set()
+    assert called_capability("$/.github/workflows/release-proposal.yml") == "release-proposal"
+    assert called_capability("actions/checkout@abc") == ""
