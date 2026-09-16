@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tbga import github, proposal
+from tbga import __main__, github, proposal, release_writes
 
 # A recording runner. `gh` remains the transport in production, so what is asserted is the argv assembled
 # for it — every value below is one the API rejects or misplaces if it is quoted wrongly.
@@ -189,3 +189,49 @@ def test_the_proposal_is_edited_where_one_is_open_and_created_where_none_is(tmp_
     body = Path(fresh.calls[1][fresh.calls[1].index("--body-file") + 1]).read_text(encoding="utf-8")
     assert "- feat: something" in body
     assert "overrides the computed one" in body
+
+
+def test_every_write_the_entry_point_offers_has_a_table_entry() -> None:
+    # The command list and the table are one structure, so a write cannot reach the runner as a KeyError.
+    assert set(__main__.COMMANDS) >= set(release_writes.WRITES)
+    for write, (needed, perform) in release_writes.WRITES.items():
+        assert needed, f"{write} states no required values, so it would run on an empty environment"
+        assert callable(perform), write
+
+
+def test_a_write_missing_a_value_refuses_before_the_first_call(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # An empty value names a ref after nothing, and a created ref stays. Each write is checked with one
+    # of its own values blanked, so the refusal cannot be passing for an unrelated reason.
+    for write, (needed, _) in release_writes.WRITES.items():
+        for blanked in needed:
+            for name in needed:
+                monkeypatch.setenv(name, "" if name == blanked else "value")
+            assert release_writes.run(write) == 1, f"{write} ran without {blanked}"
+            reported = capsys.readouterr()
+            assert blanked in reported.err, f"{write} did not name {blanked}"
+            assert "nothing was created" in reported.err
+
+
+def test_an_unknown_write_is_refused_by_the_entry_point_not_the_table(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # `run` indexes the table directly, so argparse is what has to reject an unknown name. Reaching
+    # `run` with one would be a KeyError, which names nothing a maintainer can act on.
+    with pytest.raises(SystemExit) as raised:
+        __main__.main(["not-a-write"])
+    assert raised.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
+
+
+def test_a_failing_call_is_reported_rather_than_raised(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The dispatcher is the boundary: below it a failure raises, and at it the run reports and exits.
+    monkeypatch.setattr(release_writes.github, "create_tag", _refuse)
+    for name in ("GH_REPO", "VERSION", "COMMIT"):
+        monkeypatch.setenv(name, "value")
+    assert release_writes.run(release_writes.CREATE_TAG) == 1
+
+
+def _refuse(*_: object) -> None:
+    raise RuntimeError("the API said no")

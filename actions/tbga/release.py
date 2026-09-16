@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from fnmatch import fnmatch
 from typing import Any, NamedTuple, cast
 
-from . import ERROR, NOTICE, annotate, emit, read_text, repository
+from . import ERROR, NOTICE, annotate, emit, read_text, repository, repository_directory
 from .repository import RECORD
 
 Version = tuple[int, int, int]
@@ -317,12 +317,6 @@ def released_versions(tags: Iterable[str]) -> tuple[Version, ...]:
     # repository is allowed to carry tags this scheme never made — so it is skipped, not refused.
     parsed = (parse_version(tag.removeprefix("v")) for tag in tags)
     return tuple(version for version in parsed if version is not None)
-
-
-def repository_directory() -> str:
-    # The tree to read, which is the caller's checkout on a runner and the working directory locally.
-    # Never the module's own location: a composite action's files arrive as an export with no `.git`.
-    return read_text("REPO_DIR") or read_text("GITHUB_WORKSPACE") or os.getcwd()
 
 
 def surface_from_manifest(path: str) -> Surface | Refusal:

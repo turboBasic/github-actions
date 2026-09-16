@@ -3,7 +3,7 @@ import json
 import os
 from typing import Any, NamedTuple, cast
 
-from . import ERROR, NOTICE, annotate, emit, github, read_text
+from . import ERROR, NOTICE, annotate, emit, output, read_text, repository_directory
 
 Doc = dict[str, Any]
 
@@ -225,7 +225,7 @@ def committed_names(directory: str) -> list[str]:
 
 
 def run_list() -> int:
-    where = read_text("REPO_DIR") or read_text("GITHUB_WORKSPACE") or os.getcwd()
+    where = repository_directory()
     directory = os.path.join(where, read_text("RULESET_DIR") or ".github/rulesets")
     named = read_text("NAMED").strip()
     if named:
@@ -252,7 +252,7 @@ def run_read() -> int:
     if not repository or not destination:
         annotate(ERROR, "reading the live rulesets needs both GH_REPO and LIVE_PATH")
         return 1
-    listed = github.gh(
+    listed = output(
         ("gh", "api", f"repos/{repository}/rulesets?includes_parents=false", "--jq", ".[].id")
     )
     live: list[Doc] = []
@@ -262,7 +262,7 @@ def run_read() -> int:
         live.append(
             cast(
                 Doc,
-                json.loads(github.gh(("gh", "api", f"repos/{repository}/rulesets/{identifier}"))),
+                json.loads(output(("gh", "api", f"repos/{repository}/rulesets/{identifier}"))),
             )
         )
     with open(destination, "w", encoding="utf-8") as handle:
@@ -279,12 +279,12 @@ def run_apply() -> int:
         annotate(ERROR, f"applying a ruleset needs a body and a {CREATE} or {UPDATE} verdict")
         return 1
     if verdict == CREATE:
-        github.gh(("gh", "api", f"repos/{repository}/rulesets", "--input", body))
+        output(("gh", "api", f"repos/{repository}/rulesets", "--input", body))
     else:
         if not identifier:
             annotate(ERROR, f"an {UPDATE} needs the live ruleset's id, and none was given")
             return 1
-        github.gh(
+        output(
             ("gh", "api", "-X", "PUT", f"repos/{repository}/rulesets/{identifier}", "--input", body)
         )
     return 0

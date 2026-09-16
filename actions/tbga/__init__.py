@@ -1,6 +1,8 @@
 import os
+import subprocess
 import sys
 import uuid
+from collections.abc import Sequence
 
 NOTICE = "notice"
 ERROR = "error"
@@ -8,6 +10,22 @@ ERROR = "error"
 
 def read_text(name: str) -> str:
     return os.environ.get(name, "")
+
+
+def repository_directory() -> str:
+    # The tree to read: the caller's checkout on a runner, the working directory locally. Never the
+    # module's own location — a composite action's files arrive as an export with no `.git`.
+    return read_text("REPO_DIR") or read_text("GITHUB_WORKSPACE") or os.getcwd()
+
+
+def output(argv: Sequence[str], cwd: str | None = None) -> str:
+    # `shell=False`, every value its own argument. A ref, a path and a version are text from outside.
+    finished = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, check=False)
+    if finished.returncode != 0:
+        raise RuntimeError(
+            f"{' '.join(argv)} exited {finished.returncode}: {finished.stderr.strip()}"
+        )
+    return finished.stdout
 
 
 def emit(**values: str) -> None:

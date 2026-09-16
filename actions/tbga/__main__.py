@@ -3,7 +3,7 @@ import sys
 from collections.abc import Sequence
 from typing import cast
 
-from . import grammar, preflight, release, rulesets, writes
+from . import grammar, preflight, release, release_writes, rulesets
 
 RULESET_VERDICT = "ruleset-verdict"
 PREFLIGHT = "preflight"
@@ -20,7 +20,7 @@ COMMANDS = (
     APPLY_RULESET,
     PREFLIGHT,
     COMPILE_GRAMMAR,
-    *writes.WRITES,
+    *release_writes.WRITES,
 )
 
 
@@ -46,8 +46,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return preflight.run()
     if command == COMPILE_GRAMMAR:
         return grammar.run()
-    if command in writes.WRITES:
-        return writes.run(command)
+    if command in release_writes.WRITES:
+        return release_writes.run(command)
     return release.run(command)
 
 

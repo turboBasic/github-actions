@@ -1,4 +1,3 @@
-import subprocess
 from collections.abc import Callable, Sequence
 
 # One indirection so a test can record the argv. `gh` remains the transport — it owns the auth, the
@@ -6,16 +5,6 @@ from collections.abc import Callable, Sequence
 Runner = Callable[[Sequence[str]], str]
 
 SHA_LENGTH = 40
-
-
-def gh(argv: Sequence[str]) -> str:
-    # `shell=False`, every value its own argument. A version and a ref are text from outside.
-    finished = subprocess.run(argv, capture_output=True, text=True, check=False)
-    if finished.returncode != 0:
-        raise RuntimeError(
-            f"{' '.join(argv)} exited {finished.returncode}: {finished.stderr.strip()}"
-        )
-    return finished.stdout
 
 
 def checked_sha(value: str, what: str) -> str:

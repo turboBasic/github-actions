@@ -1,23 +1,14 @@
 import subprocess
 import tomllib
-from collections.abc import Sequence
 from typing import Any, cast
+
+from . import output
 
 # A commit message holds newlines, so `git log` separates them with this rather than with a line break.
 RECORD = "\x1e"
 
 # A moving compatibility ref is also a tag. Without this filter both would read as releases.
 RELEASE_TAG = "v[0-9]*.[0-9]*.[0-9]*"
-
-
-def output(argv: Sequence[str], cwd: str) -> str:
-    # `shell=False`, every value its own argument. A path and a ref are text from outside.
-    finished = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, check=False)
-    if finished.returncode != 0:
-        raise RuntimeError(
-            f"{' '.join(argv)} exited {finished.returncode}: {finished.stderr.strip()}"
-        )
-    return finished.stdout
 
 
 def git(repository: str, *arguments: str) -> str:
