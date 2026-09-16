@@ -1,42 +1,54 @@
-from . import ERROR, annotate, github, read_text
+import os
+
+from . import ERROR, annotate, github, proposal, read_text
 
 CREATE_TAG = "create-tag"
 PUBLISH_RELEASE = "publish-release"
 MOVE_REF = "move-ref"
-WRITES = (CREATE_TAG, PUBLISH_RELEASE, MOVE_REF)
+WRITE_PROPOSAL = "write-proposal"
+OPEN_PROPOSAL = "open-proposal"
+WRITES = (CREATE_TAG, PUBLISH_RELEASE, MOVE_REF, WRITE_PROPOSAL, OPEN_PROPOSAL)
+
+# What each write cannot run without. A write given an empty value would name a ref after nothing, and a
+# created ref cannot be withdrawn — so this is checked before the first call rather than after it.
+NEEDED = {
+    CREATE_TAG: ("GH_REPO", "VERSION", "COMMIT"),
+    PUBLISH_RELEASE: ("VERSION", "NOTES"),
+    MOVE_REF: ("GH_REPO", "MOVING_REF", "COMMIT"),
+    WRITE_PROPOSAL: ("GH_REPO", "VERSION", "COMPUTED", "COMMIT", "BRANCH"),
+    OPEN_PROPOSAL: ("BRANCH", "BASE", "VERSION", "NOTES"),
+}
 
 
 def run(write: str) -> int:
-    repository = read_text("GH_REPO").strip()
-    version = read_text("VERSION").strip()
-    commit = read_text("COMMIT").strip()
-    ref = read_text("MOVING_REF").strip()
-    notes = read_text("NOTES").strip()
-
-    missing = [
-        name
-        for name, value in (
-            ("GH_REPO", repository),
-            ("VERSION", version if write != MOVE_REF else "-"),
-            ("COMMIT", commit if write != PUBLISH_RELEASE else "-"),
-            ("MOVING_REF", ref if write == MOVE_REF else "-"),
-            ("NOTES", notes if write == PUBLISH_RELEASE else "-"),
-        )
-        if not value
-    ]
+    values = {name: read_text(name).strip() for name in NEEDED[write]}
+    missing = sorted(name for name, value in values.items() if not value)
     if missing:
-        # A write that ran with an empty value would name a ref after nothing, and a created ref cannot be
-        # withdrawn. Refused before the first call rather than after it.
         annotate(ERROR, f"{write} was given no {', '.join(missing)}, so nothing was created")
         return 1
 
+    where = read_text("REPO_DIR") or read_text("GITHUB_WORKSPACE") or os.getcwd()
     try:
         if write == CREATE_TAG:
-            github.create_tag(github.gh, repository, version, commit)
+            github.create_tag(github.gh, values["GH_REPO"], values["VERSION"], values["COMMIT"])
         elif write == PUBLISH_RELEASE:
-            github.publish_release(github.gh, version, notes)
+            github.publish_release(github.gh, values["VERSION"], values["NOTES"])
+        elif write == MOVE_REF:
+            github.move_ref(github.gh, values["GH_REPO"], values["MOVING_REF"], values["COMMIT"])
+        elif write == WRITE_PROPOSAL:
+            proposal.write_proposal(
+                github.gh,
+                values["GH_REPO"],
+                where,
+                values["VERSION"],
+                values["COMPUTED"],
+                values["COMMIT"],
+                values["BRANCH"],
+            )
         else:
-            github.move_ref(github.gh, repository, ref, commit)
+            proposal.open_proposal(
+                github.gh, values["BRANCH"], values["BASE"], values["VERSION"], values["NOTES"]
+            )
     except RuntimeError as failure:
         annotate(ERROR, str(failure))
         return 1

@@ -1,13 +1,16 @@
 name: release-write
 description: >-
-  Performs one release write — the annotated tag, the published release, or the moved compatibility ref.
-  Internal surface: it carries no stability promise and composes no check name. One action rather than
-  three because the three share their inputs and return nothing; the ordering and the conditions stay in
-  the calling workflow, where a reviewer reads them, and a gate holds them there.
+  Performs one write in the release path — the annotated tag, the published release, the moved
+  compatibility ref, the proposal branch, or the proposal itself.
+  Internal surface: it carries no stability promise and composes no check name. One action rather than five
+  because they share their inputs and return nothing, so no invocation is described by a declared output it
+  leaves empty. The ordering and the conditions stay in the calling workflow, where a reviewer reads them,
+  and a gate holds them there.
 
 inputs:
   command:
-    description: Which write to perform — create-tag, publish-release, or move-ref.
+    description: >-
+      Which write to perform — create-tag, publish-release, move-ref, write-proposal, or open-proposal.
     required: true
   token:
     description: >-
@@ -31,7 +34,27 @@ inputs:
     required: false
     default: ""
   notes:
-    description: Path to the rendered notes, for publish-release. The body is read from a file, never an input.
+    description: >-
+      Path to the rendered notes, for publish-release and open-proposal. The body is read from a file,
+      never an input.
+    required: false
+    default: ""
+  computed-version:
+    description: >-
+      The version this run computed absent an override, for write-proposal. Recorded as a trailer, which is
+      how a later run tells a person's edit from a fresh computation.
+    required: false
+    default: ""
+  branch:
+    description: The proposal branch to force-move or create, for write-proposal and open-proposal.
+    required: false
+    default: ""
+  base:
+    description: The branch the proposal is opened against, for open-proposal.
+    required: false
+    default: ""
+  repository-directory:
+    description: The tree the proposed files are read from. Defaults to the caller's checkout.
     required: false
     default: ""
 
@@ -51,6 +74,10 @@ runs:
         COMMIT: ${{ inputs.commit }}
         MOVING_REF: ${{ inputs.moving-ref }}
         NOTES: ${{ inputs.notes }}
+        COMPUTED: ${{ inputs.computed-version }}
+        BRANCH: ${{ inputs.branch }}
+        BASE: ${{ inputs.base }}
+        REPO_DIR: ${{ inputs.repository-directory || github.workspace }}
       # The write reaches argparse as an environment value the shell expands into one argument, so no
       # caller's text is part of this line.
       run: python3 -m tbga "$COMMAND"

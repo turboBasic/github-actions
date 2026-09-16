@@ -1,8 +1,10 @@
+import json
 from collections.abc import Sequence
+from pathlib import Path
 
 import pytest
 
-from tbga import github
+from tbga import github, proposal
 
 # A recording runner. `gh` stays the transport in production — it holds the auth, the retries and the
 # pagination — so what is worth asserting is the argv assembled for it, which a `run:` block gave nowhere
@@ -95,3 +97,103 @@ def test_no_assembled_call_reaches_a_shell() -> None:
         assert call[0] == "gh"
         assert all(isinstance(argument, str) for argument in call)
         assert not any(character in argument for argument in call for character in ";|&$`")
+
+
+def _proposal_tree(tmp_path: Path) -> Path:
+    (tmp_path / "pyproject.toml").write_text('[project]\nversion = "0.4.0"\n', encoding="utf-8")
+    (tmp_path / "uv.lock").write_text("version = 1\n", encoding="utf-8")
+    return tmp_path
+
+
+def test_the_proposal_commit_carries_the_manifest_and_the_lockfile_together(tmp_path: Path) -> None:
+    # The lockfile records the project's own version, so a commit moving the manifest without it leaves
+    # `uv sync --locked` failing on the proposal branch — reddening every check on the very pull request
+    # whose merge is meant to release.
+    runner = Recorder(replies=[SHA, OTHER, "c" * 40, "d" * 40, "e" * 40])
+    proposal.write_proposal(
+        runner,
+        "owner/repo",
+        _proposal_tree(tmp_path).as_posix(),
+        "0.4.0",
+        "0.4.0",
+        "f" * 40,
+        "release/next",
+    )
+
+    trees = [call for call in runner.calls if call[2].endswith("/git/trees")]
+    assert len(trees) == 1, f"expected one tree call, got {runner.paths()}"
+    sent = json.loads(Path(trees[0][trees[0].index("--input") + 1]).read_text(encoding="utf-8"))
+    assert [entry["path"] for entry in sent["tree"]] == ["pyproject.toml", "uv.lock"]
+    assert {entry["mode"] for entry in sent["tree"]} == {"100644"}
+    # Each blob's sha reaches the tree entry for the file it was made from, in order.
+    assert [entry["sha"] for entry in sent["tree"]] == [SHA, OTHER]
+
+
+def test_the_trailer_records_what_was_computed_not_what_was_written(tmp_path: Path) -> None:
+    # A later run compares the trailer against the branch's actual version to tell a person's edit from a
+    # fresh computation. Recording the written version instead would make every override invisible.
+    runner = Recorder(replies=[SHA, OTHER, "c" * 40, "d" * 40, "e" * 40])
+    proposal.write_proposal(
+        runner,
+        "owner/repo",
+        _proposal_tree(tmp_path).as_posix(),
+        "1.0.0",
+        "0.4.1",
+        "f" * 40,
+        "release/next",
+    )
+
+    commits = [call for call in runner.calls if call[2].endswith("/git/commits")]
+    sent = json.loads(Path(commits[0][commits[0].index("--input") + 1]).read_text(encoding="utf-8"))
+    assert "Computed-Version: 0.4.1" in sent["message"]
+    assert sent["message"].startswith("chore: propose 1.0.0")
+
+
+def test_a_blob_coming_back_unusable_writes_no_tree_and_moves_no_ref(tmp_path: Path) -> None:
+    # Ordering is the protection: a tree naming a value that is not a sha names nothing, and the branch
+    # would be force-moved to a commit built on it.
+    runner = Recorder(replies=["not a sha"])
+    with pytest.raises(RuntimeError):
+        proposal.write_proposal(
+            runner,
+            "owner/repo",
+            _proposal_tree(tmp_path).as_posix(),
+            "0.4.0",
+            "0.4.0",
+            "f" * 40,
+            "release/next",
+        )
+    assert not any("git/trees" in call[2] for call in runner.calls)
+    assert not any("refs/heads" in argument for call in runner.calls for argument in call)
+
+
+def test_a_failing_tree_call_moves_no_ref(tmp_path: Path) -> None:
+    runner = Recorder(replies=[SHA, OTHER, "c" * 40], failing=4)
+    with pytest.raises(RuntimeError):
+        proposal.write_proposal(
+            runner,
+            "owner/repo",
+            _proposal_tree(tmp_path).as_posix(),
+            "0.4.0",
+            "0.4.0",
+            "f" * 40,
+            "release/next",
+        )
+    assert not any("refs/heads" in argument for call in runner.calls for argument in call)
+
+
+def test_the_proposal_is_edited_where_one_is_open_and_created_where_none_is(tmp_path: Path) -> None:
+    notes = tmp_path / "notes.md"
+    notes.write_text("- feat: something\n", encoding="utf-8")
+
+    existing = Recorder(replies=["7"])
+    proposal.open_proposal(existing, "release/next", "main", "0.4.0", notes.as_posix())
+    assert existing.calls[1][:4] == ("gh", "pr", "edit", "7")
+
+    fresh = Recorder(replies=[""])
+    proposal.open_proposal(fresh, "release/next", "main", "0.4.0", notes.as_posix())
+    assert fresh.calls[1][:3] == ("gh", "pr", "create")
+    # The rendered notes reach the body, and the override is spelled out in it.
+    body = Path(fresh.calls[1][fresh.calls[1].index("--body-file") + 1]).read_text(encoding="utf-8")
+    assert "- feat: something" in body
+    assert "overrides the computed one" in body

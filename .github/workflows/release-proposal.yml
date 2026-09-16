@@ -126,72 +126,37 @@ jobs:
       #
       # Built through the git data API rather than pushed: a token in a remote URL would be a secret on a
       # command line, and a persisted credential would be one in a file.
-      - name: Put the version on the proposal branch
+      # `uv` rather than an edit of our own: the lockfile records the project's version, and only the tool
+      # that owns the lockfile can move both together.
+      - name: Write the settled version into the tree
         if: steps.close.outputs.empty != 'true'
         env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
           VERSION: ${{ steps.version.outputs.version }}
-          COMPUTED: ${{ steps.next.outputs.version }}
-          COMMIT: ${{ github.sha }}
-        run: |
-          uv version --no-sync "$VERSION"
+        run: uv version --no-sync "$VERSION"
 
-          # `--rawfile`, never an argument: a base64 of the lockfile is far past the argument-length
-          # limit, and the blobs API takes UTF-8 directly, so there is nothing to encode.
-          blob() {
-            jq -n --rawfile content "$1" '{content: $content, encoding: "utf-8"}' \
-              > "$RUNNER_TEMP/blob.json"
-            gh api "repos/$GH_REPO/git/blobs" --input "$RUNNER_TEMP/blob.json" --jq .sha
-          }
-          manifest=$(blob pyproject.toml)
-          lockfile=$(blob uv.lock)
-          for sha in "$manifest" "$lockfile"; do
-            case "$sha" in
-              ????????????????????????????????????????) ;;
-              *) echo "::error::a blob came back as '$sha' rather than a sha, so the tree would name nothing. The proposal was not written." >&2; exit 1 ;;
-            esac
-          done
-
-          base=$(gh api "repos/$GH_REPO/git/commits/$COMMIT" --jq .tree.sha)
-          jq -n --arg base "$base" --arg m "$manifest" --arg l "$lockfile" '{
-            base_tree: $base,
-            tree: [
-              {path: "pyproject.toml", mode: "100644", type: "blob", sha: $m},
-              {path: "uv.lock", mode: "100644", type: "blob", sha: $l}
-            ]
-          }' > "$RUNNER_TEMP/tree.json"
-          tree=$(gh api "repos/$GH_REPO/git/trees" --input "$RUNNER_TEMP/tree.json" --jq .sha)
-
-          # The trailer records what this run computed, not what it wrote: comparing it against the
-          # branch's actual version on a later run is how a person's edit is told apart from a fresh
-          # computation, without reading anything the branch's rewrite itself would have discarded.
-          message=$(printf 'chore: propose %s\n\nComputed-Version: %s\n' "$VERSION" "$COMPUTED")
-          jq -n --arg m "$message" --arg t "$tree" --arg p "$COMMIT" \
-            '{message: $m, tree: $t, parents: [$p]}' > "$RUNNER_TEMP/commit.json"
-          proposed=$(gh api "repos/$GH_REPO/git/commits" --input "$RUNNER_TEMP/commit.json" --jq .sha)
-
-          gh api -X PATCH "repos/$GH_REPO/git/refs/heads/$PROPOSAL_BRANCH" -F force=true -f "sha=$proposed" \
-            || gh api "repos/$GH_REPO/git/refs" -f "ref=refs/heads/$PROPOSAL_BRANCH" -f "sha=$proposed"
+      # One commit carrying the manifest and the lockfile together, built through the git data API rather
+      # than pushed: a token in a remote URL would be a secret on a command line, and a persisted
+      # credential would be one in a file.
+      - name: Put the version on the proposal branch
+        if: steps.close.outputs.empty != 'true'
+        uses: $/actions/release-write
+        with:
+          command: write-proposal
+          token: ${{ steps.token.outputs.token }}
+          repository: ${{ github.repository }}
+          version: ${{ steps.version.outputs.version }}
+          computed-version: ${{ steps.next.outputs.version }}
+          commit: ${{ github.sha }}
+          branch: ${{ env.PROPOSAL_BRANCH }}
 
       - name: Open or refresh the proposal
         if: steps.close.outputs.empty != 'true'
-        env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
-          BASE: ${{ github.ref_name }}
-          VERSION: ${{ steps.version.outputs.version }}
-          NOTES: ${{ steps.next.outputs.notes-path }}
-        run: |
-          {
-            printf 'Merging this releases v%s. The notes below are the ones it will publish.\n\n' "$VERSION"
-            printf 'Editing the version in pyproject.toml on this branch overrides the computed one, and survives every refresh.\n\n'
-            cat "$NOTES"
-          } > "$RUNNER_TEMP/body.md"
-          number=$(gh pr list --head "$PROPOSAL_BRANCH" --state open --json number --jq '.[0].number // ""')
-          if [ -n "$number" ]; then
-            gh pr edit "$number" --title "chore: release v$VERSION" --body-file "$RUNNER_TEMP/body.md"
-          else
-            gh pr create --head "$PROPOSAL_BRANCH" --base "$BASE" \
-              --title "chore: release v$VERSION" --body-file "$RUNNER_TEMP/body.md"
-          fi
+        uses: $/actions/release-write
+        with:
+          command: open-proposal
+          token: ${{ steps.token.outputs.token }}
+          repository: ${{ github.repository }}
+          version: ${{ steps.version.outputs.version }}
+          branch: ${{ env.PROPOSAL_BRANCH }}
+          base: ${{ github.ref_name }}
+          notes: ${{ steps.next.outputs.notes-path }}
