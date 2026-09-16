@@ -821,9 +821,8 @@ def test_the_table_reader_finds_a_table_it_is_given() -> None:
     assert table_headers("| Input | Default |\nnot a table\n") == []
 
 
-# The verdict `next-version` emits, and the two conditions the proposal path reads it through. Absent is
-# not false: a run the guard declined never reaches the decision, so anything testing against `true`
-# would treat an unmeasured range as one worth proposing.
+# Absent is not false: a run the guard declined never reaches the decision, so a condition testing
+# against `true` would read an unmeasured range as one worth proposing.
 EMPTY_VERDICT = "steps.next.outputs.empty"
 CLOSES_A_STALE_PROPOSAL = f"{EMPTY_VERDICT} != 'false'"
 ACTS_ON_A_MEASURED_RANGE = f"{EMPTY_VERDICT} == 'false'"
@@ -834,9 +833,6 @@ def proposal_steps() -> list[Doc]:
 
 
 def test_nothing_writes_a_proposal_for_a_range_no_decision_measured() -> None:
-    # Every step after `close` acts only where the verdict is positively `false`. Testing `!= 'true'`
-    # instead would run all of them on a skipped decision, writing a branch and a pull request for a
-    # range nothing read.
     steps = proposal_steps()
     ids = [str(step.get("id", "")) for step in steps]
     assert "close" in ids, "release-proposal names no step id 'close', so this gate places nothing"
@@ -855,8 +851,7 @@ def test_nothing_writes_a_proposal_for_a_range_no_decision_measured() -> None:
 
 
 def test_the_stale_proposal_is_closed_on_an_absent_verdict_too() -> None:
-    # The other half: a run landing on a commit a release already tagged has to shut a standing proposal,
-    # and it reaches `close` with no verdict at all.
+    # A run landing on a commit a release already tagged reaches `close` with no verdict at all.
     close = next(step for step in proposal_steps() if step.get("id") == "close")
     condition = str(close.get("if", ""))
     assert condition == CLOSES_A_STALE_PROPOSAL, (
@@ -866,8 +861,7 @@ def test_the_stale_proposal_is_closed_on_an_absent_verdict_too() -> None:
 
 
 def test_no_step_in_the_proposal_path_re_derives_the_verdict() -> None:
-    # The decision belongs to the module that read the range. A shell condition inspecting the rendered
-    # file would be a second owner, and the one that used to live here read a file it had just written.
+    # A shell condition inspecting the rendered file would be a second owner of the verdict.
     inspecting = [
         step.get("id") or step.get("name")
         for step in proposal_steps()

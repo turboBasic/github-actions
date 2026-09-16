@@ -465,8 +465,6 @@ def test_a_malformed_on_branch_version_is_not_trusted() -> None:
 
 
 def test_a_range_rendering_only_whitespace_renders_nothing() -> None:
-    # The renderer emits a heading and blank lines for a range holding no commit it publishes, so a
-    # non-empty file is not a non-empty range. A byte-length check would propose a release of nothing.
     for nothing in ("", "\n", "  \n\t\n", "\n\n\n"):
         assert release.renders_nothing(nothing), repr(nothing)
 

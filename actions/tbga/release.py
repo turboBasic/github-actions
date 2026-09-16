@@ -304,8 +304,8 @@ def answer_moving_ref() -> int:
 
 
 def renders_nothing(notes: str) -> bool:
-    # Whitespace is nothing. The renderer emits a heading and blank lines for a range holding no commit
-    # it publishes, so a non-empty file is not the same as a non-empty range.
+    # The renderer emits a heading and blank lines for a range it publishes nothing from, so the file's
+    # size is not the test.
     return not notes.strip()
 
 
@@ -326,8 +326,6 @@ def answer_next_version() -> int:
     emit(
         version=format_version(nxt),
         ref=moving_ref(nxt),
-        # Decided from the range this already read, rather than re-derived downstream from the file it
-        # wrote. Absent where this never ran, which the caller reads as the same verdict.
         empty="true" if renders_nothing(notes) else "false",
         **{"notes-path": notes_path},
     )

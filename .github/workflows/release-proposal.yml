@@ -82,9 +82,7 @@ jobs:
           decision: next-version
 
       # An empty range means the last release already covers the default branch: a standing proposal is
-      # stale, not pending. `next` decided that from the range it read; a run the guard declined leaves the
-      # verdict absent, which is the same answer. So this acts on anything but `false`, and every step
-      # below acts only on `false` — an unmeasured range writes nothing.
+      # stale, not pending.
       - id: close
         name: Close a proposal whose range has become empty
         if: steps.next.outputs.empty != 'false'
