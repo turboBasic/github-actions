@@ -120,6 +120,16 @@ permissions = {}
 tool_prerequisites = []
 skips_under = []
 
+[commit-grammar]
+kind = "action"
+# Internal surface, as the other actions here are: no stability promise, no check name, and inputs
+# nothing outside this repository names.
+published = false
+inputs = []
+permissions = {}
+tool_prerequisites = []
+skips_under = []
+
 [preflight]
 kind = "action"
 # Internal surface, as the two decision actions are: no stability promise, no check name, and inputs
