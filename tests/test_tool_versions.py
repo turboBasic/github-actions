@@ -5,6 +5,11 @@ from typing import Any, cast
 from capabilities import REPO
 
 MANIFEST = REPO / "mise.toml"
+PROJECT = REPO / "pyproject.toml"
+
+# The directory holding what a composite action runs, and so the one checked against the runner's
+# interpreter rather than the version mise pins.
+ACTION_ROOT = "actions"
 
 # The lint task's whole-tree invocation, read from the command rather than from the task's position in
 # the file, so a second one is covered the moment it is written.
@@ -103,6 +108,47 @@ def test_the_lint_task_readers_find_what_they_are_looking_for() -> None:
     for line in stripped:
         assert SHOWS_THE_DIFF not in line
     assert any(marker in "prek run --all-files || true" for marker in SWALLOWS_THE_VERDICT)
+
+
+def series(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split(".") if part.isdigit())
+
+
+def action_environment() -> dict[str, Any] | None:
+    project: dict[str, Any] = tomllib.loads(PROJECT.read_text(encoding="utf-8"))
+    pyright = cast(dict[str, Any], project["tool"]["pyright"])
+    environments = cast(list[dict[str, Any]], pyright.get("executionEnvironments", []))
+    return next((env for env in environments if str(env.get("root", "")) == ACTION_ROOT), None)
+
+
+def test_what_a_composite_action_runs_is_checked_against_the_runner_s_interpreter() -> None:
+    # A module a composite action runs gets whichever `python3` the caller left on the runner, and there
+    # is no resolution step to fail loudly — only an ImportError in a consumer's job. Checking it at the
+    # version mise pins here would report a newer stdlib symbol as available when it is not.
+    pinned = str(tools()["python"])
+    environment = action_environment()
+    assert environment is not None, (
+        f"{PROJECT.name} declares no pyright executionEnvironment rooted at {ACTION_ROOT!r}, so what a "
+        f"composite action runs is checked against the {pinned} that {MANIFEST.name} pins. That version "
+        "is on the runner only where the caller's own configuration put it there"
+    )
+    checked = str(environment["pythonVersion"])
+    assert series(checked) < series(pinned), (
+        f"{PROJECT.name} checks {ACTION_ROOT}/ at {checked} while {MANIFEST.name} pins {pinned}. The "
+        "point of the environment is that the runner's interpreter is older than the one this repository "
+        "develops against, so a version at or above the pin holds nothing"
+    )
+
+
+def test_the_environment_reader_and_the_version_order_read_what_they_are_given() -> None:
+    # Pre-flight both. The gate's steady state is one matching environment, so neither the finder
+    # returning None for the wrong root nor the ordering being the right way round can otherwise show.
+    assert series("3.12") < series("3.14")
+    assert series("3.9") < series("3.12")
+    assert not series("3.14") < series("3.14")
+    found = action_environment()
+    assert found is not None
+    assert str(found["root"]) == ACTION_ROOT
 
 
 def test_the_floating_reader_tells_a_version_from_a_range() -> None:

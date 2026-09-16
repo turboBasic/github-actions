@@ -53,6 +53,15 @@ typeCheckingMode = "strict"
 venvPath = "."
 venv = ".venv"
 
+# The one place the two interpreters this repository runs are told apart. Everything here is checked
+# against the version mise pins, except what a composite action runs: that executes on whichever
+# `python3` the caller's own configuration left on the runner, which is 3.12.3 where they pinned none.
+# What this catches is syntax the older interpreter cannot parse. Symbol availability is not gated by
+# version, so a stdlib name added after 3.12 is not caught here.
+[[tool.pyright.executionEnvironments]]
+root = "actions"
+pythonVersion = "3.12"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["-ra", "-m", "not live"]
