@@ -303,6 +303,12 @@ def answer_moving_ref() -> int:
     return 0
 
 
+def renders_nothing(notes: str) -> bool:
+    # The renderer emits a heading and blank lines for a range it publishes nothing from, so the file's
+    # size is not the test.
+    return not notes.strip()
+
+
 def answer_next_version() -> int:
     where = repository_directory()
     manifest = read_text("MANIFEST") or "pyproject.toml"
@@ -314,12 +320,13 @@ def answer_next_version() -> int:
     # Rendered here rather than by a `run:` block, so whether the range is empty and what the increment
     # is are read from one pass over the same range.
     notes_path = read_text("NOTES_PATH") or f"{where}/release-notes.md"
-    repository.render_notes(where, read_text("CLIFF_CONFIG") or "cliff.toml", notes_path)
+    notes = repository.render_notes(where, read_text("CLIFF_CONFIG") or "cliff.toml", notes_path)
     breaking, feature = range_verdicts(repository.commit_messages(where))
     nxt = increment(version, breaking=breaking, feature=feature)
     emit(
         version=format_version(nxt),
         ref=moving_ref(nxt),
+        empty="true" if renders_nothing(notes) else "false",
         **{"notes-path": notes_path},
     )
     return 0

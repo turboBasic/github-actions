@@ -65,6 +65,11 @@ inputs:
     default: ""
 
 outputs:
+  empty:
+    description: >-
+      Whether the range renders nothing, for next-version. Absent where the decision did not run, which is
+      the same verdict.
+    value: ${{ steps.decide.outputs.empty }}
   notes-path:
     description: The file the rendered notes were written to. Empty when nothing was rendered.
     value: ${{ steps.decide.outputs.notes-path }}

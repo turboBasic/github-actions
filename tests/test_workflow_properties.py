@@ -819,3 +819,55 @@ def test_the_table_reader_finds_a_table_it_is_given() -> None:
     headers = table_headers("| Input | Default |\n| --- | --- |\n| a | b |\n")
     assert headers == [["Input", "Default"]]
     assert table_headers("| Input | Default |\nnot a table\n") == []
+
+
+# Absent is not false: a run the guard declined never reaches the decision, so a condition testing
+# against `true` would read an unmeasured range as one worth proposing.
+EMPTY_VERDICT = "steps.next.outputs.empty"
+CLOSES_A_STALE_PROPOSAL = f"{EMPTY_VERDICT} != 'false'"
+ACTS_ON_A_MEASURED_RANGE = f"{EMPTY_VERDICT} == 'false'"
+
+
+def proposal_steps() -> list[Doc]:
+    return steps_of("release-proposal", "propose")
+
+
+def test_nothing_writes_a_proposal_for_a_range_no_decision_measured() -> None:
+    steps = proposal_steps()
+    ids = [str(step.get("id", "")) for step in steps]
+    assert "close" in ids, "release-proposal names no step id 'close', so this gate places nothing"
+    after = steps[ids.index("close") + 1 :]
+    assert after, "no step follows 'close', so this gate holds nothing"
+    wrong = [
+        f"{step.get('id') or step.get('name')!r} under `if: {step.get('if', '')}`"
+        for step in after
+        if ACTS_ON_A_MEASURED_RANGE not in str(step.get("if", ""))
+    ]
+    assert wrong == [], (
+        f"steps after 'close' that do not require a measured range: {wrong}. The verdict is absent on a "
+        f"run the guard declined, so the condition is `{ACTS_ON_A_MEASURED_RANGE}` and never a test "
+        "against 'true'"
+    )
+
+
+def test_the_stale_proposal_is_closed_on_an_absent_verdict_too() -> None:
+    # A run landing on a commit a release already tagged reaches `close` with no verdict at all.
+    close = next(step for step in proposal_steps() if step.get("id") == "close")
+    condition = str(close.get("if", ""))
+    assert condition == CLOSES_A_STALE_PROPOSAL, (
+        f"release-proposal's 'close' runs under `if: {condition}`. It has to fire on an absent verdict as "
+        f"well as on 'true', which is `{CLOSES_A_STALE_PROPOSAL}`"
+    )
+
+
+def test_no_step_in_the_proposal_path_re_derives_the_verdict() -> None:
+    # A shell condition inspecting the rendered file would be a second owner of the verdict.
+    inspecting = [
+        step.get("id") or step.get("name")
+        for step in proposal_steps()
+        if "notes-path" in str(step.get("run", "")) or "tr -d" in str(step.get("run", ""))
+    ]
+    assert inspecting == [], (
+        f"{inspecting} decides in shell what the decision already emits. `next-version` reads the range "
+        "once and says whether it renders anything"
+    )

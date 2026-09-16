@@ -82,20 +82,14 @@ jobs:
           decision: next-version
 
       # An empty range means the last release already covers the default branch: a standing proposal is
-      # stale, not pending. A run the guard declined reaches this with no notes path, which reads the same.
+      # stale, not pending.
       - id: close
         name: Close a proposal whose range has become empty
+        if: steps.next.outputs.empty != 'false'
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           GH_REPO: ${{ github.repository }}
-          NOTES: ${{ steps.next.outputs.notes-path }}
         run: |
-          # A skipped `next` leaves the path unset. That and a file of whitespace both mean an empty
-          # range.
-          empty=false
-          [ -n "$NOTES" ] && [ -s "$NOTES" ] && [ -n "$(tr -d '[:space:]' < "$NOTES")" ] || empty=true
-          printf 'empty=%s\n' "$empty" >> "$GITHUB_OUTPUT"
-          [ "$empty" = true ] || exit 0
           number=$(gh pr list --head "$PROPOSAL_BRANCH" --state open --json number --jq '.[0].number // ""')
           if [ -n "$number" ]; then
             gh pr close "$number" --delete-branch \
@@ -105,7 +99,7 @@ jobs:
 
       - id: version
         name: Settle which version the proposal carries
-        if: steps.close.outputs.empty != 'true'
+        if: steps.next.outputs.empty == 'false'
         uses: $/actions/release-decisions
         with:
           decision: proposal-version
@@ -115,7 +109,7 @@ jobs:
 
       # `uv`, not an edit of our own: only the tool owning the lockfile can move it with the manifest.
       - name: Write the settled version into the tree
-        if: steps.close.outputs.empty != 'true'
+        if: steps.next.outputs.empty == 'false'
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: uv version --no-sync "$VERSION"
@@ -123,7 +117,7 @@ jobs:
       # The git data API, not a push: a token in a remote URL is a secret on a command line, and a
       # persisted credential is one in a file.
       - name: Put the version on the proposal branch
-        if: steps.close.outputs.empty != 'true'
+        if: steps.next.outputs.empty == 'false'
         uses: $/actions/release-write
         with:
           command: write-proposal
@@ -135,7 +129,7 @@ jobs:
           branch: ${{ env.PROPOSAL_BRANCH }}
 
       - name: Open or refresh the proposal
-        if: steps.close.outputs.empty != 'true'
+        if: steps.next.outputs.empty == 'false'
         uses: $/actions/release-write
         with:
           command: open-proposal

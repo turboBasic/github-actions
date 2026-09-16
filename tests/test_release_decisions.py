@@ -462,3 +462,13 @@ def test_a_malformed_on_branch_version_is_not_trusted() -> None:
         computed="0.1.1", on_branch="not-a-version", last_computed="0.1.0"
     )
     assert (version, overridden) == ("0.1.1", False)
+
+
+def test_a_range_rendering_only_whitespace_renders_nothing() -> None:
+    for nothing in ("", "\n", "  \n\t\n", "\n\n\n"):
+        assert release.renders_nothing(nothing), repr(nothing)
+
+
+def test_a_range_rendering_an_item_renders_something() -> None:
+    assert not release.renders_nothing("### 🚀 Added\n\n- Something a consumer can see\n")
+    assert not release.renders_nothing("- one line")
