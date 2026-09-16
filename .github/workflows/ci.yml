@@ -26,14 +26,13 @@ jobs:
     with:
       run-build: false # nothing is published from here, so there is nothing to compile or package
 
-  # Without this job, a change breaking a composite action is first reported by a release: nothing a pull
-  # request triggers reaches one. The version is a literal with a known answer — 1.2.3 is at or above the
-  # first stable version, so its line is the major alone.
+  # These ran only during a release or a dispatch, so a change breaking one was first reported by a
+  # release. Every question below has a fixed answer, never the tree's own state.
   #
-  # No checkout, deliberately: `$/` resolves the action from this repository, so a green run is also
-  # evidence that the action reaches its own code without the caller's tree.
-  composite-action:
-    name: composite-action
+  # No checkout, deliberately: `$/` resolves an action from this repository, so a green run is also
+  # evidence that each reaches its own code without the caller's tree.
+  own-helpers:
+    name: own-helpers
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
@@ -44,11 +43,31 @@ jobs:
           decision: moving-ref
           version: "1.2.3"
 
-      - name: Check the ref it named
+      - id: grammar
+        uses: $/actions/commit-grammar
+        with:
+          types: |
+            feat
+            fix
+
+      - name: Check what they answered
         env:
           REF: ${{ steps.decide.outputs.ref }}
+          TYPES: ${{ steps.grammar.outputs.types }}
+          CONFIG: ${{ steps.grammar.outputs.config }}
         run: |
+          failed=0
           [ "$REF" = v1 ] || {
-            echo "::error::release-decisions named '$REF' as the moving ref for 1.2.3, and v1 is the only answer above the first stable version. Either the compatibility boundary in decisions.py moved, or the action no longer reaches the module it runs." >&2
-            exit 1
+            echo "::error::release-decisions named '$REF' as the moving ref for 1.2.3, and v1 is the only answer at or above the first stable version. Either the compatibility boundary moved, or the action no longer reaches the module it runs." >&2
+            failed=1
           }
+          [ "$TYPES" = "feat, fix" ] || {
+            echo "::error::commit-grammar listed the types as '$TYPES' for the input [feat, fix]. The list is what both grammar checks print in a failure, so compare grammar.py's emit against the input above." >&2
+            failed=1
+          }
+          # `-F`, so the `|` stays data rather than becoming an alternation.
+          grep -qF 'feat|fix' "$CONFIG" || {
+            echo "::error::commit-grammar wrote no alternation to $CONFIG, so the grammar it compiled matches no commit while looking configured. Check that grammar.py's template still carries its placeholder." >&2
+            failed=1
+          }
+          exit "$failed"
