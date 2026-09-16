@@ -18,9 +18,6 @@ runs:
   steps:
     - shell: bash
       env:
-        # `$/` puts the whole repository beside this action, so the package resolves from the action
-        # path's parent — which exists because the action directory does. Nothing is installed here and
-        # nothing needs to be: the package imports the standard library only.
         PYTHONPATH: ${{ github.action_path }}/..
         CAPABILITY: ${{ inputs.capability }}
         TOOLS: ${{ inputs.tools }}

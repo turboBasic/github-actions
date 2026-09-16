@@ -6,9 +6,8 @@ import pytest
 
 from tbga import github, proposal
 
-# A recording runner. `gh` stays the transport in production — it holds the auth, the retries and the
-# pagination — so what is worth asserting is the argv assembled for it, which a `run:` block gave nowhere
-# to check. Every value below is one the API would reject or misplace if it were quoted wrongly.
+# A recording runner. `gh` remains the transport in production, so what is asserted is the argv assembled
+# for it — every value below is one the API rejects or misplaces if it is quoted wrongly.
 SHA = "a" * 40
 OTHER = "b" * 40
 
@@ -26,8 +25,7 @@ class Recorder:
         return self.replies[len(self.calls) - 1] if len(self.replies) >= len(self.calls) else ""
 
     def paths(self) -> list[str]:
-        # The endpoint or subcommand of each call, in order. The endpoint is found by shape rather than by
-        # position, because `-X PATCH` sits between `api` and the path it applies to.
+        # Found by shape, not position: `-X PATCH` sits between `api` and its path.
         return [
             next(
                 (argument for argument in call if argument.startswith("repos/")),
@@ -38,8 +36,7 @@ class Recorder:
 
 
 def test_the_tag_object_is_created_before_the_ref_that_names_it() -> None:
-    # A ref naming a tag object that does not exist yet is a ref pointing at nothing, and neither can be
-    # withdrawn once pushed.
+    # A ref naming a tag object that does not exist yet points at nothing, and neither can be withdrawn.
     runner = Recorder(replies=[SHA])
     returned = github.create_tag(runner, "owner/repo", "1.2.3", OTHER)
 
@@ -54,8 +51,7 @@ def test_the_tag_object_is_created_before_the_ref_that_names_it() -> None:
 
 
 def test_a_reply_that_is_not_a_sha_stops_before_the_ref_is_written() -> None:
-    # The failure this guards: a tree or tag naming a value that is not a sha names nothing, and the
-    # symptom arrives as a ref pointing at rubbish rather than as an error.
+    # A tag naming a value that is not a sha names nothing, and the symptom is a bad ref, not an error.
     runner = Recorder(replies=["not a sha"])
     with pytest.raises(RuntimeError) as raised:
         github.create_tag(runner, "owner/repo", "1.2.3", OTHER)
@@ -64,8 +60,7 @@ def test_a_reply_that_is_not_a_sha_stops_before_the_ref_is_written() -> None:
 
 
 def test_the_release_verifies_the_tag_rather_than_creating_one() -> None:
-    # Without --verify-tag, gh creates a tag of its own: lightweight, and pointing wherever the default
-    # branch happens to be rather than at the commit the annotated tag names.
+    # Without it, `gh` creates a lightweight tag on the default branch instead.
     runner = Recorder()
     github.publish_release(runner, "1.2.3", "/tmp/notes.md")
     assert runner.paths() == ["release create"]
@@ -74,7 +69,7 @@ def test_the_release_verifies_the_tag_rather_than_creating_one() -> None:
 
 
 def test_the_moving_ref_is_forced_and_falls_back_to_creating_it() -> None:
-    # The first release of a line has no ref to move; every release after it must not create a second.
+    # The first release of a line has no ref to move. Every release after it must not create a second.
     moved = Recorder()
     github.move_ref(moved, "owner/repo", "v1", SHA)
     assert moved.paths() == ["repos/owner/repo/git/refs/tags/v1"]
@@ -87,8 +82,7 @@ def test_the_moving_ref_is_forced_and_falls_back_to_creating_it() -> None:
 
 
 def test_no_assembled_call_reaches_a_shell() -> None:
-    # Principle VI at the Python boundary: a version and a ref are text chosen outside this repository,
-    # and each has to be its own argument. A single string would be the shape that makes one a command.
+    # Principle VI at the Python boundary. A single string is the shape that makes a value a command.
     runner = Recorder(replies=[SHA])
     github.create_tag(runner, "owner/repo", "1.2.3", OTHER)
     github.publish_release(runner, "1.2.3", "/tmp/notes.md")
@@ -106,9 +100,8 @@ def _proposal_tree(tmp_path: Path) -> Path:
 
 
 def test_the_proposal_commit_carries_the_manifest_and_the_lockfile_together(tmp_path: Path) -> None:
-    # The lockfile records the project's own version, so a commit moving the manifest without it leaves
-    # `uv sync --locked` failing on the proposal branch — reddening every check on the very pull request
-    # whose merge is meant to release.
+    # The lockfile records the project's version. A manifest moved alone breaks `uv sync --locked` on the
+    # branch whose merge releases.
     runner = Recorder(replies=[SHA, OTHER, "c" * 40, "d" * 40, "e" * 40])
     proposal.write_proposal(
         runner,
@@ -130,8 +123,8 @@ def test_the_proposal_commit_carries_the_manifest_and_the_lockfile_together(tmp_
 
 
 def test_the_trailer_records_what_was_computed_not_what_was_written(tmp_path: Path) -> None:
-    # A later run compares the trailer against the branch's actual version to tell a person's edit from a
-    # fresh computation. Recording the written version instead would make every override invisible.
+    # A later run compares the trailer against the branch's version. Recording the written one instead
+    # makes every override invisible.
     runner = Recorder(replies=[SHA, OTHER, "c" * 40, "d" * 40, "e" * 40])
     proposal.write_proposal(
         runner,
@@ -150,8 +143,7 @@ def test_the_trailer_records_what_was_computed_not_what_was_written(tmp_path: Pa
 
 
 def test_a_blob_coming_back_unusable_writes_no_tree_and_moves_no_ref(tmp_path: Path) -> None:
-    # Ordering is the protection: a tree naming a value that is not a sha names nothing, and the branch
-    # would be force-moved to a commit built on it.
+    # Ordering is the protection. Otherwise the branch is force-moved to a commit built on nothing.
     runner = Recorder(replies=["not a sha"])
     with pytest.raises(RuntimeError):
         proposal.write_proposal(

@@ -8,8 +8,7 @@ from capabilities import REPO
 MANIFEST = REPO / "mise.toml"
 PROJECT = REPO / "pyproject.toml"
 
-# The directory holding what a composite action runs, and so the one checked against the runner's
-# interpreter rather than the version mise pins.
+# What a composite action runs, and so what is checked against the runner's interpreter.
 ACTION_ROOT = "actions"
 
 # The lint task's whole-tree invocation, read from the command rather than from the task's position in
@@ -145,6 +144,8 @@ def test_pyright_defaults_to_the_interpreter_a_composite_action_runs_on() -> Non
 
 
 def test_no_execution_environment_raises_the_floor_for_what_an_action_runs() -> None:
+    # A scoped version is also the weaker reading: it gates syntax and module availability, never a
+    # symbol inside a module both versions carry.
     covering = sorted(
         f"{env.get('root')!r} at {env.get('pythonVersion')}"
         for env in environments(PROJECT)

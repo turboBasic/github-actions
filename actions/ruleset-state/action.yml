@@ -42,15 +42,10 @@ runs:
     - id: state
       shell: bash
       env:
-        # `$/` puts the whole repository beside this action, so the package resolves from the action
-        # path's parent — which exists because the action directory does. Nothing is installed here and
-        # nothing needs to be: the package imports the standard library only.
         PYTHONPATH: ${{ github.action_path }}/..
         GH_TOKEN: ${{ inputs.token }}
         GH_REPO: ${{ inputs.repository }}
         NAMED: ${{ inputs.named }}
         LIVE_PATH: ${{ inputs.live-path || format('{0}/live.json', runner.temp) }}
         COMMAND: ${{ inputs.command }}
-      # The read reaches argparse as an environment value the shell expands into one argument, so no
-      # caller's text is part of this line.
       run: python3 -m tbga "$COMMAND"

@@ -1,19 +1,15 @@
 import subprocess
 from collections.abc import Callable, Sequence
 
-# Every call assembled here, invoked through one function a test can replace. `gh` stays the transport:
-# it holds the auth, the retries and the pagination, and none of that is worth reimplementing to tidy a
-# call site. What was missing was anywhere to assert the calls, since a `run:` block has none.
+# One indirection so a test can record the argv. `gh` remains the transport — it owns the auth, the
+# retries and the pagination.
 Runner = Callable[[Sequence[str]], str]
 
-# A sha as the API returns one. Checked because a tree naming a value that is not a sha names nothing,
-# and the failure would arrive as a ref pointing at rubbish rather than as an error.
 SHA_LENGTH = 40
 
 
 def gh(argv: Sequence[str]) -> str:
-    # No shell, and every value its own argument. A version, a ref and a commit subject are all text
-    # chosen outside this repository, and a string handed to a shell is what makes any of them a command.
+    # `shell=False`, every value its own argument. A version and a ref are text from outside.
     finished = subprocess.run(argv, capture_output=True, text=True, check=False)
     if finished.returncode != 0:
         raise RuntimeError(
@@ -30,8 +26,7 @@ def checked_sha(value: str, what: str) -> str:
 
 
 def create_tag(run: Runner, repository: str, version: str, commit: str) -> str:
-    # An annotated tag object, then the ref that names it. This is the ref a consumer may pin exactly, so
-    # it is created once and never force-updated.
+    # Never force-updated: this is the ref a consumer pins exactly.
     tag = checked_sha(
         run(
             (
@@ -77,16 +72,13 @@ def publish_release(run: Runner, version: str, notes: str) -> None:
             f"v{version}",
             "--notes-file",
             notes,
-            # The tag has to exist already. Without this `gh` would create one of its own, lightweight
-            # and pointing wherever the default branch happens to be.
-            "--verify-tag",
+            "--verify-tag",  # or `gh` invents a lightweight tag on the default branch
         )
     )
 
 
 def move_ref(run: Runner, repository: str, ref: str, commit: str) -> None:
-    # Force-moved where it exists, created where it does not. The first release of a line has no ref to
-    # move, and every release after it must not create a second one.
+    # The first release of a line has no ref to move.
     try:
         run(
             (

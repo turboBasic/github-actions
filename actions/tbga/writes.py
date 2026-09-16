@@ -9,8 +9,7 @@ WRITE_PROPOSAL = "write-proposal"
 OPEN_PROPOSAL = "open-proposal"
 WRITES = (CREATE_TAG, PUBLISH_RELEASE, MOVE_REF, WRITE_PROPOSAL, OPEN_PROPOSAL)
 
-# What each write cannot run without. A write given an empty value would name a ref after nothing, and a
-# created ref cannot be withdrawn — so this is checked before the first call rather than after it.
+# Checked before the first call. An empty value names a ref after nothing, and a created ref stays.
 NEEDED = {
     CREATE_TAG: ("GH_REPO", "VERSION", "COMMIT"),
     PUBLISH_RELEASE: ("VERSION", "NOTES"),

@@ -29,16 +29,15 @@ def test_the_default_list_compiles_into_one_alternation() -> None:
 
 
 def test_an_entry_carrying_a_metacharacter_is_refused_before_any_substitution() -> None:
-    # The alternation is substituted into a regex, so an unvalidated entry is pattern rather than data.
-    # `.*` would match every subject; `)` would break the group and fail every commit instead. Both are
-    # refused, and neither reaches the template — which is what "before any substitution" has to mean.
+    # Substituted into a regex, so an unvalidated entry is pattern and not data. `.*` matches every
+    # subject; `)` breaks the group and fails every commit. Neither reaches the template.
     for hostile in ("feat\n.*", "feat\nfix)", "feat\na|b", "feat\nfi x", "feat\n$(id)"):
         assert grammar.compile_grammar(hostile) is None, hostile
 
 
 def test_a_comma_separated_list_is_refused_rather_than_matching_nothing() -> None:
-    # The shape a caller reaches for first. Admitted, it compiles to one alternative that matches no
-    # commit message at all, and every commit fails against a check that looks configured.
+    # The shape a caller reaches for first. Admitted, it is one alternative matching no message, and
+    # every commit fails against a check that looks configured.
     assert grammar.compile_grammar("feat, fix, chore") is None
 
 
@@ -54,8 +53,8 @@ def test_blank_lines_and_surrounding_space_are_not_entries() -> None:
 
 
 def test_the_rendered_config_is_what_the_commit_tool_reads(tmp_path: Path) -> None:
-    # Parsed as TOML, since the tool is handed it as its own config file. A template that stopped being
-    # valid TOML would fail inside the tool, where the message names neither this repository nor the list.
+    # The tool is handed this as its own config. Invalid TOML fails inside it, naming neither this
+    # repository nor the list.
     import tomllib
 
     rendered = grammar.compile_grammar(DEFAULT)

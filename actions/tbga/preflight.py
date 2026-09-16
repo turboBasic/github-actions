@@ -22,8 +22,7 @@ def run() -> int:
     missing = absent(tools)
     if not missing:
         return 0
-    # The tool, the capability that needs it, and where the consumer declares it. `command not found` is
-    # not a contract.
+    # Names the tool, the capability, and where to declare it. `command not found` is not a contract.
     annotate(
         ERROR,
         f"{capability} looked for {', '.join(missing)} on PATH after installing this repository's "

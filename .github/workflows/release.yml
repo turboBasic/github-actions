@@ -47,9 +47,8 @@ jobs:
           capability: release
           tools: git-cliff
 
-      # The one thing about this run the tree cannot answer. Read from the repository itself rather than
-      # compared against a literal name: a literal is right for one repository by coincidence and wrong
-      # for the next in silence.
+      # The only value here the tree cannot answer. Read from the repository, never a literal name — a
+      # literal is right for one repository and silently wrong for the next.
       - id: repository
         name: Read the default branch from the repository itself
         env:
@@ -57,13 +56,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: printf 'default-branch=%s\n' "$(gh api "repos/$GH_REPO" --jq .default_branch)" >> "$GITHUB_OUTPUT"
 
-      # `$/` is resolved from the repository owning this file rather than from the workspace, so this
-      # reaches our own action even though the checkout above is the caller's tree — and it carries no
-      # ref, so there is nothing to pin and nothing to bootstrap.
+      # `$/` resolves from the repository owning this file, not the workspace, and carries no ref: this
+      # reaches our own action with nothing to pin and nothing to bootstrap.
       #
-      # The range, the tags, the paths, the declared version and the notes are all read from the
-      # checkout by the module itself. Nothing about them is marshalled through an output, which is four
-      # rounds of quoting for text rendered from commit messages.
+      # The range, the tags, the paths, the version and the notes are read from the checkout by the
+      # module. None of it is marshalled through an output.
       - id: decide
         name: Run every refusal, before any ref exists
         uses: $/actions/release-decisions
@@ -114,9 +111,8 @@ jobs:
           version: ${{ steps.decide.outputs.version }}
           notes: ${{ steps.decide.outputs.notes-path }}
 
-      # Last, and only once the release exists. A failure before this leaves consumers on the previous
-      # release rather than on a ref pointing at a release nobody published — so the ordering of these
-      # three steps is held by a gate, not only by this comment.
+      # Last, and only once the release exists: a failure before this leaves consumers on the previous
+      # release rather than on a ref naming an unpublished one. A gate holds the order of all three.
       - id: move-ref
         name: Force-move the compatibility ref, last
         if: steps.decide.outputs.proceed == 'true' && !inputs.dry-run

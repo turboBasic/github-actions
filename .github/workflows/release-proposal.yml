@@ -77,8 +77,8 @@ jobs:
           permission-contents: write # the proposal branch and the version on it
           permission-pull-requests: write # opening, refreshing and closing the proposal itself
 
-      # The declared version, the range and its notes are all read from the checkout by the module. One
-      # pass over one range decides both the increment and whether there is anything to propose.
+      # The version, the range and its notes are read from the checkout by the module. One pass decides
+      # both the increment and whether there is anything to propose.
       - id: next
         name: Read the range and settle what it would release
         if: steps.guard.outputs.already-released != 'true'
@@ -96,8 +96,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
           NOTES: ${{ steps.next.outputs.notes-path }}
         run: |
-          # An unset path is the shape a skipped `next` leaves, and it reads as empty for the same reason
-          # a rendered file of whitespace does: there is nothing to propose either way.
+          # A skipped `next` leaves the path unset. That and a file of whitespace both mean an empty
+          # range.
           empty=false
           [ -n "$NOTES" ] && [ -s "$NOTES" ] && [ -n "$(tr -d '[:space:]' < "$NOTES")" ] || empty=true
           printf 'empty=%s\n' "$empty" >> "$GITHUB_OUTPUT"
@@ -119,24 +119,15 @@ jobs:
           proposal-ref: origin/${{ env.PROPOSAL_BRANCH }}
           base-commit: ${{ github.sha }}
 
-      # One commit carrying the manifest and the lockfile together. The lockfile records the project's
-      # own version, so moving the manifest without it leaves `uv sync --locked` failing on the proposal
-      # branch — which reddens every check on the very pull request whose merge is meant to release. Two
-      # writes would also push a transiently broken state and fire a run against it.
-      #
-      # Built through the git data API rather than pushed: a token in a remote URL would be a secret on a
-      # command line, and a persisted credential would be one in a file.
-      # `uv` rather than an edit of our own: the lockfile records the project's version, and only the tool
-      # that owns the lockfile can move both together.
+      # `uv`, not an edit of our own: only the tool owning the lockfile can move it with the manifest.
       - name: Write the settled version into the tree
         if: steps.close.outputs.empty != 'true'
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: uv version --no-sync "$VERSION"
 
-      # One commit carrying the manifest and the lockfile together, built through the git data API rather
-      # than pushed: a token in a remote URL would be a secret on a command line, and a persisted
-      # credential would be one in a file.
+      # The git data API, not a push: a token in a remote URL is a secret on a command line, and a
+      # persisted credential is one in a file.
       - name: Put the version on the proposal branch
         if: steps.close.outputs.empty != 'true'
         uses: $/actions/release-write

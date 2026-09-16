@@ -414,18 +414,13 @@ def test_each_stage_of_project_ci_is_gated_on_its_own_switch_and_nothing_else() 
         )
 
 
-# What a step does, read from what it invokes rather than from a list this test also keeps. A step
-# creating a ref names one of these writes; nothing else in the release path does. Read from the `command`
-# input because the calls are assembled in a module now — a `run:` block in a reusable workflow executes
-# against the caller's checkout and cannot reach one. The three steps stay three: collapsing them into one
-# invocation would take this gate to nothing found, and the ordering and the conditions below are what
-# principle V is protected by.
+# The writes a step may perform. Three steps, not one invocation: the ordering and the conditions below
+# are principle V's protection, and collapsing them takes every gate here to nothing found.
 CREATES_A_REF = ("create-tag", "publish-release", "move-ref")
 
 
 def ref_writes(step: Doc) -> str:
-    # The write a step performs, or an empty string. `run:` is still read so a step that goes back to
-    # calling `gh` itself cannot slip past a gate that only knows about the action.
+    # `run:` is read as well as the action, so a step reverting to bare `gh` cannot pass unread.
     named = str(cast(dict[str, Any], step.get("with", {})).get("command", ""))
     if named in CREATES_A_REF:
         return named
@@ -648,9 +643,8 @@ def test_no_step_in_the_release_path_writes_a_version() -> None:
 
 
 def test_the_three_writes_happen_in_the_order_the_last_one_depends_on() -> None:
-    # The moving ref goes last, and only once the release exists: a failure before it leaves consumers on
-    # the previous release rather than on a ref pointing at a release nobody published. That was a comment
-    # in the workflow and nothing else, so a reordering read as cosmetic in review.
+    # The moving ref goes last, once the release exists. A failure before it leaves consumers on the
+    # previous release rather than on a ref naming an unpublished one.
     performed = [write for step in release_steps() if (write := ref_writes(step))]
     assert performed == ["create-tag", "publish-release", "move-ref"], (
         f"release.yml performs its writes as {performed}. The tag is created before the release that "
@@ -660,8 +654,8 @@ def test_the_three_writes_happen_in_the_order_the_last_one_depends_on() -> None:
 
 
 def test_the_write_reader_finds_both_the_action_and_a_bare_call() -> None:
-    # Pre-flight the reader on both shapes. Every write goes through the action today, so the `run:` half
-    # would otherwise never be exercised and a step reverting to `gh` would pass unread.
+    # Pre-flight both shapes. Every write goes through the action today, so the `run:` half is otherwise
+    # never exercised.
     assert ref_writes({"with": {"command": "move-ref"}}) == "move-ref"
     assert ref_writes({"with": {"command": "preflight"}}) == ""
     assert ref_writes({"run": 'gh api "repos/$GH_REPO/git/tags" -f tag=v1'}) == "git/tags"
@@ -679,9 +673,8 @@ def test_the_version_writing_markers_match_a_step_that_authors_one() -> None:
     )
 
 
-# A ruleset write, read from what a step invokes. Only a write sends a body, so the write action and the
-# `--input` a bare call would use are what separate it from the read above it — both are read, so a step
-# reverting to calling gh itself cannot slip past a gate that only knows about the action.
+# Only a write sends a body, which is what separates it from the read above it. Both the action and the
+# `--input` a bare call would use are read.
 RULESET_WRITE = "$/actions/ruleset-write"
 SENDS_A_BODY = "--input"
 
@@ -733,8 +726,8 @@ def test_every_ruleset_writing_step_is_gated_on_the_event_the_dry_run_and_the_ve
 
 
 def test_the_body_sending_reader_finds_both_the_action_and_a_bare_call() -> None:
-    # Pre-flight the reader on both shapes. The write goes through the action today, so the `run:` half
-    # would otherwise never be exercised and a step reverting to gh would pass unread.
+    # Pre-flight both shapes. The write goes through the action today, so the `run:` half is otherwise
+    # never exercised.
     assert sends_a_body({"uses": RULESET_WRITE})
     assert sends_a_body({"run": 'gh api "repos/$GH_REPO/rulesets" --input "$BODY"'})
     assert not sends_a_body({"uses": "$/actions/ruleset-state"})

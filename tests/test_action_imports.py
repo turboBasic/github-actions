@@ -26,8 +26,7 @@ def action_modules(root: Path) -> list[Path]:
 def foreign_imports(root: Path) -> list[str]:
     found: list[str] = []
     for module in action_modules(root):
-        # A relative import needs a package to resolve against. Where the directory has no
-        # `__init__.py` there is none, and a hyphen in the name means there never can be.
+        # A relative import needs a package to resolve against.
         packaged = (module.parent / "__init__.py").exists()
         where = module.relative_to(root).as_posix()
         for name in sorted(imported_roots(module.read_text(encoding="utf-8"))):

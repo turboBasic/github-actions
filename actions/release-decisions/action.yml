@@ -87,15 +87,9 @@ outputs:
 runs:
   using: composite
   steps:
-    # Every value reaches the module as an environment value. None of it is interpolated into the
-    # command line, because a version, a branch name and a set of notes are all text chosen outside
-    # this repository.
     - id: decide
       shell: bash
       env:
-        # `$/` puts the whole repository beside this action, so the package resolves from the action
-        # path's parent — which exists because the action directory does. Nothing is installed here and
-        # nothing needs to be: the package imports the standard library only.
         PYTHONPATH: ${{ github.action_path }}/..
         DECISION: ${{ inputs.decision }}
         REPO_DIR: ${{ inputs.repository || github.workspace }}
@@ -109,6 +103,4 @@ runs:
         PROPOSAL_REF: ${{ inputs.proposal-ref }}
         BASE_COMMIT: ${{ inputs.base-commit }}
         COMPUTED: ${{ inputs.computed-version }}
-      # The decision reaches argparse as an environment value the shell expands into one argument, so a
-      # caller's text is never part of this line.
       run: python3 -m tbga "$DECISION"

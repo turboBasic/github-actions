@@ -63,9 +63,6 @@ runs:
   steps:
     - shell: bash
       env:
-        # `$/` puts the whole repository beside this action, so the package resolves from the action
-        # path's parent — which exists because the action directory does. Nothing is installed here and
-        # nothing needs to be: the package imports the standard library only.
         PYTHONPATH: ${{ github.action_path }}/..
         GH_TOKEN: ${{ inputs.token }}
         GH_REPO: ${{ inputs.repository }}
@@ -78,6 +75,4 @@ runs:
         BRANCH: ${{ inputs.branch }}
         BASE: ${{ inputs.base }}
         REPO_DIR: ${{ inputs.repository-directory || github.workspace }}
-      # The write reaches argparse as an environment value the shell expands into one argument, so no
-      # caller's text is part of this line.
       run: python3 -m tbga "$COMMAND"

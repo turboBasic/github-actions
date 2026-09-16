@@ -6,14 +6,12 @@ from typing import Any, cast
 # A commit message holds newlines, so `git log` separates them with this rather than with a line break.
 RECORD = "\x1e"
 
-# The tag shape a release carries. A moving compatibility ref is a tag too, so the range and the refusals
-# would both read one as a release without this.
+# A moving compatibility ref is also a tag. Without this filter both would read as releases.
 RELEASE_TAG = "v[0-9]*.[0-9]*.[0-9]*"
 
 
 def output(argv: Sequence[str], cwd: str) -> str:
-    # No shell. Every value here is a path, a ref or a config name chosen outside this repository, and a
-    # string handed to a shell is the one shape that turns any of them into a command.
+    # `shell=False`, every value its own argument. A path and a ref are text from outside.
     finished = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, check=False)
     if finished.returncode != 0:
         raise RuntimeError(
@@ -32,8 +30,7 @@ def release_tags(repository: str) -> tuple[str, ...]:
 
 
 def span(repository: str) -> tuple[str, ...]:
-    # The range starts at the newest release, or at the beginning of history where there is none. Both
-    # are handed to `git log` as its own arguments, never assembled into one.
+    # No release yet means the whole history.
     tags = release_tags(repository)
     return (f"{tags[0]}..HEAD",) if tags else ("HEAD",)
 
@@ -60,8 +57,7 @@ def ref_exists(repository: str, ref: str) -> bool:
 
 
 def version_on_ref(repository: str, ref: str, manifest: str) -> str:
-    # A branch that does not exist yet is not a branch declaring nothing: both read as empty here, and
-    # the caller treats an empty version as "no proposal to compare against" either way.
+    # An absent branch and a branch declaring no version both read as empty; the caller treats them alike.
     if not ref or not ref_exists(repository, ref):
         return ""
     try:
@@ -76,8 +72,7 @@ def version_on_ref(repository: str, ref: str, manifest: str) -> str:
 
 
 def messages_between(repository: str, base: str, ref: str) -> tuple[str, ...]:
-    # Newest first, which is what the trailer search depends on: the version a person edited sits above
-    # the workflow's own commit carrying the trailer.
+    # Newest first: the trailer search walks down past a person's edits to the workflow's own commit.
     if not ref or not base or not ref_exists(repository, ref):
         return ()
     logged = git(repository, "log", f"--format=%B{RECORD}", f"{base}..{ref}")
@@ -85,9 +80,7 @@ def messages_between(repository: str, base: str, ref: str) -> tuple[str, ...]:
 
 
 def render_notes(repository: str, config: str, destination: str) -> str:
-    # Written to a file rather than returned through an output: the notes are the release body, and a
-    # value that large travelling through `GITHUB_OUTPUT` and back is four rounds of quoting for text
-    # rendered from commit messages.
+    # A file, not an output. The notes are the release body, and `gh release create` reads a file anyway.
     rendered = output(("git-cliff", "--config", config, "--unreleased"), repository)
     with open(destination, "w", encoding="utf-8") as handle:
         handle.write(rendered)

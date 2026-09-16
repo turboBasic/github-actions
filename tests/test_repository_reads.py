@@ -5,9 +5,8 @@ import pytest
 
 from tbga import release, repository
 
-# A real repository, not a fake runner. `git` is local, so this stays offline, and a fake would only
-# assert the argv this file already chose — the thing worth holding is what git actually reports for a
-# range, which is what the refusals read.
+# A real repository, not a fake runner. `git` is local, so the suite stays offline, and a fake would
+# assert only the argv this file chose. What matters is what git reports for a range.
 AUTHOR = {
     "GIT_AUTHOR_NAME": "t",
     "GIT_AUTHOR_EMAIL": "t@example.com",
@@ -64,8 +63,7 @@ def test_the_range_starts_at_the_newest_release_tag(tree: Path) -> None:
 
 
 def test_a_moving_compatibility_ref_is_not_read_as_a_release(tree: Path) -> None:
-    # `v0.1` is a tag this scheme moves, so a range starting at it would begin at whatever it points to
-    # now rather than at the last release — and every version comparison would read it as a release.
+    # `v0.1` moves. A range starting there begins wherever it points now, not at the last release.
     git(tree, "tag", "v0.1.0")
     git(tree, "tag", "v0.1")
     git(tree, "tag", "nightly")
@@ -80,8 +78,7 @@ def test_release_tags_are_newest_first_by_version_not_by_string(tree: Path) -> N
 
 
 def test_a_message_holding_a_blank_line_survives_as_one_record(tree: Path) -> None:
-    # Records are separated by an ASCII record separator rather than by lines, because a body is part of
-    # the message the break check reads.
+    # Separated by record, not by line: the body is part of what the break check reads.
     commit(tree, "feat!: a break\n\nBREAKING CHANGE: the interface moved", touching="broken.txt")
     messages = repository.commit_messages(tree.as_posix())
     assert any("BREAKING CHANGE: the interface moved" in message for message in messages)
@@ -98,7 +95,7 @@ def test_a_manifest_declaring_no_project_reads_as_no_version(tree: Path) -> None
 
 
 def test_a_failing_command_names_itself_and_what_it_printed(tmp_path: Path) -> None:
-    # Not a git repository, so `git log` fails. An exit code alone would leave a maintainer guessing.
+    # Not a git repository. An exit code alone names nothing to fix.
     with pytest.raises(RuntimeError) as raised:
         repository.git(tmp_path.as_posix(), "log")
     assert "git log" in str(raised.value)
@@ -106,9 +103,8 @@ def test_a_failing_command_names_itself_and_what_it_printed(tmp_path: Path) -> N
 
 
 def test_a_hand_edit_on_top_of_the_trailer_commit_wins(tree: Path) -> None:
-    # The override's ordinary shape: the workflow wrote the version and a `Computed-Version:` trailer,
-    # then a person edited the version on top. The person's commit carries no trailer, so reading only
-    # the tip would find none and the next run would overwrite their decision.
+    # The override's ordinary shape. A person's commit carries no trailer, so reading only the tip finds
+    # none and the next run overwrites their decision.
     base = repository.git(tree.as_posix(), "rev-parse", "HEAD").strip()
     git(tree, "switch", "-c", "release/next")
     (tree / "pyproject.toml").write_text('[project]\nversion = "0.4.0"\n', encoding="utf-8")
@@ -147,8 +143,7 @@ def test_a_hand_edit_on_top_of_the_trailer_commit_wins(tree: Path) -> None:
 
 
 def test_a_proposal_branch_that_does_not_exist_yet_reads_as_nothing(tree: Path) -> None:
-    # The first run on a repository, where treating absence as a difference would freeze the branch's
-    # content on every run after it.
+    # The first run on a repository. Treating absence as a difference would freeze the branch forever.
     base = repository.git(tree.as_posix(), "rev-parse", "HEAD").strip()
     assert repository.version_on_ref(tree.as_posix(), "release/next", "pyproject.toml") == ""
     assert repository.messages_between(tree.as_posix(), base, "release/next") == ()

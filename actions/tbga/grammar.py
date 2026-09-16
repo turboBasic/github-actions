@@ -2,13 +2,10 @@ import re
 
 from . import ERROR, annotate, emit, read_text
 
-# A type is a bare word: letters and digits, starting with a letter. Nothing else is admitted, because
-# the alternation below is substituted into a regex — an entry carrying `|`, `(` or `.` would be pattern
-# rather than data, and would widen or break the grammar rather than fail.
+# The alternation is substituted into a regex, so an entry must be data and not pattern.
 BARE_WORD = re.compile(r"^[a-zA-Z][a-zA-Z0-9]*$")
 
-# The grammar both checks judge against, and the only place it is written. `TYPES_HERE` is replaced by
-# the validated alternation.
+# The grammar both checks judge against, written once.
 TEMPLATE = """[tool.commitizen]
 name = "cz_customize"
 
@@ -20,8 +17,7 @@ PLACEHOLDER = "TYPES_HERE"
 
 
 def compile_grammar(types: str) -> str | None:
-    # Returns the rendered config, or None where the list is unusable. Every entry is checked before any
-    # substitution happens, so a rejected list never reaches the template at all.
+    # Every entry is validated before any substitution, so a rejected list never reaches the template.
     wanted = [line.strip() for line in types.splitlines() if line.strip()]
     if not wanted or any(not BARE_WORD.match(entry) for entry in wanted):
         return None
@@ -44,6 +40,6 @@ def run() -> int:
     with open(destination, "w", encoding="utf-8") as handle:
         handle.write(rendered)
     listed = [line.strip() for line in types.splitlines() if line.strip()]
-    # The list as a reader should see it in a failure, so neither judging step has to render it again.
+    # Rendered here so neither judging step renders it again.
     emit(config=destination, types=", ".join(listed))
     return 0

@@ -136,20 +136,17 @@ path's parent.
 - A module a composite action runs reads its arguments from the environment, declared in `action.yml`. It
   never parses `${{ }}` interpolations inline, and the subcommand reaches it the same way — as an
   environment value the shell expands into one argument.
-- **`actions/tbga/` imports the standard library and its own siblings, and nothing else.** Nothing
-  installs a dependency where it runs: the whole repository arrives beside the action, `uv.lock`
-  included, and no step ever syncs it — `mise-action` reads the *caller's* configuration, because the
-  workspace is the caller's tree. Its imports are asserted against `sys.stdlib_module_names` by test,
-  with a relative import admitted where the directory is a package and refused where it is not.
-- **The interpreter is the runner's, not the one mise pins.** A caller pinning no `python` leaves
-  whatever the image ships, measured at 3.12.3 on `ubuntu-latest`, and there is no resolution step to
-  fail loudly — only a `SyntaxError` in a consumer's job. `pyproject.toml` states that floor as pyright's
-  default, with the suite as the one exception; re-measure it when the runner image's `python3` changes,
-  which nothing offline can detect.
-- **Nothing tests `actions/tbga/` on a second interpreter.** pyright at the floor catches newer syntax, a
-  newer module and a newer symbol; what it cannot see is behaviour that differs between the two versions,
-  and a dynamic `getattr` or `__import__` reaching a name the floor lacks. A second pinned Python was
-  weighed against that and declined — the package's stdlib use is long-stable.
+- **`actions/tbga/` imports the standard library and its own siblings, nothing else.** Nothing installs a
+  dependency where it runs. The whole repository arrives beside the action, `uv.lock` included, and no
+  step syncs it: `mise-action` reads the caller's configuration, not ours. A test asserts every import
+  against `sys.stdlib_module_names`, admitting a relative import only inside a package.
+- **The interpreter is the runner's, not mise's.** A caller pinning no `python` leaves whatever the image
+  ships — 3.12.3 on `ubuntu-latest`, measured. Nothing fails loudly between the two; the symptom is a
+  `SyntaxError` in a consumer's job. `pyproject.toml` states that floor as pyright's default, the suite
+  being the one exception. Re-measure when the runner image's `python3` changes, which no gate can detect.
+- **No second interpreter tests the package.** pyright at the floor catches newer syntax, a newer module
+  and a newer symbol. It cannot see behaviour that differs between versions, nor a dynamic `getattr`
+  reaching a name the floor lacks. Declined deliberately: the stdlib calls here are long-stable.
 
 ### Comments and docs
 

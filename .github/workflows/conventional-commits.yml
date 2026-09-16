@@ -41,9 +41,8 @@ permissions:
   pull-requests: read # the title check reads the title from the API, which needs this at both levels
 
 env:
-  # Two check names mean two jobs, and neither can `needs:` the other without making one check's verdict
-  # wait on the other's. So the version is stated here, once, and the grammar itself is compiled by an
-  # action both jobs call — `$/` reaches this repository's own tree from either of them.
+  # Two check names, so two jobs. A `needs:` edge between them would make one verdict wait on the other.
+  # Both call the same action to compile the grammar; only the version is stated here.
   CZ_VERSION: "4.18.0"
 
 jobs:

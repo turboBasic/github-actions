@@ -4,18 +4,15 @@ import tempfile
 
 from .github import Runner, checked_sha
 
-# The manifest and the lockfile, written as one commit. The lockfile records the project's own version, so
-# moving the manifest without it leaves `uv sync --locked` failing on the proposal branch — which reddens
-# every check on the very pull request whose merge is meant to release. Two commits would also push a
-# transiently broken state and fire a run against it.
+# One commit, both files. The lockfile records the project's version, so a manifest moved alone breaks
+# `uv sync --locked` on the branch whose merge releases.
 PROPOSED_FILES = ("pyproject.toml", "uv.lock")
 
 MODE = "100644"
 
 
 def blob(run: Runner, repository: str, where: str, name: str, scratch: str) -> str:
-    # Sent as a file rather than an argument: a lockfile is far past the argument-length limit, and the
-    # blobs API takes UTF-8 directly, so there is nothing to encode.
+    # A file, not an argument: a lockfile exceeds the argument limit. The API takes UTF-8 unencoded.
     with open(os.path.join(where, name), encoding="utf-8") as handle:
         content = handle.read()
     body = os.path.join(scratch, f"blob-{name}.json")
@@ -38,8 +35,7 @@ def send(
 def write_proposal(
     run: Runner, repository: str, where: str, version: str, computed: str, commit: str, branch: str
 ) -> str:
-    # Built through the git data API rather than pushed: a token in a remote URL would be a secret on a
-    # command line, and a persisted credential would be one in a file.
+    # The git data API, not a push. A token in a remote URL is a secret on a command line.
     scratch = tempfile.mkdtemp()
     shas = [blob(run, repository, where, name, scratch) for name in PROPOSED_FILES]
     base = checked_sha(
@@ -60,9 +56,8 @@ def write_proposal(
         scratch,
         "the tree",
     )
-    # The trailer records what this run computed, not what it wrote: comparing it against the branch's
-    # actual version on a later run is how a person's edit is told apart from a fresh computation, without
-    # reading anything the branch's rewrite itself would have discarded.
+    # The trailer records the computed version, not the written one. A later run compares the two to
+    # detect a person's edit.
     proposed = send(
         run,
         repository,
