@@ -25,3 +25,32 @@ jobs:
     uses: $/.github/workflows/project-ci.yml
     with:
       run-build: false # nothing is published from here, so there is nothing to compile or package
+
+  # The composite actions are reached from a push to the default branch and from a dispatch, and from
+  # nowhere a pull request goes — so until this job existed, a change breaking one of them was first
+  # reported by a release. It answers a question with a known answer rather than the tree's own version:
+  # 1.2.3 is at or above the first stable version, so its line is the major alone.
+  #
+  # No checkout, deliberately. `$/` resolves the action from the repository owning this file, and its
+  # files arrive separately from the workspace — so a green run here is also the standing evidence that
+  # the action reaches its own code without the caller's tree.
+  composite-action:
+    name: composite-action
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - id: decide
+        uses: $/actions/release-decisions
+        with:
+          decision: moving-ref
+          version: "1.2.3"
+
+      - name: Check the ref it named
+        env:
+          REF: ${{ steps.decide.outputs.ref }}
+        run: |
+          [ "$REF" = v1 ] || {
+            echo "::error::release-decisions named '$REF' as the moving ref for 1.2.3, and v1 is the only answer above the first stable version. Either the compatibility boundary in decisions.py moved, or the action no longer reaches the module it runs." >&2
+            exit 1
+          }
