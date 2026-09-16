@@ -48,6 +48,42 @@ def changed_paths(repository: str) -> tuple[str, ...]:
     return tuple(sorted({line.strip() for line in logged.splitlines() if line.strip()}))
 
 
+def ref_exists(repository: str, ref: str) -> bool:
+    finished = subprocess.run(
+        ("git", "rev-parse", "--verify", "--quiet", ref),
+        cwd=repository,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return finished.returncode == 0
+
+
+def version_on_ref(repository: str, ref: str, manifest: str) -> str:
+    # A branch that does not exist yet is not a branch declaring nothing: both read as empty here, and
+    # the caller treats an empty version as "no proposal to compare against" either way.
+    if not ref or not ref_exists(repository, ref):
+        return ""
+    try:
+        shown = git(repository, "show", f"{ref}:{manifest}")
+    except RuntimeError:
+        return ""
+    table = tomllib.loads(shown)
+    project = table.get("project")
+    if not isinstance(project, dict):
+        return ""
+    return str(cast(dict[str, Any], project).get("version", ""))
+
+
+def messages_between(repository: str, base: str, ref: str) -> tuple[str, ...]:
+    # Newest first, which is what the trailer search depends on: the version a person edited sits above
+    # the workflow's own commit carrying the trailer.
+    if not ref or not base or not ref_exists(repository, ref):
+        return ()
+    logged = git(repository, "log", f"--format=%B{RECORD}", f"{base}..{ref}")
+    return tuple(record.strip() for record in logged.split(RECORD) if record.strip())
+
+
 def render_notes(repository: str, config: str, destination: str) -> str:
     # Written to a file rather than returned through an output: the notes are the release body, and a
     # value that large travelling through `GITHUB_OUTPUT` and back is four rounds of quoting for text

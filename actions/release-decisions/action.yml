@@ -43,46 +43,24 @@ inputs:
       something different for each, so it is not a boolean.
     required: false
     default: deliberate
-  released-versions:
-    description: Every existing release tag, one per line. A tag that is not a plain version is skipped.
-    required: false
-    default: ""
-  notes:
-    description: The rendered notes for the range. Empty means there is nothing to publish.
-    required: false
-    default: ""
-  commit-messages:
-    description: >-
-      Every commit message in the range, separated by an ASCII record separator because a message holds
-      newlines. Whether the range breaks anything and whether it holds a feature are read from these,
-      not passed in as flags — getting either wrong puts a release on the wrong compatibility line.
-    required: false
-    default: ""
-  changed-paths:
-    description: Every path the range touches, one per line. Filtered by the surface declaration.
-    required: false
-    default: ""
   manifest:
     description: >-
       Path to the manifest holding the surface declaration. Absent means every path counts, which
       refuses more often rather than less.
     required: false
     default: pyproject.toml
+  proposal-ref:
+    description: >-
+      The proposal branch as a ref this checkout can resolve, for the proposal-version decision. A ref
+      that does not exist yet reads the same as a branch declaring no version.
+    required: false
+    default: ""
+  base-commit:
+    description: The commit the proposal branch is measured from, for the proposal-version decision.
+    required: false
+    default: ""
   computed-version:
     description: The version this run would propose absent an override, for the proposal-version decision.
-    required: false
-    default: ""
-  on-branch-version:
-    description: >-
-      The version currently declared on the proposal branch, for the proposal-version decision. Empty
-      means the branch does not exist yet.
-    required: false
-    default: ""
-  branch-messages:
-    description: >-
-      Every commit message unique to the proposal branch, newest first and separated the same way as
-      commit-messages, for the proposal-version decision. Read for the newest `Computed-Version:`
-      trailer, which may sit under commits a person made on top of it.
     required: false
     default: ""
 
@@ -127,14 +105,10 @@ runs:
         BRANCH: ${{ inputs.branch }}
         DEFAULT_BRANCH: ${{ inputs.default-branch }}
         OCCASION: ${{ inputs.occasion }}
-        RELEASED_VERSIONS: ${{ inputs.released-versions }}
-        NOTES: ${{ inputs.notes }}
-        COMMIT_MESSAGES: ${{ inputs.commit-messages }}
-        CHANGED_PATHS: ${{ inputs.changed-paths }}
         MANIFEST: ${{ inputs.manifest }}
+        PROPOSAL_REF: ${{ inputs.proposal-ref }}
+        BASE_COMMIT: ${{ inputs.base-commit }}
         COMPUTED: ${{ inputs.computed-version }}
-        ON_BRANCH: ${{ inputs.on-branch-version }}
-        BRANCH_MESSAGES: ${{ inputs.branch-messages }}
       # The decision reaches argparse as an environment value the shell expands into one argument, so a
       # caller's text is never part of this line.
       run: python3 -m tbga "$DECISION"

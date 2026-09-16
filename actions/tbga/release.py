@@ -357,13 +357,24 @@ def answer_moving_ref() -> int:
 
 
 def answer_next_version() -> int:
-    version = declared_version()
+    where = repository_directory()
+    manifest = read_text("MANIFEST") or "pyproject.toml"
+    declared = repository.declared_version(where, manifest)
+    version = parse_version(declared)
     if version is None:
-        annotate(ERROR, f"release-decisions cannot increment {read_text('VERSION')!r}")
+        annotate(ERROR, f"release-decisions cannot increment {declared!r}, read from {manifest}")
         return 1
-    breaking, feature = range_verdicts(read_records("COMMIT_MESSAGES"))
+    # Rendered here rather than by a `run:` block, so whether the range is empty and what the increment
+    # is are read from one pass over the same range.
+    notes_path = read_text("NOTES_PATH") or f"{where}/release-notes.md"
+    repository.render_notes(where, read_text("CLIFF_CONFIG") or "cliff.toml", notes_path)
+    breaking, feature = range_verdicts(repository.commit_messages(where))
     nxt = increment(version, breaking=breaking, feature=feature)
-    emit(version=format_version(nxt), ref=moving_ref(nxt))
+    emit(
+        version=format_version(nxt),
+        ref=moving_ref(nxt),
+        **{"notes-path": notes_path},
+    )
     return 0
 
 
@@ -415,10 +426,18 @@ def answer_release_verdict() -> int:
 
 
 def answer_proposal_version() -> int:
-    last_computed = find_last_computed(read_records("BRANCH_MESSAGES"))
+    # Read off the branch itself, never a pull request body: a template change, a hand edit or a reopen
+    # cannot lose what is stored here. Every commit unique to the branch rather than only its tip,
+    # because a person's edit becomes the tip and carries no trailer of its own.
+    where = repository_directory()
+    proposal_ref = read_text("PROPOSAL_REF").strip()
+    base = read_text("BASE_COMMIT").strip()
+    manifest = read_text("MANIFEST") or "pyproject.toml"
+    on_branch = repository.version_on_ref(where, proposal_ref, manifest)
+    last_computed = find_last_computed(repository.messages_between(where, base, proposal_ref))
     version, overridden = settle_proposal_version(
         computed=read_text("COMPUTED").strip(),
-        on_branch=read_text("ON_BRANCH").strip(),
+        on_branch=on_branch.strip(),
         last_computed=last_computed,
     )
     if overridden:

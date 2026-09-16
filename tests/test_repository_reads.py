@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from tbga import repository
+from tbga import release, repository
 
 # A real repository, not a fake runner. `git` is local, so this stays offline, and a fake would only
 # assert the argv this file already chose — the thing worth holding is what git actually reports for a
@@ -103,3 +103,53 @@ def test_a_failing_command_names_itself_and_what_it_printed(tmp_path: Path) -> N
         repository.git(tmp_path.as_posix(), "log")
     assert "git log" in str(raised.value)
     assert "128" in str(raised.value)
+
+
+def test_a_hand_edit_on_top_of_the_trailer_commit_wins(tree: Path) -> None:
+    # The override's ordinary shape: the workflow wrote the version and a `Computed-Version:` trailer,
+    # then a person edited the version on top. The person's commit carries no trailer, so reading only
+    # the tip would find none and the next run would overwrite their decision.
+    base = repository.git(tree.as_posix(), "rev-parse", "HEAD").strip()
+    git(tree, "switch", "-c", "release/next")
+    (tree / "pyproject.toml").write_text('[project]\nversion = "0.4.0"\n', encoding="utf-8")
+    git(tree, "add", "pyproject.toml")
+    git(
+        tree,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "-m",
+        "chore: propose 0.4.0\n\nComputed-Version: 0.4.0",
+    )
+    (tree / "pyproject.toml").write_text('[project]\nversion = "1.0.0"\n', encoding="utf-8")
+    git(tree, "add", "pyproject.toml")
+    git(
+        tree,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "-m",
+        "chore: actually release 1.0.0",
+    )
+
+    assert repository.version_on_ref(tree.as_posix(), "release/next", "pyproject.toml") == "1.0.0"
+    messages = repository.messages_between(tree.as_posix(), base, "release/next")
+    assert release.find_last_computed(messages) == "0.4.0"
+
+    settled, overridden = release.settle_proposal_version(
+        computed="0.4.1", on_branch="1.0.0", last_computed="0.4.0"
+    )
+    assert (settled, overridden) == ("1.0.0", True)
+
+
+def test_a_proposal_branch_that_does_not_exist_yet_reads_as_nothing(tree: Path) -> None:
+    # The first run on a repository, where treating absence as a difference would freeze the branch's
+    # content on every run after it.
+    base = repository.git(tree.as_posix(), "rev-parse", "HEAD").strip()
+    assert repository.version_on_ref(tree.as_posix(), "release/next", "pyproject.toml") == ""
+    assert repository.messages_between(tree.as_posix(), base, "release/next") == ()
+    assert release.settle_proposal_version("0.4.1", "", "") == ("0.4.1", False)
