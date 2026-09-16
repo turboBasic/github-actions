@@ -1,0 +1,35 @@
+name: commit-grammar
+description: >-
+  Compiles a type list into the commit grammar both conventional-commits checks judge against, refusing a
+  list that is not bare words before any of it reaches the pattern. Internal surface: it carries no
+  stability promise and composes no check name. An action rather than a step, because two check names mean
+  two jobs that cannot share one, and a `run:` block in a reusable workflow executes against the caller's
+  checkout, where this repository's package is not on the path.
+
+inputs:
+  types:
+    description: Newline-separated types. Every one is a bare word, or the run refuses.
+    required: true
+  config-path:
+    description: Where to write the compiled config. The judging steps read the path from the output.
+    required: false
+    default: ""
+
+outputs:
+  config:
+    description: Path to the compiled commit-tool config.
+    value: ${{ steps.compile.outputs.config }}
+  types:
+    description: The type list as a failure should print it, so neither judging step renders it again.
+    value: ${{ steps.compile.outputs.types }}
+
+runs:
+  using: composite
+  steps:
+    - id: compile
+      shell: bash
+      env:
+        PYTHONPATH: ${{ github.action_path }}/..
+        TYPES: ${{ inputs.types }}
+        CONFIG_PATH: ${{ inputs.config-path || format('{0}/cz.toml', runner.temp) }}
+      run: python3 -m tbga compile-grammar

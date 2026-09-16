@@ -1,0 +1,78 @@
+name: release-write
+description: >-
+  Performs one write in the release path — the annotated tag, the published release, the moved
+  compatibility ref, the proposal branch, or the proposal itself.
+  Internal surface: it carries no stability promise and composes no check name. One action rather than five
+  because they share their inputs and return nothing, so no invocation is described by a declared output it
+  leaves empty. The ordering and the conditions stay in the calling workflow, where a reviewer reads them,
+  and a gate holds them there.
+
+inputs:
+  command:
+    description: >-
+      Which write to perform — create-tag, publish-release, move-ref, write-proposal, or open-proposal.
+    required: true
+  token:
+    description: >-
+      The token the write runs with. Passed rather than inherited: a step's own `env:` is not the
+      environment a composite action's steps see, and a job-level grant would put it in reach of every
+      other step in the job.
+    required: true
+  repository:
+    description: The owner/name the write is addressed to, read from the run.
+    required: true
+  version:
+    description: The version being released, as a plain N.N.N. The tag is named v<version>.
+    required: false
+    default: ""
+  commit:
+    description: The commit the tag or the moved ref points at.
+    required: false
+    default: ""
+  moving-ref:
+    description: The compatibility ref to move, for move-ref.
+    required: false
+    default: ""
+  notes:
+    description: >-
+      Path to the rendered notes, for publish-release and open-proposal. The body is read from a file,
+      never an input.
+    required: false
+    default: ""
+  computed-version:
+    description: >-
+      The version this run computed absent an override, for write-proposal. Recorded as a trailer, which is
+      how a later run tells a person's edit from a fresh computation.
+    required: false
+    default: ""
+  branch:
+    description: The proposal branch to force-move or create, for write-proposal and open-proposal.
+    required: false
+    default: ""
+  base:
+    description: The branch the proposal is opened against, for open-proposal.
+    required: false
+    default: ""
+  repository-directory:
+    description: The tree the proposed files are read from. Defaults to the caller's checkout.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PYTHONPATH: ${{ github.action_path }}/..
+        GH_TOKEN: ${{ inputs.token }}
+        GH_REPO: ${{ inputs.repository }}
+        COMMAND: ${{ inputs.command }}
+        VERSION: ${{ inputs.version }}
+        COMMIT: ${{ inputs.commit }}
+        MOVING_REF: ${{ inputs.moving-ref }}
+        NOTES: ${{ inputs.notes }}
+        COMPUTED: ${{ inputs.computed-version }}
+        BRANCH: ${{ inputs.branch }}
+        BASE: ${{ inputs.base }}
+        REPO_DIR: ${{ inputs.repository-directory || github.workspace }}
+      run: python3 -m tbga "$COMMAND"

@@ -1,9 +1,10 @@
 import ast
 from pathlib import Path
 
-import decisions
 import pytest
-from decisions import (
+
+from tbga import release, version
+from tbga.release import (
     ALREADY_RELEASED,
     BAD_SURFACE,
     BREAKS_A_RELEASED_LINE,
@@ -31,7 +32,8 @@ from decisions import (
     touches_surface,
 )
 
-SOURCE = Path(decisions.__file__).read_text(encoding="utf-8")
+# The boundary and its readers live in `version`, so that is the module this parses.
+SOURCE = Path(version.__file__).read_text(encoding="utf-8")
 
 # A request that every refusal admits. Each test below changes exactly what it is about, so a failure
 # names one cause rather than a combination.
@@ -87,9 +89,9 @@ def test_the_line_is_the_major_and_the_minor_below_it() -> None:
 
 
 def test_exactly_one_function_reads_the_boundary() -> None:
-    # Principle I, and the thing principle V turns on. Reading the boundary off the major number is
-    # wrong below the first stable version and wrong permissively — it would let a break move a ref
-    # consumers pin — so the refusal, the increment and the ref name all read the line instead.
+    # Principle I, and what principle V turns on. Below the first stable version, reading the boundary off
+    # the major is wrong and permissively so: it lets a break move a ref consumers pin. The refusal, the
+    # increment and the ref name all read the line instead.
     module = ast.parse(SOURCE)
     readers = sorted(
         node.name
@@ -118,9 +120,9 @@ def test_the_moving_ref_above_the_boundary_spans_a_major() -> None:
 
 
 def test_the_moving_ref_is_total_and_never_bare_v_zero() -> None:
-    # This replaces the superseded repository's guard against an empty ref rather than reproducing it:
-    # the ref has at least one component for every version, so that branch could not be reached. `v0`
-    # would span every pre-1.0 break at once, which is the one thing a moving ref exists to prevent.
+    # The ref has at least one component for every version, so an empty one is unreachable. What matters
+    # is that `v0` never appears: it would span every pre-1.0 break at once, which is the one thing a
+    # moving ref exists to prevent.
     for major in range(4):
         for minor in range(4):
             for patch in range(4):
@@ -135,9 +137,8 @@ def test_below_the_boundary_a_break_advances_the_minor() -> None:
 
 
 def test_below_the_boundary_a_feature_advances_only_the_patch() -> None:
-    # The reading the naive version gets wrong. A consumer pinned to v0.1 has to be able to receive a
-    # feature without crossing into v0.2, so a feature may only advance a component the line does not
-    # own.
+    # A consumer pinned to v0.1 must be able to receive a feature without crossing into v0.2. So a
+    # feature advances only a component the line does not own.
     assert increment((0, 1, 4), breaking=False, feature=True) == (0, 1, 5)
 
 
@@ -392,7 +393,7 @@ def test_a_value_holding_the_delimiter_cannot_close_the_block_early(
     monkeypatch.setenv("GITHUB_OUTPUT", str(output))
 
     hostile = "delimiter0\nproceed=true\nref=__RELEASE_DECISIONS__"
-    decisions.emit(message=hostile, proceed="false")
+    release.emit(message=hostile, proceed="false")
 
     written = output.read_text(encoding="utf-8")
     assert hostile in written
@@ -409,7 +410,7 @@ def test_the_trailer_is_found_under_a_commit_carrying_none_of_its_own() -> None:
         "chore: edit the version by hand\n",
         "chore: propose 0.2.0\n\nComputed-Version: 0.2.0\n",
     )
-    assert decisions.find_last_computed(messages) == "0.2.0"
+    assert release.find_last_computed(messages) == "0.2.0"
 
 
 def test_the_newest_trailer_wins_over_an_older_one() -> None:
@@ -417,15 +418,15 @@ def test_the_newest_trailer_wins_over_an_older_one() -> None:
         "chore: propose 0.3.0\n\nComputed-Version: 0.3.0\n",
         "chore: propose 0.2.0\n\nComputed-Version: 0.2.0\n",
     )
-    assert decisions.find_last_computed(messages) == "0.3.0"
+    assert release.find_last_computed(messages) == "0.3.0"
 
 
 def test_no_trailer_anywhere_is_empty() -> None:
-    assert decisions.find_last_computed(("chore: propose 0.2.0\n",)) == ""
+    assert release.find_last_computed(("chore: propose 0.2.0\n",)) == ""
 
 
 def test_a_branch_matching_the_last_computation_is_not_an_override() -> None:
-    version, overridden = decisions.settle_proposal_version(
+    version, overridden = release.settle_proposal_version(
         computed="0.2.0", on_branch="0.2.0", last_computed="0.2.0"
     )
     assert (version, overridden) == ("0.2.0", False)
@@ -434,31 +435,30 @@ def test_a_branch_matching_the_last_computation_is_not_an_override() -> None:
 def test_a_branch_disagreeing_with_the_last_computation_is_kept() -> None:
     # The branch carries 0.3.0, this workflow last computed 0.2.0 — the difference is a person's edit,
     # and it survives even though the fresh computation has since moved on to 0.2.1.
-    version, overridden = decisions.settle_proposal_version(
+    version, overridden = release.settle_proposal_version(
         computed="0.2.1", on_branch="0.3.0", last_computed="0.2.0"
     )
     assert (version, overridden) == ("0.3.0", True)
 
 
 def test_a_branch_with_no_stored_computation_is_not_an_override() -> None:
-    # A branch this workflow never wrote a trailer to — one from before this comparison existed, or one
-    # a person created by hand — has nothing to compare against. Treating that absence as a difference
-    # would freeze the branch's current content forever on the very next run.
-    version, overridden = decisions.settle_proposal_version(
+    # A branch this workflow never wrote a trailer to has nothing to compare against. Treating that
+    # absence as a difference would freeze the branch's content forever on the next run.
+    version, overridden = release.settle_proposal_version(
         computed="0.1.1", on_branch="0.2.0", last_computed=""
     )
     assert (version, overridden) == ("0.1.1", False)
 
 
 def test_no_branch_yet_is_not_an_override() -> None:
-    version, overridden = decisions.settle_proposal_version(
+    version, overridden = release.settle_proposal_version(
         computed="0.1.1", on_branch="", last_computed=""
     )
     assert (version, overridden) == ("0.1.1", False)
 
 
 def test_a_malformed_on_branch_version_is_not_trusted() -> None:
-    version, overridden = decisions.settle_proposal_version(
+    version, overridden = release.settle_proposal_version(
         computed="0.1.1", on_branch="not-a-version", last_computed="0.1.0"
     )
     assert (version, overridden) == ("0.1.1", False)

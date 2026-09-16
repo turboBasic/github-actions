@@ -1,0 +1,39 @@
+name: ruleset-write
+description: >-
+  Creates or updates one repository ruleset from a body a decision already settled. Internal surface: it
+  carries no stability promise and composes no check name. Separate from ruleset-state because it
+  declares no output, and merging the two would leave ruleset-state's empty on every write. The conditions
+  permitting a write stay in the calling workflow, where a reviewer reads them, and a gate holds them.
+
+inputs:
+  token:
+    description: >-
+      The token the write runs with. Passed rather than inherited: a step's own `env:` is not the
+      environment a composite action's steps see.
+    required: true
+  repository:
+    description: The owner/name the ruleset belongs to.
+    required: true
+  verdict:
+    description: create or update. Anything else is refused rather than guessed at.
+    required: true
+  body:
+    description: Path to the JSON body the decision wrote. Sent as a file, never as an argument.
+    required: true
+  ruleset-id:
+    description: The live ruleset's id, required for an update.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PYTHONPATH: ${{ github.action_path }}/..
+        GH_TOKEN: ${{ inputs.token }}
+        GH_REPO: ${{ inputs.repository }}
+        VERDICT: ${{ inputs.verdict }}
+        BODY: ${{ inputs.body }}
+        RULESET_ID: ${{ inputs.ruleset-id }}
+      run: python3 -m tbga apply-ruleset

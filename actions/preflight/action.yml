@@ -1,0 +1,24 @@
+name: preflight
+description: >-
+  Refuses before a capability invokes a tool the consumer's own configuration was supposed to pin, naming
+  the tool, the capability and where to declare it. Internal surface: it carries no stability promise and
+  composes no check name. An action rather than a step, because a `run:` block in a reusable workflow
+  executes against the caller's checkout, where this repository's package is not on the path.
+
+inputs:
+  capability:
+    description: The capability that needs the tools, named as the failure should name it.
+    required: true
+  tools:
+    description: Whitespace-separated tool names to look for on PATH.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PYTHONPATH: ${{ github.action_path }}/..
+        CAPABILITY: ${{ inputs.capability }}
+        TOOLS: ${{ inputs.tools }}
+      run: python3 -m tbga preflight

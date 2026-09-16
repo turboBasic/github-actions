@@ -16,6 +16,8 @@ pytest
 ruff
 speckit
 taplo
+# The package both composite actions run: turboBasic GitHub Actions
+tbga
 turboBasic
 zizmor
 
@@ -50,6 +52,7 @@ addopts
 endfor
 postprocessors
 Tera
+capsys
 conftest
 testpaths
 pytestmark
@@ -57,5 +60,6 @@ pytestmark
 # --- Repository jargon ---
 callee
 docstrings
+metacharacter
 relitigate
 typecheck

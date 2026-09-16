@@ -17,8 +17,8 @@ dev = [
   "commitizen>=4.17",
   "yamllint>=1.35",
   "check-jsonschema>=0.33",
-  # The gates read the workflows and actions as structures. Declared rather than taken from
-  # yamllint's own dependency tree, which would drop it the day yamllint stopped needing it.
+  # The gates read the workflows and actions as structures. Declared here rather than inherited from
+  # yamllint, which would drop it the day yamllint stopped needing it.
   "pyyaml>=6.0",
 ]
 
@@ -43,15 +43,25 @@ ignore = ["E501"] # line length is the formatter's job
 
 [tool.pyright]
 include = ["actions", "tests"]
-# Modules the tests import by bare name: `tests/capabilities.py`, the one owner of how a workflow is
-# read, and each decision unit, which lives beside the action that runs it. pytest reaches the first by
-# the test file's own directory and the rest through `tests/conftest.py`; pyright needs every directory
-# named here to resolve any of them.
-extraPaths = ["tests", "actions/release-decisions", "actions/ruleset-decisions"]
-pythonVersion = "3.14"
+# What the tests import by bare name: `tests/capabilities.py`, the one owner of how a workflow is read,
+# and the `tbga` package both composite actions run. pytest reaches the first by the test file's own
+# directory and the second through `tests/conftest.py`; pyright needs both named here.
+extraPaths = ["tests", "actions"]
+# The runner's interpreter, not mise's, and the default rather than an exception — so a directory added
+# under `actions/` inherits the floor instead of needing an entry remembered for it. A composite action
+# runs on whichever `python3` the caller left there, 3.12.3 where they pinned none.
+#
+# A scoped `executionEnvironments` version is the weaker reading: it gates syntax and whether a module
+# exists, but a symbol inside a module both versions carry resolves against this top-level value.
+pythonVersion = "3.12"
 typeCheckingMode = "strict"
 venvPath = "."
 venv = ".venv"
+
+# The suite is the exception: it runs under mise's pin and never on a runner.
+[[tool.pyright.executionEnvironments]]
+root = "tests"
+pythonVersion = "3.14"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -60,9 +70,9 @@ markers = [
   "live: needs network and a live GitHub API token; deselected by default, run explicitly by live-state.yml",
 ]
 
-# What a consumer of this repository actually resolves, so its release is judged against its own layout
-# rather than an inherited default. The excluded files are this repository's own callers of its
-# capabilities: changing one cannot break anybody, because nobody outside names them.
+# What a consumer actually resolves, so a release is judged against this layout rather than an inherited
+# default. The exclusions are this repository's own call sites: nobody outside names them, so changing one
+# breaks nobody.
 [tool.turbobasic-release]
 include = [".github/workflows", "actions"]
 exclude = [

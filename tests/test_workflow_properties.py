@@ -414,13 +414,27 @@ def test_each_stage_of_project_ci_is_gated_on_its_own_switch_and_nothing_else() 
         )
 
 
-# What a step does, read from the command it runs rather than from a list this test also keeps. A step
-# creating a ref names one of these; nothing else in the release path does.
-CREATES_A_REF = ("git/refs", "git/tags", "gh release create")
+# The writes a step may perform. Three steps, not one invocation: the ordering and the conditions below
+# are principle V's protection, and collapsing them takes every gate here to nothing found.
+CREATES_A_REF = ("create-tag", "publish-release", "move-ref")
+
+
+def ref_writes(step: Doc) -> str:
+    # `run:` is read as well as the action, so a step reverting to bare `gh` cannot pass unread.
+    named = str(cast(dict[str, Any], step.get("with", {})).get("command", ""))
+    if named in CREATES_A_REF:
+        return named
+    script = str(step.get("run", ""))
+    return next(
+        (marker for marker in ("git/refs", "git/tags", "gh release create") if marker in script), ""
+    )
+
 
 # Writing a version means authoring a commit. The release path tags what a merged change already
-# decided, so it never authors one — the proposal path is where a version is written.
+# decided, so it never authors one — the proposal path is where a version is written. The write action
+# answers `write-proposal`, which authors one, so the `command:` a step names counts as much as its shell.
 WRITES_A_VERSION = ("git commit", "cz bump", "sed -i", "bump-my-version")
+AUTHORS_A_COMMIT = ("write-proposal",)
 
 
 def release_steps() -> list[Doc]:
@@ -433,7 +447,7 @@ def test_no_ref_creating_step_precedes_the_refusals() -> None:
     steps = release_steps()
     decided = next(index for index, step in enumerate(steps) if step.get("id") == "decide")
     for index, step in enumerate(steps):
-        if any(marker in str(step.get("run", "")) for marker in CREATES_A_REF):
+        if ref_writes(step):
             assert index > decided, (
                 f"release step {step.get('id')!r} creates a ref at position {index}, before the "
                 f"refusals at {decided}. Every refusal runs before any ref exists or none of them mean "
@@ -481,10 +495,9 @@ def _pushes_to_main(doc: Doc) -> bool:
 
 
 def test_release_and_release_proposal_never_reach_one_push_unordered() -> None:
-    # The race #50 measured twice: release-proposal reads the tag list at checkout, so calling it
-    # beside release rather than behind it on the same push computes against a tag that does not exist
-    # yet, on every release merge — the loser is whichever side does less work, which is always
-    # release-proposal.
+    # release-proposal reads the tag list at checkout. Called beside release on the same push rather than
+    # behind it, it measures against a tag that does not exist yet, on every release merge — the loser is
+    # whichever side does less work, which is always release-proposal.
     release_site: tuple[str, str] | None = None
     proposal_site: tuple[str, Doc, str] | None = None
     for name, doc in workflow_docs().items():
@@ -522,9 +535,8 @@ def test_release_and_release_proposal_never_reach_one_push_unordered() -> None:
 
 
 def test_the_ordering_readers_find_the_calls_and_the_dependency_they_are_given() -> None:
-    # Pre-flight the three readers above. Their steady state on this tree is "found and ordered", so a
-    # reader that stopped matching a `uses:` or a `needs:` would report green over the exact race #50
-    # measured.
+    # Pre-flight the three readers above. Their steady state here is "found and ordered", so a reader
+    # that stopped matching a `uses:` or a `needs:` would report green over the race itself.
     given: Doc = {
         "on": {"push": {"branches": ["main"]}},
         "jobs": {
@@ -549,9 +561,9 @@ RUNS_REGARDLESS_OF_THE_GUARD = {"token"}
 
 
 def test_every_step_between_the_guard_and_the_close_is_gated_on_it() -> None:
-    # release-proposal's backstop (#50): a run that lands on a commit a release already tagged has to
-    # skip every step that would otherwise read a stale tag list or write a wrong proposal — not just
-    # the writes at the end, which `close` already gates on an empty range.
+    # release-proposal's backstop. A run landing on a commit a release already tagged must skip every
+    # step that would read a stale tag list or write a wrong proposal, not only the writes at the end —
+    # `close` already gates those on an empty range.
     steps = steps_of("release-proposal", "propose")
     ids = [str(step.get("id", "")) for step in steps]
     assert "guard" in ids and "close" in ids, (
@@ -597,7 +609,7 @@ def test_every_ref_creating_step_is_gated_on_the_verdict_and_on_the_dry_run() ->
     # or a dry run tags for real.
     found = 0
     for step in release_steps():
-        if not any(marker in str(step.get("run", "")) for marker in CREATES_A_REF):
+        if not ref_writes(step):
             continue
         found += 1
         condition = str(step.get("if", ""))
@@ -624,10 +636,35 @@ def test_no_step_in_the_release_path_writes_a_version() -> None:
         offending += [
             f"{step.get('id')}: {marker}" for marker in WRITES_A_VERSION if marker in script
         ]
+        named = str(cast(dict[str, Any], step.get("with", {})).get("command", ""))
+        offending += [
+            f"{step.get('id')}: {named}" for marker in AUTHORS_A_COMMIT if named == marker
+        ]
     assert offending == [], (
         f"release.yml authors a change: {offending}. It tags what was already decided, and a version "
         "it wrote itself would be a version no review ever saw"
     )
+
+
+def test_the_three_writes_happen_in_the_order_the_last_one_depends_on() -> None:
+    # The moving ref goes last, once the release exists. A failure before it leaves consumers on the
+    # previous release rather than on a ref naming an unpublished one.
+    performed = [write for step in release_steps() if (write := ref_writes(step))]
+    assert performed == ["create-tag", "publish-release", "move-ref"], (
+        f"release.yml performs its writes as {performed}. The tag is created before the release that "
+        "verifies it, and the compatibility ref moves only once that release exists — none of the three "
+        "can be withdrawn, so the order is the whole protection"
+    )
+
+
+def test_the_write_reader_finds_both_the_action_and_a_bare_call() -> None:
+    # Pre-flight both shapes. Every write goes through the action today, so the `run:` half is otherwise
+    # never exercised.
+    assert ref_writes({"with": {"command": "move-ref"}}) == "move-ref"
+    assert ref_writes({"with": {"command": "preflight"}}) == ""
+    assert ref_writes({"run": 'gh api "repos/$GH_REPO/git/tags" -f tag=v1'}) == "git/tags"
+    assert ref_writes({"run": "gh release create v1"}) == "gh release create"
+    assert ref_writes({"run": "echo nothing"}) == ""
 
 
 def test_the_version_writing_markers_match_a_step_that_authors_one() -> None:
@@ -638,11 +675,19 @@ def test_the_version_writing_markers_match_a_step_that_authors_one() -> None:
     assert not any(
         marker in "gh release create v1.2.3 --notes-file notes.md" for marker in WRITES_A_VERSION
     )
+    # And the shape the shell markers cannot see: an action asked to author one.
+    assert "write-proposal" in AUTHORS_A_COMMIT
+    assert "create-tag" not in AUTHORS_A_COMMIT
 
 
-# A ruleset write, read from the command rather than from a list this test also keeps. Only a write
-# sends a body, so `--input` is what separates the two calls in this workflow from the read above them.
+# Only a write sends a body, which is what separates it from the read above it. Both the action and the
+# `--input` a bare call would use are read.
+RULESET_WRITE = "$/actions/ruleset-write"
 SENDS_A_BODY = "--input"
+
+
+def sends_a_body(step: Doc) -> bool:
+    return str(step.get("uses", "")) == RULESET_WRITE or SENDS_A_BODY in str(step.get("run", ""))
 
 
 def apply_steps() -> list[Doc]:
@@ -664,7 +709,7 @@ def test_every_ruleset_writing_step_is_gated_on_the_event_the_dry_run_and_the_ve
     # of the three clauses gives a cron that writes, a dry run that writes, or a write over a refusal.
     found = 0
     for step in apply_steps():
-        if SENDS_A_BODY not in str(step.get("run", "")):
+        if not sends_a_body(step):
             continue
         found += 1
         condition = str(step.get("if", ""))
@@ -685,6 +730,15 @@ def test_every_ruleset_writing_step_is_gated_on_the_event_the_dry_run_and_the_ve
         f"{found} ruleset-writing steps found in apply-ruleset.yml, expected exactly one — this gate "
         "is reading the wrong thing, or a second write appeared beside the gated one"
     )
+
+
+def test_the_body_sending_reader_finds_both_the_action_and_a_bare_call() -> None:
+    # Pre-flight both shapes. The write goes through the action today, so the `run:` half is otherwise
+    # never exercised.
+    assert sends_a_body({"uses": RULESET_WRITE})
+    assert sends_a_body({"run": 'gh api "repos/$GH_REPO/rulesets" --input "$BODY"'})
+    assert not sends_a_body({"uses": "$/actions/ruleset-state"})
+    assert not sends_a_body({"run": 'gh api "repos/$GH_REPO/rulesets" --jq .id'})
 
 
 def test_the_scheduled_read_fails_on_any_verdict_but_nothing() -> None:

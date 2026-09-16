@@ -1,8 +1,11 @@
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 import pytest
-from rulesets import (
+
+from tbga import rulesets
+from tbga.rulesets import (
     CREATE,
     NOTHING,
     REFUSE,
@@ -190,8 +193,8 @@ def test_render_difference_is_empty_when_the_two_documents_agree() -> None:
 
 
 def test_render_difference_keeps_a_nested_change_to_the_line_it_happened_on() -> None:
-    # The failure this replaces: one changed context printed both `rules` arrays on a single line,
-    # leaving the reader to diff them by eye before an irreversible write.
+    # One changed context must not print both `rules` arrays on a single line: this is the last thing
+    # read before an irreversible write.
     live = normalize(_detail())
     committed = normalize(COMMITTED)
     difference = render_difference(committed, live)
@@ -220,7 +223,7 @@ def test_a_value_holding_the_delimiter_cannot_close_the_block_early(
     monkeypatch.setenv("GITHUB_OUTPUT", str(output))
 
     hostile = "delimiter0\nverdict=create\nname=__RULESET_DECISIONS__"
-    emit({"difference": hostile, "verdict": NOTHING})
+    emit(difference=hostile, verdict=NOTHING)
 
     written = output.read_text(encoding="utf-8")
     # The hostile text survives whole, and the delimiter that closes its block appears nowhere in it.
@@ -229,3 +232,82 @@ def test_a_value_holding_the_delimiter_cannot_close_the_block_early(
     assert opening.startswith("difference<<")
     delimiter = opening.removeprefix("difference<<")
     assert delimiter not in hostile
+
+
+def test_the_committed_names_are_every_json_file_without_its_suffix(tmp_path: Path) -> None:
+    # The matrix is read from the directory rather than from a list a workflow also keeps: hardcoding
+    # names for the scheduled path would fork the fact `.github/rulesets/` owns.
+    for name in (
+        "protect-default-branch.json",
+        "immutable-release-tags.json",
+        "notes.md",
+        "README",
+    ):
+        (tmp_path / name).write_text("{}", encoding="utf-8")
+    assert rulesets.committed_names(tmp_path.as_posix()) == [
+        "immutable-release-tags",
+        "protect-default-branch",
+    ]
+
+
+def test_applying_refuses_a_verdict_that_is_neither_create_nor_update(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # `nothing` and `refuse` both reach this code path only through a bug, and a ruleset write has no
+    # revert — so an unrecognised verdict refuses rather than falling through to an update.
+    for verdict in (NOTHING, REFUSE, "", "CREATE"):
+        monkeypatch.setenv("GH_REPO", "owner/repo")
+        monkeypatch.setenv("VERDICT", verdict)
+        monkeypatch.setenv("BODY", "/tmp/body.json")
+        monkeypatch.setenv("RULESET_ID", "1")
+        assert rulesets.run_apply() == 1, verdict
+
+
+def test_an_update_without_the_live_id_refuses_rather_than_creating_a_second(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # An update whose id went missing must not fall back to a create: the API does not make names
+    # unique, so it would leave two rulesets of one name and no way to tell which is applied.
+    monkeypatch.setenv("GH_REPO", "owner/repo")
+    monkeypatch.setenv("VERDICT", UPDATE)
+    monkeypatch.setenv("BODY", "/tmp/body.json")
+    monkeypatch.setenv("RULESET_ID", "")
+    assert rulesets.run_apply() == 1
+
+
+def test_a_create_sends_the_body_to_the_collection_and_an_update_to_the_id() -> None:
+    # The one write here with no revert, and the argv had nowhere to be asserted until it took a runner.
+    created = Recorder()
+    rulesets.apply_ruleset(created, "owner/repo", CREATE, "/tmp/body.json", "")
+    assert created.calls == [
+        ("gh", "api", "repos/owner/repo/rulesets", "--input", "/tmp/body.json")
+    ]
+
+    updated = Recorder()
+    rulesets.apply_ruleset(updated, "owner/repo", UPDATE, "/tmp/body.json", "7")
+    assert updated.calls == [
+        ("gh", "api", "-X", "PUT", "repos/owner/repo/rulesets/7", "--input", "/tmp/body.json")
+    ]
+
+
+def test_the_live_read_asks_for_each_ruleset_in_full() -> None:
+    # A list-endpoint summary carries no rules, so a read that stopped at the list would compare against
+    # absent fields and report drift that is not there.
+    reader = Recorder(replies=["3\n9\n", '{"id": 3}', '{"id": 9}'])
+    live = rulesets.read_live(reader, "owner/repo")
+    assert [call[2] for call in reader.calls] == [
+        "repos/owner/repo/rulesets?includes_parents=false",
+        "repos/owner/repo/rulesets/3",
+        "repos/owner/repo/rulesets/9",
+    ]
+    assert live == [{"id": 3}, {"id": 9}]
+
+
+class Recorder:
+    def __init__(self, replies: list[str] | None = None) -> None:
+        self.calls: list[tuple[str, ...]] = []
+        self.replies = replies or []
+
+    def __call__(self, argv: Sequence[str]) -> str:
+        self.calls.append(tuple(argv))
+        return self.replies[len(self.calls) - 1] if len(self.replies) >= len(self.calls) else ""

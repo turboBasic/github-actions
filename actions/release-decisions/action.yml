@@ -6,11 +6,27 @@ description: >-
   cannot interpolate its own ref — so it can reach neither its own files nor the ref a consumer pinned.
 
 inputs:
+  repository:
+    description: >-
+      The tree to read the range from. Every value the refusals compare comes from here, so nothing about
+      the range travels through an output and back.
+    required: false
+    default: ""
+  cliff-config:
+    description: The notes renderer's config, relative to the repository.
+    required: false
+    default: cliff.toml
+  notes-path:
+    description: Where to write the rendered notes. The release body is read from this file, never an output.
+    required: false
+    default: ""
   decision:
     description: Which question to answer — moving-ref, next-version, release-verdict, or proposal-version.
     required: true
   version:
-    description: The version the manifest declares, as a plain N.N.N with no leading v.
+    description: >-
+      The version the manifest declares, as a plain N.N.N with no leading v. Read from the repository for
+      release-verdict; still passed for the decisions that judge a version the tree does not hold.
     required: false
     default: ""
   branch:
@@ -27,50 +43,31 @@ inputs:
       something different for each, so it is not a boolean.
     required: false
     default: deliberate
-  released-versions:
-    description: Every existing release tag, one per line. A tag that is not a plain version is skipped.
-    required: false
-    default: ""
-  notes:
-    description: The rendered notes for the range. Empty means there is nothing to publish.
-    required: false
-    default: ""
-  commit-messages:
-    description: >-
-      Every commit message in the range, separated by an ASCII record separator because a message holds
-      newlines. Whether the range breaks anything and whether it holds a feature are read from these,
-      not passed in as flags — getting either wrong puts a release on the wrong compatibility line.
-    required: false
-    default: ""
-  changed-paths:
-    description: Every path the range touches, one per line. Filtered by the surface declaration.
-    required: false
-    default: ""
   manifest:
     description: >-
       Path to the manifest holding the surface declaration. Absent means every path counts, which
       refuses more often rather than less.
     required: false
     default: pyproject.toml
+  proposal-ref:
+    description: >-
+      The proposal branch as a ref this checkout can resolve, for the proposal-version decision. A ref
+      that does not exist yet reads the same as a branch declaring no version.
+    required: false
+    default: ""
+  base-commit:
+    description: The commit the proposal branch is measured from, for the proposal-version decision.
+    required: false
+    default: ""
   computed-version:
     description: The version this run would propose absent an override, for the proposal-version decision.
     required: false
     default: ""
-  on-branch-version:
-    description: >-
-      The version currently declared on the proposal branch, for the proposal-version decision. Empty
-      means the branch does not exist yet.
-    required: false
-    default: ""
-  branch-messages:
-    description: >-
-      Every commit message unique to the proposal branch, newest first and separated the same way as
-      commit-messages, for the proposal-version decision. Read for the newest `Computed-Version:`
-      trailer, which may sit under commits a person made on top of it.
-    required: false
-    default: ""
 
 outputs:
+  notes-path:
+    description: The file the rendered notes were written to. Empty when nothing was rendered.
+    value: ${{ steps.decide.outputs.notes-path }}
   ref:
     description: The moving ref the version belongs to.
     value: ${{ steps.decide.outputs.ref }}
@@ -90,23 +87,20 @@ outputs:
 runs:
   using: composite
   steps:
-    # Every value reaches the module as an environment value. None of it is interpolated into the
-    # command line, because a version, a branch name and a set of notes are all text chosen outside
-    # this repository.
     - id: decide
       shell: bash
       env:
+        PYTHONPATH: ${{ github.action_path }}/..
         DECISION: ${{ inputs.decision }}
+        REPO_DIR: ${{ inputs.repository || github.workspace }}
+        CLIFF_CONFIG: ${{ inputs.cliff-config }}
+        NOTES_PATH: ${{ inputs.notes-path || format('{0}/release-notes.md', runner.temp) }}
         VERSION: ${{ inputs.version }}
         BRANCH: ${{ inputs.branch }}
         DEFAULT_BRANCH: ${{ inputs.default-branch }}
         OCCASION: ${{ inputs.occasion }}
-        RELEASED_VERSIONS: ${{ inputs.released-versions }}
-        NOTES: ${{ inputs.notes }}
-        COMMIT_MESSAGES: ${{ inputs.commit-messages }}
-        CHANGED_PATHS: ${{ inputs.changed-paths }}
         MANIFEST: ${{ inputs.manifest }}
+        PROPOSAL_REF: ${{ inputs.proposal-ref }}
+        BASE_COMMIT: ${{ inputs.base-commit }}
         COMPUTED: ${{ inputs.computed-version }}
-        ON_BRANCH: ${{ inputs.on-branch-version }}
-        BRANCH_MESSAGES: ${{ inputs.branch-messages }}
-      run: python3 "$GITHUB_ACTION_PATH/decisions.py"
+      run: python3 -m tbga "$DECISION"

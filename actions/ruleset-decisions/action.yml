@@ -39,13 +39,11 @@ outputs:
 runs:
   using: composite
   steps:
-    # Every value reaches the module as an environment value, never interpolated into a command line —
-    # a committed file's path is chosen by this repository, but the live and detail bodies it is
-    # compared against are text this workflow read from an API response.
     - id: decide
       shell: bash
       env:
+        PYTHONPATH: ${{ github.action_path }}/..
         COMMITTED: ${{ inputs.committed }}
         LIVE: ${{ inputs.live }}
         BODY_PATH: ${{ inputs.body-path || format('{0}/ruleset-body.json', runner.temp) }}
-      run: python3 "$GITHUB_ACTION_PATH/rulesets.py"
+      run: python3 -m tbga ruleset-verdict

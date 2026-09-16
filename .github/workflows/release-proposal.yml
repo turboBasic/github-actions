@@ -1,10 +1,10 @@
 name: 🧩 release-proposal
 
-# Releasing is an act of approval: after a merge, the next version and the exact notes it would publish
-# arrive as a pull request, and merging that is what releases. Nothing here creates a tag — it only
-# proposes the version a later release reads from the manifest.
+# Releasing is an act of approval. After a merge, the next version and the exact notes arrive as a pull
+# request; merging that releases. Nothing here creates a tag — it proposes the version a later release
+# reads from the manifest.
 #
-# `workflow_call` and nothing else, so the App credentials are reachable from no event a fork can raise.
+# `workflow_call` and nothing else: no event a fork can raise reaches the App credentials.
 on:
   workflow_call:
     secrets:
@@ -40,11 +40,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # A backstop, not the ordering itself: a caller racing this against its own release job can still
-      # start this before that job's tag exists, and no check made here can wait for a tag that is not
-      # there yet — only a `needs:` edge in the caller does that. What this catches is any run, however
-      # reached, that lands on a commit a release has already tagged: nothing since that release is
-      # proposed twice.
+      # A backstop, not the ordering. Only a `needs:` edge in the caller can make this wait for a tag; no
+      # check here can. What this catches is any run landing on a commit a release already tagged, so
+      # nothing since that release is proposed twice.
       - id: guard
         name: Decline when this commit already carries a release tag
         run: |
@@ -54,9 +52,6 @@ jobs:
             echo "::notice::HEAD already carries the release tag $tag; nothing since that release is proposed"
           fi
 
-      # `minimum_release_age` rather than a pinned version: a task-runner release whose tag exists
-      # before its assets do breaks every consumer at once, and waiting a day for one costs nothing.
-      # A pinned version would go stale; this does not.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         if: steps.guard.outputs.already-released != 'true'
         with:
@@ -64,14 +59,10 @@ jobs:
 
       - name: Pre-flight the tools this capability invokes
         if: steps.guard.outputs.already-released != 'true'
-        run: |
-          missing=()
-          command -v git-cliff >/dev/null 2>&1 || missing+=(git-cliff)
-          command -v uv >/dev/null 2>&1 || missing+=(uv)
-          if [ "${#missing[@]}" -ne 0 ]; then
-            echo "::error::release-proposal looked for ${missing[*]} on PATH after installing this repository's pinned tools, and did not find it. Add ${missing[*]} to the [tools] table in mise.toml and commit the change; release-proposal never pins a version this repository does not control." >&2
-            exit 1
-          fi
+        uses: $/actions/preflight
+        with:
+          capability: release-proposal
+          tools: git-cliff uv
 
       - id: token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -81,44 +72,28 @@ jobs:
           permission-contents: write # the proposal branch and the version on it
           permission-pull-requests: write # opening, refreshing and closing the proposal itself
 
-      - id: gather
-        name: Read the range since the last release
-        if: steps.guard.outputs.already-released != 'true'
-        env:
-          DELIMITER: __PROPOSAL_GATHER__
-        run: |
-          released=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')
-          git tag --list --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' > "$RUNNER_TEMP/releases" || true
-          last=$(head -1 "$RUNNER_TEMP/releases" || true)
-          if [ -n "$last" ]; then span=("$last..HEAD"); else span=(HEAD); fi
-          git log --format=%B%x1e "${span[@]}" > "$RUNNER_TEMP/messages"
-          git-cliff --config cliff.toml --unreleased > "$RUNNER_TEMP/notes.md"
-          printf 'released=%s\n' "$released" >> "$GITHUB_OUTPUT"
-          {
-            printf 'messages<<%s\n' "$DELIMITER"
-            cat "$RUNNER_TEMP/messages"
-            printf '%s\n' "$DELIMITER"
-          } >> "$GITHUB_OUTPUT"
-
+      # The version, the range and its notes are read from the checkout by the module. One pass decides
+      # both the increment and whether there is anything to propose.
       - id: next
+        name: Read the range and settle what it would release
         if: steps.guard.outputs.already-released != 'true'
         uses: $/actions/release-decisions
         with:
           decision: next-version
-          version: ${{ steps.gather.outputs.released }}
-          commit-messages: ${{ steps.gather.outputs.messages }}
 
-      # An empty range means the last release already covers the default branch, so a standing proposal
-      # is stale rather than pending — the same state a commit already carrying a release tag leaves
-      # `gather` never having run in, and so never having written `notes.md` at all.
+      # An empty range means the last release already covers the default branch: a standing proposal is
+      # stale, not pending. A run the guard declined reaches this with no notes path, which reads the same.
       - id: close
         name: Close a proposal whose range has become empty
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           GH_REPO: ${{ github.repository }}
+          NOTES: ${{ steps.next.outputs.notes-path }}
         run: |
+          # A skipped `next` leaves the path unset. That and a file of whitespace both mean an empty
+          # range.
           empty=false
-          [ -s "$RUNNER_TEMP/notes.md" ] && [ -n "$(tr -d '[:space:]' < "$RUNNER_TEMP/notes.md")" ] || empty=true
+          [ -n "$NOTES" ] && [ -s "$NOTES" ] && [ -n "$(tr -d '[:space:]' < "$NOTES")" ] || empty=true
           printf 'empty=%s\n' "$empty" >> "$GITHUB_OUTPUT"
           [ "$empty" = true ] || exit 0
           number=$(gh pr list --head "$PROPOSAL_BRANCH" --state open --json number --jq '.[0].number // ""')
@@ -128,31 +103,6 @@ jobs:
           fi
           echo "::notice::the range renders no notes, so no release is proposed"
 
-      # Read off the branch itself, never the pull request body: a template change, a hand edit or a
-      # reopen cannot lose what is stored here. Every commit unique to the branch, not just its tip,
-      # because a person's edit becomes the tip and carries no trailer of its own — the trailer being
-      # sought sits on the workflow's own commit underneath it.
-      - id: branch
-        name: Read the proposal branch's current state
-        if: steps.close.outputs.empty != 'true'
-        env:
-          DELIMITER: __PROPOSAL_BRANCH__
-        run: |
-          on_branch=""
-          messages=""
-          if git rev-parse --verify -q "origin/$PROPOSAL_BRANCH" >/dev/null 2>&1; then
-            on_branch=$(git show "origin/$PROPOSAL_BRANCH:pyproject.toml" 2>/dev/null \
-              | python3 -c 'import sys,tomllib; print(tomllib.loads(sys.stdin.read())["project"]["version"])' \
-              2>/dev/null || true)
-            messages=$(git log --format=%B%x1e "$GITHUB_SHA..origin/$PROPOSAL_BRANCH" 2>/dev/null || true)
-          fi
-          printf 'on-branch=%s\n' "$on_branch" >> "$GITHUB_OUTPUT"
-          {
-            printf 'messages<<%s\n' "$DELIMITER"
-            printf '%s\n' "$messages"
-            printf '%s\n' "$DELIMITER"
-          } >> "$GITHUB_OUTPUT"
-
       - id: version
         name: Settle which version the proposal carries
         if: steps.close.outputs.empty != 'true'
@@ -160,81 +110,38 @@ jobs:
         with:
           decision: proposal-version
           computed-version: ${{ steps.next.outputs.version }}
-          on-branch-version: ${{ steps.branch.outputs.on-branch }}
-          branch-messages: ${{ steps.branch.outputs.messages }}
+          proposal-ref: origin/${{ env.PROPOSAL_BRANCH }}
+          base-commit: ${{ github.sha }}
 
-      # One commit carrying the manifest and the lockfile together. The lockfile records the project's
-      # own version, so moving the manifest without it leaves `uv sync --locked` failing on the proposal
-      # branch — which reddens every check on the very pull request whose merge is meant to release. Two
-      # writes would also push a transiently broken state and fire a run against it.
-      #
-      # Built through the git data API rather than pushed: a token in a remote URL would be a secret on a
-      # command line, and a persisted credential would be one in a file.
-      - name: Put the version on the proposal branch
+      # `uv`, not an edit of our own: only the tool owning the lockfile can move it with the manifest.
+      - name: Write the settled version into the tree
         if: steps.close.outputs.empty != 'true'
         env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
           VERSION: ${{ steps.version.outputs.version }}
-          COMPUTED: ${{ steps.next.outputs.version }}
-          COMMIT: ${{ github.sha }}
-        run: |
-          uv version --no-sync "$VERSION"
+        run: uv version --no-sync "$VERSION"
 
-          # `--rawfile`, never an argument: a base64 of the lockfile is far past the argument-length
-          # limit, and the blobs API takes UTF-8 directly, so there is nothing to encode.
-          blob() {
-            jq -n --rawfile content "$1" '{content: $content, encoding: "utf-8"}' \
-              > "$RUNNER_TEMP/blob.json"
-            gh api "repos/$GH_REPO/git/blobs" --input "$RUNNER_TEMP/blob.json" --jq .sha
-          }
-          manifest=$(blob pyproject.toml)
-          lockfile=$(blob uv.lock)
-          for sha in "$manifest" "$lockfile"; do
-            case "$sha" in
-              ????????????????????????????????????????) ;;
-              *) echo "::error::a blob came back as '$sha' rather than a sha, so the tree would name nothing. The proposal was not written." >&2; exit 1 ;;
-            esac
-          done
-
-          base=$(gh api "repos/$GH_REPO/git/commits/$COMMIT" --jq .tree.sha)
-          jq -n --arg base "$base" --arg m "$manifest" --arg l "$lockfile" '{
-            base_tree: $base,
-            tree: [
-              {path: "pyproject.toml", mode: "100644", type: "blob", sha: $m},
-              {path: "uv.lock", mode: "100644", type: "blob", sha: $l}
-            ]
-          }' > "$RUNNER_TEMP/tree.json"
-          tree=$(gh api "repos/$GH_REPO/git/trees" --input "$RUNNER_TEMP/tree.json" --jq .sha)
-
-          # The trailer records what this run computed, not what it wrote: comparing it against the
-          # branch's actual version on a later run is how a person's edit is told apart from a fresh
-          # computation, without reading anything the branch's rewrite itself would have discarded.
-          message=$(printf 'chore: propose %s\n\nComputed-Version: %s\n' "$VERSION" "$COMPUTED")
-          jq -n --arg m "$message" --arg t "$tree" --arg p "$COMMIT" \
-            '{message: $m, tree: $t, parents: [$p]}' > "$RUNNER_TEMP/commit.json"
-          proposed=$(gh api "repos/$GH_REPO/git/commits" --input "$RUNNER_TEMP/commit.json" --jq .sha)
-
-          gh api -X PATCH "repos/$GH_REPO/git/refs/heads/$PROPOSAL_BRANCH" -F force=true -f "sha=$proposed" \
-            || gh api "repos/$GH_REPO/git/refs" -f "ref=refs/heads/$PROPOSAL_BRANCH" -f "sha=$proposed"
+      # The git data API, not a push: a token in a remote URL is a secret on a command line, and a
+      # persisted credential is one in a file.
+      - name: Put the version on the proposal branch
+        if: steps.close.outputs.empty != 'true'
+        uses: $/actions/release-write
+        with:
+          command: write-proposal
+          token: ${{ steps.token.outputs.token }}
+          repository: ${{ github.repository }}
+          version: ${{ steps.version.outputs.version }}
+          computed-version: ${{ steps.next.outputs.version }}
+          commit: ${{ github.sha }}
+          branch: ${{ env.PROPOSAL_BRANCH }}
 
       - name: Open or refresh the proposal
         if: steps.close.outputs.empty != 'true'
-        env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
-          BASE: ${{ github.ref_name }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          {
-            printf 'Merging this releases v%s. The notes below are the ones it will publish.\n\n' "$VERSION"
-            printf 'Editing the version in pyproject.toml on this branch overrides the computed one, and survives every refresh.\n\n'
-            cat "$RUNNER_TEMP/notes.md"
-          } > "$RUNNER_TEMP/body.md"
-          number=$(gh pr list --head "$PROPOSAL_BRANCH" --state open --json number --jq '.[0].number // ""')
-          if [ -n "$number" ]; then
-            gh pr edit "$number" --title "chore: release v$VERSION" --body-file "$RUNNER_TEMP/body.md"
-          else
-            gh pr create --head "$PROPOSAL_BRANCH" --base "$BASE" \
-              --title "chore: release v$VERSION" --body-file "$RUNNER_TEMP/body.md"
-          fi
+        uses: $/actions/release-write
+        with:
+          command: open-proposal
+          token: ${{ steps.token.outputs.token }}
+          repository: ${{ github.repository }}
+          version: ${{ steps.version.outputs.version }}
+          branch: ${{ env.PROPOSAL_BRANCH }}
+          base: ${{ github.ref_name }}
+          notes: ${{ steps.next.outputs.notes-path }}

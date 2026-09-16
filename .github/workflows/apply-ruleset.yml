@@ -1,9 +1,8 @@
 name: 🌜 apply-ruleset
 
-# A ruleset write has no revert, so it runs by hand and dry by default: the difference always prints
-# before anything is written. The schedule only reads — the write step is reachable from
-# `workflow_dispatch` alone (FR-003) — and fails on any difference, because a hand edit in the UI is
-# otherwise invisible until someone next dispatches.
+# A ruleset write has no revert. It runs by hand and dry by default, so the difference always prints
+# first. Only `workflow_dispatch` reaches the write step (FR-003). The schedule reads and fails on any
+# difference: a hand edit in the UI is otherwise invisible until the next dispatch.
 on:
   workflow_dispatch:
     inputs:
@@ -24,9 +23,8 @@ concurrency:
 permissions: {}
 
 jobs:
-  # Which committed rulesets this run is about: the one the dispatch named, or every file in the tree
-  # when nothing named one. Hardcoding a name for the scheduled path would fork the fact that
-  # `.github/rulesets/` owns — which rulesets exist — so the directory is read instead.
+  # The ruleset the dispatch named, or every file in the tree when it named none. `.github/rulesets/`
+  # owns which rulesets exist, so the scheduled path reads the directory rather than a hardcoded list.
   which:
     name: which
     runs-on: ubuntu-latest
@@ -43,21 +41,10 @@ jobs:
       # An empty matrix skips the job below, and a skipped job reports success — so a scheduled run that
       # listed nothing would be a green check that read no ruleset at all. It fails here instead.
       - id: list
-        env:
-          NAMED: ${{ inputs.ruleset }}
-        run: |
-          if [ -n "$NAMED" ]; then
-            names=$(jq -cn --arg one "$NAMED" '[$one]')
-          else
-            names=$(find .github/rulesets -name '*.json' -printf '%f\n' \
-              | sed 's/\.json$//' \
-              | jq -Rcn '[inputs]')
-          fi
-          if [ "$(jq 'length' <<< "$names")" -eq 0 ]; then
-            echo "::error::no committed ruleset to read under .github/rulesets"
-            exit 1
-          fi
-          printf 'rulesets=%s\n' "$names" >> "$GITHUB_OUTPUT"
+        uses: $/actions/ruleset-state
+        with:
+          command: list-rulesets
+          named: ${{ inputs.ruleset }}
 
   apply:
     name: apply
@@ -87,13 +74,12 @@ jobs:
       # In full, because a list-endpoint summary carries no rules, conditions or bypass_actors.
       # `includes_parents=false` leaves out an organisation's, which this repository cannot write.
       - name: Read the live rulesets in full
-        env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          gh api "repos/$GH_REPO/rulesets?includes_parents=false" --jq '.[].id' \
-            | while read -r id; do gh api "repos/$GH_REPO/rulesets/$id"; done \
-            | jq -sc '.' > "$RUNNER_TEMP/live.json"
+        uses: $/actions/ruleset-state
+        with:
+          command: read-rulesets
+          token: ${{ steps.token.outputs.token }}
+          repository: ${{ github.repository }}
+          live-path: ${{ runner.temp }}/live.json
 
       - id: decide
         uses: $/actions/ruleset-decisions
@@ -101,9 +87,9 @@ jobs:
           committed: .github/rulesets/${{ matrix.ruleset }}.json
           live: ${{ runner.temp }}/live.json
 
-      # `always()`, and the step above carries no `continue-on-error`: a refusal fails the job where it
-      # happens rather than being masked and re-raised later, and the difference still prints because the
-      # decision writes its outputs before it exits non-zero.
+      # `always()`, and no `continue-on-error` above: a refusal fails the job where it happens rather
+      # than being masked and re-raised. The difference still prints — the decision writes its outputs
+      # before exiting non-zero.
       - name: Print the difference
         if: always()
         env:
@@ -117,18 +103,13 @@ jobs:
           github.event_name == 'workflow_dispatch' && steps.decide.outcome == 'success' &&
           !inputs.dry-run &&
           (steps.decide.outputs.verdict == 'create' || steps.decide.outputs.verdict == 'update')
-        env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
-          VERDICT: ${{ steps.decide.outputs.verdict }}
-          RULESET_ID: ${{ steps.decide.outputs.ruleset-id }}
-          BODY: ${{ steps.decide.outputs.body }}
-        run: |
-          if [ "$VERDICT" = create ]; then
-            gh api "repos/$GH_REPO/rulesets" --input "$BODY"
-          else
-            gh api -X PUT "repos/$GH_REPO/rulesets/$RULESET_ID" --input "$BODY"
-          fi
+        uses: $/actions/ruleset-write
+        with:
+          token: ${{ steps.token.outputs.token }}
+          repository: ${{ github.repository }}
+          verdict: ${{ steps.decide.outputs.verdict }}
+          ruleset-id: ${{ steps.decide.outputs.ruleset-id }}
+          body: ${{ steps.decide.outputs.body }}
 
       # A dispatch exits successfully on a difference, since that is the reason to dispatch. A scheduled
       # run finding one means GitHub stopped matching the tree with nobody watching.

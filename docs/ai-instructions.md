@@ -121,25 +121,36 @@ restores the world.
   consumer does not control — that agreement is the only reason a local verdict and a CI verdict match.
 - **An input named for a stage governs that stage entirely.** If it leaves some part of the stage
   running, it is misnamed.
+- **The task runner is provisioned by age, not by version.** Every `jdx/mise-action` step passes
+  `minimum_release_age` and pins no version: a release whose tag exists before its assets do breaks every
+  consumer at once, and a pinned version goes stale where an age does not. The action itself is pinned to
+  a commit like any other third party.
 - **`env` does not propagate from a caller into a called workflow.** Anything a capability needs from
   its caller arrives as an `input`.
 
 ### Python
 
-Python 3.14. The only Python here supports the actions and their tests.
+Python 3.14 for the suite. The only Python here supports the actions and their tests, and every composite
+action runs one package: `actions/tbga/`, reached as `python3 -m tbga` with `PYTHONPATH` set to the action
+path's parent.
 
 - `X | None`, not `typing.Optional`. Built-in `dict`/`list`, not `typing.Dict`.
 - No `from __future__ import annotations`.
 - Full type hints on every signature, tests included.
-- A script invoked by a composite action reads its arguments from the environment, declared in
-  `action.yml`. It never parses `${{ }}` interpolations inline.
-- **A module a composite action runs imports the standard library and nothing else, and keeps to syntax
-  an older interpreter parses.** mise pins 3.14 here, but a caller whose own configuration pins no
-  `python` falls back to the runner's, and `python3` is what runs the file — there is no resolution step
-  to fail loudly. Its imports are asserted against `sys.stdlib_module_names` by test.
-- **A module a composite action runs is importable by the suite and by the type checker.** A hyphen in
-  the directory it sits in means neither can reach it as a package, so the suite's own path setup and
-  pyright's `extraPaths` each name that directory. Both are needed; neither is a relaxation.
+- A module a composite action runs reads its arguments from the environment, declared in `action.yml`. It
+  never parses `${{ }}` interpolations inline, and the subcommand reaches it the same way — as an
+  environment value the shell expands into one argument.
+- **`actions/tbga/` imports the standard library and its own siblings, nothing else.** Nothing installs a
+  dependency where it runs. The whole repository arrives beside the action, `uv.lock` included, and no
+  step syncs it: `mise-action` reads the caller's configuration, not ours. A test asserts every import
+  against `sys.stdlib_module_names`, admitting a relative import only inside a package.
+- **The interpreter is the runner's, not mise's.** A caller pinning no `python` leaves whatever the image
+  ships — 3.12.3 on `ubuntu-latest`, measured. Nothing fails loudly between the two; the symptom is a
+  `SyntaxError` in a consumer's job. `pyproject.toml` states that floor as pyright's default, the suite
+  being the one exception. Re-measure when the runner image's `python3` changes, which no gate can detect.
+- **No second interpreter tests the package.** pyright at the floor catches newer syntax, a newer module
+  and a newer symbol. It cannot see behaviour that differs between versions, nor a dynamic `getattr`
+  reaching a name the floor lacks. Declined deliberately: the stdlib calls here are long-stable.
 
 ### Comments and docs
 

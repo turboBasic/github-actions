@@ -34,82 +34,54 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # `minimum_release_age` rather than a pinned version: a task-runner release whose tag exists
-      # before its assets do breaks every consumer at once, and waiting a day for one costs nothing.
-      # A pinned version would go stale; this does not.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           minimum_release_age: 24h
 
       - name: Pre-flight the notes renderer
-        run: |
-          command -v git-cliff >/dev/null 2>&1 || {
-            echo "::error::release looked for git-cliff on PATH after installing this repository's pinned tools, and did not find it. Add git-cliff to the [tools] table in mise.toml and commit the change; release never pins a version the repository being released does not control." >&2
-            exit 1
-          }
+        uses: $/actions/preflight
+        with:
+          capability: release
+          tools: git-cliff
 
-      # Everything the refusals read, and the real notes, gathered before anything exists. The default
-      # branch is read from the repository itself rather than compared against a literal name: a
-      # literal is right for one repository by coincidence and wrong for the next in silence.
-      - id: gather
-        name: Read the range and render its notes
+      # The only value here the tree cannot answer. Read from the repository, never a literal name — a
+      # literal is right for one repository and silently wrong for the next.
+      - id: repository
+        name: Read the default branch from the repository itself
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          DELIMITER: __RELEASE_GATHER__
-        run: |
-          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')
-          default_branch=$(gh api "repos/$GH_REPO" --jq .default_branch)
-          git tag --list --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' > "$RUNNER_TEMP/releases" || true
-          last=$(head -1 "$RUNNER_TEMP/releases" || true)
-          if [ -n "$last" ]; then span=("$last..HEAD"); else span=(HEAD); fi
-          git log --format= --name-only "${span[@]}" | sort -u | grep -v '^$' > "$RUNNER_TEMP/paths" || true
-          git log --format=%B%x1e "${span[@]}" > "$RUNNER_TEMP/messages"
-          git-cliff --config cliff.toml --unreleased > "$RUNNER_TEMP/notes.md"
-          {
-            printf 'version=%s\n' "$version"
-            printf 'default-branch=%s\n' "$default_branch"
-            for name in releases paths messages; do
-              printf '%s<<%s\n' "$name" "$DELIMITER"
-              cat "$RUNNER_TEMP/$name"
-              printf '%s\n' "$DELIMITER"
-            done
-            printf 'notes<<%s\n' "$DELIMITER"
-            cat "$RUNNER_TEMP/notes.md"
-            printf '%s\n' "$DELIMITER"
-          } >> "$GITHUB_OUTPUT"
+        run: printf 'default-branch=%s\n' "$(gh api "repos/$GH_REPO" --jq .default_branch)" >> "$GITHUB_OUTPUT"
 
-      # `$/` is resolved from the repository owning this file rather than from the workspace, so this
-      # reaches our own action even though the checkout above is the caller's tree — and it carries no
-      # ref, so there is nothing to pin and nothing to bootstrap.
+      # `$/` resolves from the repository owning this file, not the workspace, and carries no ref: this
+      # reaches our own action with nothing to pin and nothing to bootstrap.
+      #
+      # The range, the tags, the paths, the version and the notes are read from the checkout by the
+      # module. None of it is marshalled through an output.
       - id: decide
         name: Run every refusal, before any ref exists
         uses: $/actions/release-decisions
         with:
           decision: release-verdict
-          version: ${{ steps.gather.outputs.version }}
           branch: ${{ github.ref_name }}
-          default-branch: ${{ steps.gather.outputs.default-branch }}
+          default-branch: ${{ steps.repository.outputs.default-branch }}
           occasion: ${{ inputs.dry-run && 'dry-run' || (github.event_name == 'push' && 'routine' || 'deliberate') }}
-          released-versions: ${{ steps.gather.outputs.releases }}
-          notes: ${{ steps.gather.outputs.notes }}
-          commit-messages: ${{ steps.gather.outputs.messages }}
-          changed-paths: ${{ steps.gather.outputs.paths }}
           manifest: pyproject.toml
 
       - name: Report what a dry run would have done
         if: inputs.dry-run
         env:
           VERDICT: ${{ steps.decide.outputs.message }}
-          VERSION: ${{ steps.gather.outputs.version }}
+          VERSION: ${{ steps.decide.outputs.version }}
           MOVING_REF: ${{ steps.decide.outputs.ref }}
+          NOTES: ${{ steps.decide.outputs.notes-path }}
         run: |
           {
             printf '## Dry run — nothing was created\n\n'
             printf 'Would tag v%s and move %s.\n\n' "$VERSION" "$MOVING_REF"
             printf '%s\n\n' "$VERDICT"
             printf '### The notes it would publish\n\n'
-            cat "$RUNNER_TEMP/notes.md"
+            cat "$NOTES"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # An annotated tag object, then the ref that names it. Created once and never force-updated: this
@@ -117,37 +89,34 @@ jobs:
       - id: tag
         name: Create the annotated version tag
         if: steps.decide.outputs.proceed == 'true' && !inputs.dry-run
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          VERSION: ${{ steps.gather.outputs.version }}
-          COMMIT: ${{ github.sha }}
-        run: |
-          tag_sha=$(gh api "repos/$GH_REPO/git/tags" \
-            -f "tag=v$VERSION" -f "message=v$VERSION" -f "object=$COMMIT" -f type=commit --jq .sha)
-          gh api "repos/$GH_REPO/git/refs" -f "ref=refs/tags/v$VERSION" -f "sha=$tag_sha"
+        uses: $/actions/release-write
+        with:
+          command: create-tag
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          version: ${{ steps.decide.outputs.version }}
+          commit: ${{ github.sha }}
 
       - id: publish
         name: Publish the release from the rendered notes
         if: steps.decide.outputs.proceed == 'true' && !inputs.dry-run
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          VERSION: ${{ steps.gather.outputs.version }}
-        run: |
-          gh release create "v$VERSION" --title "v$VERSION" \
-            --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
+        uses: $/actions/release-write
+        with:
+          command: publish-release
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          version: ${{ steps.decide.outputs.version }}
+          notes: ${{ steps.decide.outputs.notes-path }}
 
+      # Last, and only once the release exists: a failure before this leaves consumers on the previous
+      # release rather than on a ref naming an unpublished one. A gate holds the order of all three.
       - id: move-ref
         name: Force-move the compatibility ref, last
         if: steps.decide.outputs.proceed == 'true' && !inputs.dry-run
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          MOVING_REF: ${{ steps.decide.outputs.ref }}
-          COMMIT: ${{ github.sha }}
-        run: |
-          # Last, and only once the release exists. A failure before this leaves consumers on the
-          # previous release rather than on a ref pointing at a release nobody published.
-          gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$MOVING_REF" -F force=true -f "sha=$COMMIT" \
-            || gh api "repos/$GH_REPO/git/refs" -f "ref=refs/tags/$MOVING_REF" -f "sha=$COMMIT"
+        uses: $/actions/release-write
+        with:
+          command: move-ref
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          moving-ref: ${{ steps.decide.outputs.ref }}
+          commit: ${{ github.sha }}

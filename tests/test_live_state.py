@@ -5,7 +5,8 @@ import urllib.request
 from typing import cast
 
 import pytest
-from decisions import moving_ref, parse_version
+
+from tbga.release import moving_ref, parse_version
 
 # Needs network and a live GitHub API token — the one module this repository's own offline suite must
 # never require. Deselected by default (pyproject.toml's addopts) and run explicitly by

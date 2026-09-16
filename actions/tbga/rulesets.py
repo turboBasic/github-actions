@@ -1,9 +1,10 @@
 import difflib
 import json
 import os
-import sys
-import uuid
 from typing import Any, NamedTuple, cast
+
+from . import ERROR, NOTICE, annotate, emit, output, read_text, repository_directory
+from .github import Runner
 
 Doc = dict[str, Any]
 
@@ -72,9 +73,8 @@ def shape_problem(committed: Doc) -> str | None:
 
 
 def normalize(doc: Doc) -> Doc:
-    # R4: a read orders lists as it pleases and fills defaults the file may omit. Sorting both sides
-    # the same way, and comparing only the six writable fields, is what keeps a dispatch from reporting
-    # drift it did not cause.
+    # R4. A read orders lists as it pleases and fills defaults the file omits. Both sides are sorted the
+    # same way and only the six writable fields compared, or a dispatch reports drift it did not cause.
     projected: Doc = {field: doc.get(field) for field in WRITABLE_FIELDS}
 
     rules = sorted(
@@ -113,9 +113,8 @@ def normalize(doc: Doc) -> Doc:
 
 
 def render_difference(committed: Doc, live: Doc) -> str:
-    # A line per differing field put the whole value on that line, so changing one required context
-    # printed both `rules` arrays end to end. This is the last thing read before a write that has no
-    # revert, so it is a diff of the two documents rather than a summary of which fields moved.
+    # A diff of the two documents, not a summary of which fields moved. This is the last thing read
+    # before a write with no revert, and a per-field summary puts a whole `rules` array on one line.
     def rendered(doc: Doc) -> list[str]:
         projected = {field: doc.get(field) for field in sorted(WRITABLE_FIELDS)}
         return json.dumps(projected, indent=2, sort_keys=True).splitlines()
@@ -184,10 +183,6 @@ def decide(committed: Doc, live: list[Doc]) -> Verdict:
     )
 
 
-def read_text(name: str) -> str:
-    return os.environ.get(name, "")
-
-
 def read_doc(path: str) -> Doc:
     with open(path, encoding="utf-8") as handle:
         return cast(Doc, json.load(handle))
@@ -198,28 +193,10 @@ def read_list(path: str) -> list[Doc]:
         return cast(list[Doc], json.load(handle))
 
 
-def emit(values: dict[str, str]) -> None:
-    path = read_text("GITHUB_OUTPUT")
-    if not path:
-        return
-    with open(path, "a", encoding="utf-8") as handle:
-        for name, value in values.items():
-            # A value may hold newlines — the difference does — so every output uses the delimiter form,
-            # and the delimiter is random per value. A fixed one appearing inside the value would close
-            # the block early and let the remainder be read as further outputs; every value here is
-            # derived from an API response, so a ruleset named after the delimiter is all it would take.
-            delimiter = f"delimiter{uuid.uuid4().hex}"
-            handle.write(f"{name}<<{delimiter}\n{value}\n{delimiter}\n")
-
-
-def annotate(severity: str, message: str) -> None:
-    print(f"::{severity}::{message}", file=sys.stderr if severity == "error" else sys.stdout)
-
-
-def main() -> int:
+def run() -> int:
     committed_path = read_text("COMMITTED")
     if not os.path.isfile(committed_path):
-        annotate("error", f"no committed ruleset at {committed_path!r} — check the dispatch's name")
+        annotate(ERROR, f"no committed ruleset at {committed_path!r} — check the dispatch's name")
         return 1
 
     verdict = decide(read_doc(committed_path), read_list(read_text("LIVE")))
@@ -229,8 +206,10 @@ def main() -> int:
         with open(body_path, "w", encoding="utf-8") as handle:
             json.dump(verdict.body, handle, indent=2)
 
+    # Unpacked rather than passed as keywords: `ruleset-id` is the output name a caller reads, and a
+    # hyphen is not an identifier.
     emit(
-        {
+        **{
             "verdict": verdict.verdict,
             "ruleset-id": verdict.ruleset_id,
             "difference": verdict.difference,
@@ -238,9 +217,79 @@ def main() -> int:
             "message": verdict.message,
         }
     )
-    annotate("error" if verdict.verdict == REFUSE else "notice", verdict.message)
+    annotate(ERROR if verdict.verdict == REFUSE else NOTICE, verdict.message)
     return 1 if verdict.verdict == REFUSE else 0
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+def committed_names(directory: str) -> list[str]:
+    return sorted(name[: -len(".json")] for name in os.listdir(directory) if name.endswith(".json"))
+
+
+def run_list() -> int:
+    where = repository_directory()
+    directory = os.path.join(where, read_text("RULESET_DIR") or ".github/rulesets")
+    named = read_text("NAMED").strip()
+    if named:
+        emit(rulesets=json.dumps([named]))
+        return 0
+    if not os.path.isdir(directory):
+        annotate(ERROR, f"no committed ruleset to read under {directory}")
+        return 1
+    names = committed_names(directory)
+    if not names:
+        # An empty matrix skips the job below, and a skipped job reports success — so a scheduled run
+        # that listed nothing would be a green check that read no ruleset at all.
+        annotate(ERROR, f"no committed ruleset to read under {directory}")
+        return 1
+    emit(rulesets=json.dumps(names))
+    return 0
+
+
+def read_live(run: Runner, repository: str) -> list[Doc]:
+    # In full: a list-endpoint summary carries no rules, conditions or bypass_actors, so there would be
+    # nothing to compare. `includes_parents=false` excludes an organisation's, which this cannot write.
+    listed = run(
+        ("gh", "api", f"repos/{repository}/rulesets?includes_parents=false", "--jq", ".[].id")
+    )
+    live: list[Doc] = []
+    for identifier in (line.strip() for line in listed.splitlines()):
+        if identifier:
+            live.append(
+                cast(
+                    Doc, json.loads(run(("gh", "api", f"repos/{repository}/rulesets/{identifier}")))
+                )
+            )
+    return live
+
+
+def apply_ruleset(run: Runner, repository: str, verdict: str, body: str, identifier: str) -> None:
+    if verdict == CREATE:
+        run(("gh", "api", f"repos/{repository}/rulesets", "--input", body))
+        return
+    run(("gh", "api", "-X", "PUT", f"repos/{repository}/rulesets/{identifier}", "--input", body))
+
+
+def run_read() -> int:
+    repository = read_text("GH_REPO").strip()
+    destination = read_text("LIVE_PATH").strip()
+    if not repository or not destination:
+        annotate(ERROR, "reading the live rulesets needs both GH_REPO and LIVE_PATH")
+        return 1
+    with open(destination, "w", encoding="utf-8") as handle:
+        json.dump(read_live(output, repository), handle)
+    return 0
+
+
+def run_apply() -> int:
+    repository = read_text("GH_REPO").strip()
+    verdict = read_text("VERDICT").strip()
+    body = read_text("BODY").strip()
+    identifier = read_text("RULESET_ID").strip()
+    if not repository or not body or verdict not in {CREATE, UPDATE}:
+        annotate(ERROR, f"applying a ruleset needs a body and a {CREATE} or {UPDATE} verdict")
+        return 1
+    if verdict == UPDATE and not identifier:
+        annotate(ERROR, f"an {UPDATE} needs the live ruleset's id, and none was given")
+        return 1
+    apply_ruleset(output, repository, verdict, body, identifier)
+    return 0

@@ -1,6 +1,5 @@
-from rulesets import shape_problem
-
 from capabilities import Doc, composed_contexts, required_contexts, ruleset_docs, switched_off
+from tbga.rulesets import shape_problem
 
 # No check-jsonschema hook covers a committed ruleset: the tool ships no schema for one, and a
 # `--schemafile <url>` would put the network in `mise run ci`. The shape is asserted here instead,

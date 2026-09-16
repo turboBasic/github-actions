@@ -1,39 +1,28 @@
 import os
 import re
-import sys
 import tomllib
-import uuid
 from collections.abc import Iterable
 from fnmatch import fnmatch
 from typing import Any, NamedTuple, cast
 
-Version = tuple[int, int, int]
-
-# The one statement of the compatibility boundary. `compatibility_line` is the only function that
-# reads it, and a test asserts that. Below this version a break is signalled by the minor, so reading
-# the boundary off the major number alone is wrong — and wrong permissively, which would let a break
-# move a ref consumers pin.
-FIRST_STABLE: Version = (1, 0, 0)
-
-# The baseline a repository with no releases is measured against, which is what makes this version
-# mean "not released yet": it is not ahead of itself, so every merge declines while it stands. A
-# repository can sit here for as long as it takes to have something worth publishing.
-UNRELEASED: Version = (0, 0, 0)
-
-# No leading zero, no pre-release, no build metadata, no leading `v`.
-VERSION = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+from . import ERROR, NOTICE, annotate, emit, read_text, repository, repository_directory
+from .repository import RECORD
+from .version import (
+    UNRELEASED,
+    Version,
+    compatibility_line,
+    format_version,
+    increment,
+    moving_ref,
+    parse_version,
+    released_versions,
+)
 
 # A break is `type!:` in the subject or a BREAKING CHANGE footer in the body — both are Conventional
 # Commits' own spellings, and reading only the subject would miss a break its author declared properly.
 BREAKING_SUBJECT = re.compile(r"^[a-zA-Z]+(\([^)]*\))?!:")
 BREAKING_FOOTER = re.compile(r"^BREAKING[ -]CHANGE:", re.MULTILINE)
 FEATURE_SUBJECT = re.compile(r"^feat(\([^)]*\))?!?:")
-
-# A commit message holds newlines, so messages arrive separated by this rather than by lines.
-RECORD = "\x1e"
-
-NOTICE = "notice"
-ERROR = "error"
 
 # How the run was reached. The already-released condition means something different for each, which is
 # why it is an occasion rather than a boolean.
@@ -87,39 +76,9 @@ class Request(NamedTuple):
     surface: Surface
 
 
-def parse_version(text: str) -> Version | None:
-    found = VERSION.match(text)
-    return (int(found[1]), int(found[2]), int(found[3])) if found else None
-
-
-def format_version(version: Version) -> str:
-    return ".".join(str(part) for part in version)
-
-
-def compatibility_line(version: Version) -> tuple[int, ...]:
-    return version[:1] if version >= FIRST_STABLE else version[:2]
-
-
-def moving_ref(version: Version) -> str:
-    return "v" + ".".join(str(part) for part in compatibility_line(version))
-
-
-def increment(version: Version, breaking: bool, feature: bool) -> Version:
-    major, minor, patch = version
-    # Which component the line owns is read from the line, never from the version, so the boundary
-    # keeps its single owner. A feature may only advance a component the line does not own.
-    line_owns_the_major = len(compatibility_line(version)) == 1
-    if breaking:
-        return (major + 1, 0, 0) if line_owns_the_major else (major, minor + 1, 0)
-    if feature and line_owns_the_major:
-        return (major, minor + 1, 0)
-    return (major, minor, patch + 1)
-
-
 def find_last_computed(messages: Iterable[str]) -> str:
-    # Walked newest-first: the trailer sought is on the newest commit that carries one, however many
-    # commits without it — a person's edits — sit on top. Reading only the tip would miss it entirely
-    # the moment a person's own commit becomes the tip, which is the ordinary shape of an override.
+    # Newest first, past however many of a person's edits sit on top. Reading only the tip finds no
+    # trailer the moment their commit becomes the tip, which is the ordinary shape of an override.
     for message in messages:
         for line in message.splitlines():
             if line.startswith("Computed-Version: "):
@@ -128,23 +87,20 @@ def find_last_computed(messages: Iterable[str]) -> str:
 
 
 def settle_proposal_version(computed: str, on_branch: str, last_computed: str) -> tuple[str, bool]:
-    # The branch's version differs from what this workflow last computed only because a person edited
-    # it — comparing against a stored computation, read off the branch itself, survives every rewrite
-    # of the branch and every replacement of the pull request body, because neither carries it.
+    # The branch's version differs from the last computed one only because a person edited it. The
+    # comparison is against a stored computation read off the branch, so it survives every rewrite of the
+    # branch and every replacement of the pull request body.
     #
-    # A missing LAST_COMPUTED is not evidence of an override: a branch this workflow never wrote a
-    # trailer to — one from before this comparison existed, or one a person created by hand — has
-    # nothing to compare against, and treating that absence as a difference would freeze the branch's
-    # current content forever on the next run, which is the wrong side of "not sure" to fail on.
+    # A missing trailer is not evidence of an override: a branch this workflow never wrote to has nothing
+    # to compare against. Treating that absence as a difference would freeze the branch forever.
     if on_branch and last_computed and parse_version(on_branch) and on_branch != last_computed:
         return on_branch, True
     return computed, False
 
 
 def range_verdicts(messages: Iterable[str]) -> tuple[bool, bool]:
-    # The two verdicts the increment and the last refusal both read. Decided here rather than in a
-    # `run:` block because getting either wrong puts a release on the wrong compatibility line, and a
-    # version tag cannot be withdrawn.
+    # The two verdicts the increment and the last refusal both read. Getting either wrong puts a release
+    # on the wrong compatibility line, and a version tag cannot be withdrawn.
     breaking = False
     feature = False
     for message in messages:
@@ -301,19 +257,14 @@ def decide(request: Request) -> Verdict:
     if not found:
         return Verdict(True, NOTICE, f"every refusal passed for {request.version_text}")
     if request.occasion == ROUTINE and ALREADY_RELEASED in [r.key for r in found]:
-        # A version that is not ahead of the highest release has not been bumped yet, which makes it
-        # provisional — so nothing below it can be assessed. A break "on a released line" then only says
-        # the bump has not happened, and a default branch must not redden for that.
+        # A version not ahead of the highest release has not been bumped yet. It is provisional, so
+        # nothing below it can be assessed, and a break "on a released line" only says the bump has not
+        # happened. A default branch must not redden for that.
         #
-        # This softens only while the version is behind. A version that *is* ahead has been asserted by
-        # a merged change, so anything wrong with it is a real mistake and stays an error however the
-        # run was reached — including a break that would move a ref consumers pin.
+        # Softened only while the version is behind. A version that is ahead was asserted by a merged
+        # change, so anything wrong with it stays an error however the run was reached.
         return Verdict(False, NOTICE, reported)
     return Verdict(False, ERROR, reported)
-
-
-def read_text(name: str) -> str:
-    return os.environ.get(name, "")
 
 
 def read_records(name: str) -> tuple[str, ...]:
@@ -325,10 +276,7 @@ def read_lines(name: str) -> tuple[str, ...]:
 
 
 def read_released_versions(name: str) -> tuple[Version, ...]:
-    # A tag that is not a plain version is not a release of any line here — a moving ref is one, and a
-    # repository is allowed to carry tags this scheme never made — so it is skipped, not refused.
-    parsed = (parse_version(line.removeprefix("v")) for line in read_lines(name))
-    return tuple(version for version in parsed if version is not None)
+    return released_versions(read_lines(name))
 
 
 def surface_from_manifest(path: str) -> Surface | Refusal:
@@ -340,24 +288,6 @@ def surface_from_manifest(path: str) -> Surface | Refusal:
     if not isinstance(tool, dict):
         return read_surface(None)
     return read_surface(cast(dict[str, object], tool).get("turbobasic-release"))
-
-
-def emit(**values: str) -> None:
-    path = read_text("GITHUB_OUTPUT")
-    if not path:
-        return
-    with open(path, "a", encoding="utf-8") as handle:
-        for name, value in values.items():
-            # A value may hold newlines — rendered notes do — so every output uses the delimiter form,
-            # and the delimiter is random per value. A fixed one appearing inside the value would close
-            # the block early and let the remainder be read as further outputs; the notes are rendered
-            # from commit messages, so a commit quoting the delimiter is all it would take.
-            delimiter = f"delimiter{uuid.uuid4().hex}"
-            handle.write(f"{name}<<{delimiter}\n{value}\n{delimiter}\n")
-
-
-def annotate(severity: str, message: str) -> None:
-    print(f"::{severity}::{message}", file=sys.stderr if severity == ERROR else sys.stdout)
 
 
 def declared_version() -> Version | None:
@@ -374,37 +304,55 @@ def answer_moving_ref() -> int:
 
 
 def answer_next_version() -> int:
-    version = declared_version()
+    where = repository_directory()
+    manifest = read_text("MANIFEST") or "pyproject.toml"
+    declared = repository.declared_version(where, manifest)
+    version = parse_version(declared)
     if version is None:
-        annotate(ERROR, f"release-decisions cannot increment {read_text('VERSION')!r}")
+        annotate(ERROR, f"release-decisions cannot increment {declared!r}, read from {manifest}")
         return 1
-    breaking, feature = range_verdicts(read_records("COMMIT_MESSAGES"))
+    # Rendered here rather than by a `run:` block, so whether the range is empty and what the increment
+    # is are read from one pass over the same range.
+    notes_path = read_text("NOTES_PATH") or f"{where}/release-notes.md"
+    repository.render_notes(where, read_text("CLIFF_CONFIG") or "cliff.toml", notes_path)
+    breaking, feature = range_verdicts(repository.commit_messages(where))
     nxt = increment(version, breaking=breaking, feature=feature)
-    emit(version=format_version(nxt), ref=moving_ref(nxt))
+    emit(
+        version=format_version(nxt),
+        ref=moving_ref(nxt),
+        **{"notes-path": notes_path},
+    )
     return 0
 
 
 def answer_release_verdict() -> int:
-    surface = surface_from_manifest(read_text("MANIFEST"))
+    # Everything the refusals read comes from the repository itself, so nothing about the range travels
+    # through an output and back. Only the occasion and the branch are the run's to state.
+    where = repository_directory()
+    manifest = read_text("MANIFEST") or "pyproject.toml"
+    surface = surface_from_manifest(f"{where}/{manifest}")
     if isinstance(surface, Refusal):
         # A malformed declaration is refused before any ref exists rather than read as an absent one.
-        emit(proceed="false", severity=ERROR, message=surface.message, ref="")
+        emit(proceed="false", severity=ERROR, message=surface.message, ref="", **{"notes-path": ""})
         annotate(ERROR, surface.message)
         return 1
     notice = surface_notice(surface)
     if notice:
         annotate(NOTICE, notice)
-    breaking, feature = range_verdicts(read_records("COMMIT_MESSAGES"))
+    notes_path = read_text("NOTES_PATH") or f"{where}/release-notes.md"
+    notes = repository.render_notes(where, read_text("CLIFF_CONFIG") or "cliff.toml", notes_path)
+    breaking, feature = range_verdicts(repository.commit_messages(where))
+    version_text = repository.declared_version(where, manifest)
     request = Request(
-        version_text=read_text("VERSION").strip(),
+        version_text=version_text,
         branch=read_text("BRANCH").strip(),
         default_branch=read_text("DEFAULT_BRANCH").strip(),
         occasion=read_text("OCCASION").strip() or DELIBERATE,
-        existing=read_released_versions("RELEASED_VERSIONS"),
-        notes=read_text("NOTES"),
+        existing=released_versions(repository.release_tags(where)),
+        notes=notes,
         breaking=breaking,
         feature=feature,
-        changed_paths=read_lines("CHANGED_PATHS"),
+        changed_paths=repository.changed_paths(where),
         surface=surface,
     )
     verdict = decide(request)
@@ -414,6 +362,10 @@ def answer_release_verdict() -> int:
         severity=verdict.severity,
         message=verdict.message,
         ref=moving_ref(version) if version else "",
+        # What the tag is named after. Read from the manifest here rather than passed in, so the version
+        # tagged and the version judged cannot differ.
+        version=version_text,
+        **{"notes-path": notes_path},
     )
     annotate(verdict.severity, verdict.message)
     # A decline is not a failure: a default branch must not redden for a merge that did nothing wrong.
@@ -421,10 +373,17 @@ def answer_release_verdict() -> int:
 
 
 def answer_proposal_version() -> int:
-    last_computed = find_last_computed(read_records("BRANCH_MESSAGES"))
+    # The branch, never a pull request body: a template change, a hand edit or a reopen cannot lose what
+    # is stored here. Every commit unique to the branch, not only its tip.
+    where = repository_directory()
+    proposal_ref = read_text("PROPOSAL_REF").strip()
+    base = read_text("BASE_COMMIT").strip()
+    manifest = read_text("MANIFEST") or "pyproject.toml"
+    on_branch = repository.version_on_ref(where, proposal_ref, manifest)
+    last_computed = find_last_computed(repository.messages_between(where, base, proposal_ref))
     version, overridden = settle_proposal_version(
         computed=read_text("COMPUTED").strip(),
-        on_branch=read_text("ON_BRANCH").strip(),
+        on_branch=on_branch.strip(),
         last_computed=last_computed,
     )
     if overridden:
@@ -435,8 +394,7 @@ def answer_proposal_version() -> int:
     return 0
 
 
-def main() -> int:
-    decision = read_text("DECISION").strip()
+def run(decision: str) -> int:
     if decision == MOVING_REF:
         return answer_moving_ref()
     if decision == NEXT_VERSION:
@@ -446,11 +404,6 @@ def main() -> int:
     if decision == PROPOSAL_VERSION:
         return answer_proposal_version()
     annotate(
-        ERROR,
-        f"release-decisions was asked for {decision!r} and answers only {list(DECISIONS)}",
+        ERROR, f"release-decisions was asked for {decision!r} and answers only {list(DECISIONS)}"
     )
     return 1
-
-
-if __name__ == "__main__":
-    sys.exit(main())

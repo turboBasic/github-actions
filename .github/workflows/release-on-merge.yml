@@ -1,8 +1,7 @@
 name: 🌜 release-on-merge
 
-# The dispatch entry point exists to dry-run: every refusal runs and the real notes render, and nothing
-# is created. It is the only safe way to exercise the release path, since a version tag cannot be
-# withdrawn once pushed.
+# The dispatch entry point exists to dry-run. Every refusal runs, the real notes render, nothing is
+# created. A version tag cannot be withdrawn, so this is the only safe way to exercise the release path.
 on:
   push:
     branches: [main]
@@ -39,11 +38,10 @@ jobs:
       # that has to be asked for.
       dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
 
-  # Ordered behind release, never beside it: release-proposal reads the tag list at checkout, and a
-  # push that releases has to have finished tagging before this reads it, or the proposal computes its
-  # range against a tag that does not exist yet. Never on a dispatch — that path promises nothing is
-  # created, and this writes a branch and a pull request unconditionally. Job id `proposal` composes
-  # the first half of `proposal / propose`.
+  # Behind release, never beside it. release-proposal reads the tag list at checkout, so a push that
+  # releases must finish tagging first, or the proposal measures its range against a tag that does not
+  # exist. Never on a dispatch: that path promises nothing is created, and this writes a branch and a
+  # pull request unconditionally. Job id `proposal` composes the first half of `proposal / propose`.
   proposal:
     needs: release
     if: github.event_name == 'push'
