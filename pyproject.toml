@@ -48,19 +48,21 @@ include = ["actions", "tests"]
 # the test file's own directory and the rest through `tests/conftest.py`; pyright needs every directory
 # named here to resolve any of them.
 extraPaths = ["tests", "actions/release-decisions", "actions/ruleset-decisions"]
-pythonVersion = "3.14"
+# The runner's interpreter rather than the one mise pins, and the default rather than an exception. What
+# a composite action runs executes on whichever `python3` the caller's own configuration left on the
+# runner — 3.12.3 where they pinned none — so a directory added under `actions/` inherits the floor
+# instead of needing an entry to be remembered for it. Stating it as a scoped `executionEnvironments`
+# version would be weaker: that gates syntax and whether a module exists, but a symbol inside a module
+# both versions have is resolved against this top-level value.
+pythonVersion = "3.12"
 typeCheckingMode = "strict"
 venvPath = "."
 venv = ".venv"
 
-# The one place the two interpreters this repository runs are told apart. Everything here is checked
-# against the version mise pins, except what a composite action runs: that executes on whichever
-# `python3` the caller's own configuration left on the runner, which is 3.12.3 where they pinned none.
-# What this catches is syntax the older interpreter cannot parse. Symbol availability is not gated by
-# version, so a stdlib name added after 3.12 is not caught here.
+# The suite is the exception: it runs under mise's pin and never on a runner.
 [[tool.pyright.executionEnvironments]]
-root = "actions"
-pythonVersion = "3.12"
+root = "tests"
+pythonVersion = "3.14"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

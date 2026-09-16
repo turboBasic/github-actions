@@ -19,9 +19,6 @@ def imported_roots(source: str) -> set[str]:
     return roots
 
 
-# Every module below the actions directory, not only the ones beside an `action.yml`. A one-level glob
-# still finds those and still passes the non-empty check, so it would report green over every module a
-# package holds underneath them.
 def action_modules(root: Path) -> list[Path]:
     return sorted(root.rglob("*.py"))
 
@@ -44,8 +41,9 @@ def foreign_imports(root: Path) -> list[str]:
 
 def test_every_module_a_composite_action_runs_imports_only_the_standard_library() -> None:
     assert action_modules(ACTIONS), "no action module was read, so this gate holds no import at all"
-    assert foreign_imports(ACTIONS) == [], (
-        f"an action module imports outside the standard library: {foreign_imports(ACTIONS)}. Nothing "
+    foreign = foreign_imports(ACTIONS)
+    assert foreign == [], (
+        f"an action module imports outside the standard library: {foreign}. Nothing "
         "installs a dependency before the module runs, and the interpreter is whichever `python3` the "
         "caller's own configuration left on the runner — so there is no resolution step to fail loudly "
         "here, only an ImportError in a consumer's job. Move the work to the suite, or into the action's "

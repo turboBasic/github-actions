@@ -1,5 +1,6 @@
 import re
 import tomllib
+from pathlib import Path
 from typing import Any, cast
 
 from capabilities import REPO
@@ -114,41 +115,64 @@ def series(version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in version.split(".") if part.isdigit())
 
 
-def action_environment() -> dict[str, Any] | None:
-    project: dict[str, Any] = tomllib.loads(PROJECT.read_text(encoding="utf-8"))
-    pyright = cast(dict[str, Any], project["tool"]["pyright"])
-    environments = cast(list[dict[str, Any]], pyright.get("executionEnvironments", []))
-    return next((env for env in environments if str(env.get("root", "")) == ACTION_ROOT), None)
+def pyright_config(project: Path) -> dict[str, Any]:
+    manifest: dict[str, Any] = tomllib.loads(project.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], manifest["tool"]["pyright"])
 
 
-def test_what_a_composite_action_runs_is_checked_against_the_runner_s_interpreter() -> None:
-    # A module a composite action runs gets whichever `python3` the caller left on the runner, and there
-    # is no resolution step to fail loudly — only an ImportError in a consumer's job. Checking it at the
-    # version mise pins here would report a newer stdlib symbol as available when it is not.
+def default_version(project: Path) -> str:
+    return str(pyright_config(project)["pythonVersion"])
+
+
+def environments(project: Path) -> list[dict[str, Any]]:
+    return cast(list[dict[str, Any]], pyright_config(project).get("executionEnvironments", []))
+
+
+def covers_actions(root: str) -> bool:
+    # An empty root, or `.`, is the whole project. Anything `actions` sits under covers it too.
+    return root in {"", "."} or root == ACTION_ROOT or ACTION_ROOT.startswith(f"{root}/")
+
+
+def test_pyright_defaults_to_the_interpreter_a_composite_action_runs_on() -> None:
     pinned = str(tools()["python"])
-    environment = action_environment()
-    assert environment is not None, (
-        f"{PROJECT.name} declares no pyright executionEnvironment rooted at {ACTION_ROOT!r}, so what a "
-        f"composite action runs is checked against the {pinned} that {MANIFEST.name} pins. That version "
-        "is on the runner only where the caller's own configuration put it there"
-    )
-    checked = str(environment["pythonVersion"])
+    checked = default_version(PROJECT)
     assert series(checked) < series(pinned), (
-        f"{PROJECT.name} checks {ACTION_ROOT}/ at {checked} while {MANIFEST.name} pins {pinned}. The "
-        "point of the environment is that the runner's interpreter is older than the one this repository "
-        "develops against, so a version at or above the pin holds nothing"
+        f"{PROJECT.name} checks at {checked} by default while {MANIFEST.name} pins {pinned}. What a "
+        "composite action runs gets whichever `python3` the caller left on the runner, which is older "
+        "than the version this repository develops against — so the older one is the default, and a "
+        "directory added under actions/ inherits it rather than needing an entry of its own"
     )
 
 
-def test_the_environment_reader_and_the_version_order_read_what_they_are_given() -> None:
-    # Pre-flight both. The gate's steady state is one matching environment, so neither the finder
-    # returning None for the wrong root nor the ordering being the right way round can otherwise show.
-    assert series("3.12") < series("3.14")
-    assert series("3.9") < series("3.12")
+def test_no_execution_environment_raises_the_floor_for_what_an_action_runs() -> None:
+    covering = sorted(
+        f"{env.get('root')!r} at {env.get('pythonVersion')}"
+        for env in environments(PROJECT)
+        if covers_actions(str(env.get("root", "")))
+    )
+    assert covering == [], (
+        f"a pyright executionEnvironment covers {ACTION_ROOT}/: {covering}. An entry there overrides the "
+        f"default floor for the one code that runs on a runner, and a scoped version is the weaker "
+        "reading anyway — it gates syntax and whether a module exists, never a symbol inside one"
+    )
+
+
+def test_the_pyright_readers_read_a_project_they_are_given(tmp_path: Path) -> None:
+    # Pre-flight against a project that would fail both gates above, since the tree's steady state is a
+    # pass and neither could otherwise show that it still reads a version or a root at all.
+    synthetic = tmp_path / "pyproject.toml"
+    synthetic.write_text(
+        '[tool.pyright]\npythonVersion = "3.14"\n\n'
+        f'[[tool.pyright.executionEnvironments]]\nroot = "{ACTION_ROOT}"\npythonVersion = "3.12"\n',
+        encoding="utf-8",
+    )
+    assert default_version(synthetic) == "3.14"
+    assert [str(env["root"]) for env in environments(synthetic)] == [ACTION_ROOT]
+    assert covers_actions(ACTION_ROOT)
+    assert covers_actions(".")
+    assert not covers_actions("tests")
+    assert series("3.9") < series("3.12") < series("3.14")
     assert not series("3.14") < series("3.14")
-    found = action_environment()
-    assert found is not None
-    assert str(found["root"]) == ACTION_ROOT
 
 
 def test_the_floating_reader_tells_a_version_from_a_range() -> None:
