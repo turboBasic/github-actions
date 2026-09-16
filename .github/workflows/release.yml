@@ -95,38 +95,35 @@ jobs:
       - id: tag
         name: Create the annotated version tag
         if: steps.decide.outputs.proceed == 'true' && !inputs.dry-run
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          VERSION: ${{ steps.decide.outputs.version }}
-          COMMIT: ${{ github.sha }}
-        run: |
-          tag_sha=$(gh api "repos/$GH_REPO/git/tags" \
-            -f "tag=v$VERSION" -f "message=v$VERSION" -f "object=$COMMIT" -f type=commit --jq .sha)
-          gh api "repos/$GH_REPO/git/refs" -f "ref=refs/tags/v$VERSION" -f "sha=$tag_sha"
+        uses: $/actions/release-write
+        with:
+          command: create-tag
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          version: ${{ steps.decide.outputs.version }}
+          commit: ${{ github.sha }}
 
       - id: publish
         name: Publish the release from the rendered notes
         if: steps.decide.outputs.proceed == 'true' && !inputs.dry-run
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          VERSION: ${{ steps.decide.outputs.version }}
-          NOTES: ${{ steps.decide.outputs.notes-path }}
-        run: |
-          gh release create "v$VERSION" --title "v$VERSION" \
-            --notes-file "$NOTES" --verify-tag
+        uses: $/actions/release-write
+        with:
+          command: publish-release
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          version: ${{ steps.decide.outputs.version }}
+          notes: ${{ steps.decide.outputs.notes-path }}
 
+      # Last, and only once the release exists. A failure before this leaves consumers on the previous
+      # release rather than on a ref pointing at a release nobody published — so the ordering of these
+      # three steps is held by a gate, not only by this comment.
       - id: move-ref
         name: Force-move the compatibility ref, last
         if: steps.decide.outputs.proceed == 'true' && !inputs.dry-run
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          MOVING_REF: ${{ steps.decide.outputs.ref }}
-          COMMIT: ${{ github.sha }}
-        run: |
-          # Last, and only once the release exists. A failure before this leaves consumers on the
-          # previous release rather than on a ref pointing at a release nobody published.
-          gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$MOVING_REF" -F force=true -f "sha=$COMMIT" \
-            || gh api "repos/$GH_REPO/git/refs" -f "ref=refs/tags/$MOVING_REF" -f "sha=$COMMIT"
+        uses: $/actions/release-write
+        with:
+          command: move-ref
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          moving-ref: ${{ steps.decide.outputs.ref }}
+          commit: ${{ github.sha }}

@@ -140,6 +140,17 @@ permissions = {}
 tool_prerequisites = []
 skips_under = []
 
+[release-write]
+kind = "action"
+# Internal surface, as the other actions here are: no stability promise, no check name, and inputs
+# nothing outside this repository names. The three writes it performs stay three steps in the calling
+# workflow, where the ordering and the conditions are what principle V is protected by.
+published = false
+inputs = []
+permissions = {}
+tool_prerequisites = []
+skips_under = []
+
 [release-decisions]
 kind = "action"
 # Internal surface: no stability promise, no check name, and inputs nothing outside this repository

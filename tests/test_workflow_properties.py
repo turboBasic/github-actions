@@ -414,9 +414,26 @@ def test_each_stage_of_project_ci_is_gated_on_its_own_switch_and_nothing_else() 
         )
 
 
-# What a step does, read from the command it runs rather than from a list this test also keeps. A step
-# creating a ref names one of these; nothing else in the release path does.
-CREATES_A_REF = ("git/refs", "git/tags", "gh release create")
+# What a step does, read from what it invokes rather than from a list this test also keeps. A step
+# creating a ref names one of these writes; nothing else in the release path does. Read from the `command`
+# input because the calls are assembled in a module now — a `run:` block in a reusable workflow executes
+# against the caller's checkout and cannot reach one. The three steps stay three: collapsing them into one
+# invocation would take this gate to nothing found, and the ordering and the conditions below are what
+# principle V is protected by.
+CREATES_A_REF = ("create-tag", "publish-release", "move-ref")
+
+
+def ref_writes(step: Doc) -> str:
+    # The write a step performs, or an empty string. `run:` is still read so a step that goes back to
+    # calling `gh` itself cannot slip past a gate that only knows about the action.
+    named = str(cast(dict[str, Any], step.get("with", {})).get("command", ""))
+    if named in CREATES_A_REF:
+        return named
+    script = str(step.get("run", ""))
+    return next(
+        (marker for marker in ("git/refs", "git/tags", "gh release create") if marker in script), ""
+    )
+
 
 # Writing a version means authoring a commit. The release path tags what a merged change already
 # decided, so it never authors one — the proposal path is where a version is written.
@@ -433,7 +450,7 @@ def test_no_ref_creating_step_precedes_the_refusals() -> None:
     steps = release_steps()
     decided = next(index for index, step in enumerate(steps) if step.get("id") == "decide")
     for index, step in enumerate(steps):
-        if any(marker in str(step.get("run", "")) for marker in CREATES_A_REF):
+        if ref_writes(step):
             assert index > decided, (
                 f"release step {step.get('id')!r} creates a ref at position {index}, before the "
                 f"refusals at {decided}. Every refusal runs before any ref exists or none of them mean "
@@ -597,7 +614,7 @@ def test_every_ref_creating_step_is_gated_on_the_verdict_and_on_the_dry_run() ->
     # or a dry run tags for real.
     found = 0
     for step in release_steps():
-        if not any(marker in str(step.get("run", "")) for marker in CREATES_A_REF):
+        if not ref_writes(step):
             continue
         found += 1
         condition = str(step.get("if", ""))
@@ -628,6 +645,28 @@ def test_no_step_in_the_release_path_writes_a_version() -> None:
         f"release.yml authors a change: {offending}. It tags what was already decided, and a version "
         "it wrote itself would be a version no review ever saw"
     )
+
+
+def test_the_three_writes_happen_in_the_order_the_last_one_depends_on() -> None:
+    # The moving ref goes last, and only once the release exists: a failure before it leaves consumers on
+    # the previous release rather than on a ref pointing at a release nobody published. That was a comment
+    # in the workflow and nothing else, so a reordering read as cosmetic in review.
+    performed = [write for step in release_steps() if (write := ref_writes(step))]
+    assert performed == ["create-tag", "publish-release", "move-ref"], (
+        f"release.yml performs its writes as {performed}. The tag is created before the release that "
+        "verifies it, and the compatibility ref moves only once that release exists — none of the three "
+        "can be withdrawn, so the order is the whole protection"
+    )
+
+
+def test_the_write_reader_finds_both_the_action_and_a_bare_call() -> None:
+    # Pre-flight the reader on both shapes. Every write goes through the action today, so the `run:` half
+    # would otherwise never be exercised and a step reverting to `gh` would pass unread.
+    assert ref_writes({"with": {"command": "move-ref"}}) == "move-ref"
+    assert ref_writes({"with": {"command": "preflight"}}) == ""
+    assert ref_writes({"run": 'gh api "repos/$GH_REPO/git/tags" -f tag=v1'}) == "git/tags"
+    assert ref_writes({"run": "gh release create v1"}) == "gh release create"
+    assert ref_writes({"run": "echo nothing"}) == ""
 
 
 def test_the_version_writing_markers_match_a_step_that_authors_one() -> None:

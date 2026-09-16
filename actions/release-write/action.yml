@@ -1,0 +1,56 @@
+name: release-write
+description: >-
+  Performs one release write — the annotated tag, the published release, or the moved compatibility ref.
+  Internal surface: it carries no stability promise and composes no check name. One action rather than
+  three because the three share their inputs and return nothing; the ordering and the conditions stay in
+  the calling workflow, where a reviewer reads them, and a gate holds them there.
+
+inputs:
+  command:
+    description: Which write to perform — create-tag, publish-release, or move-ref.
+    required: true
+  token:
+    description: >-
+      The token the write runs with. Passed rather than inherited: a step's own `env:` is not the
+      environment a composite action's steps see, and a job-level grant would put it in reach of every
+      other step in the job.
+    required: true
+  repository:
+    description: The owner/name the write is addressed to, read from the run.
+    required: true
+  version:
+    description: The version being released, as a plain N.N.N. The tag is named v<version>.
+    required: false
+    default: ""
+  commit:
+    description: The commit the tag or the moved ref points at.
+    required: false
+    default: ""
+  moving-ref:
+    description: The compatibility ref to move, for move-ref.
+    required: false
+    default: ""
+  notes:
+    description: Path to the rendered notes, for publish-release. The body is read from a file, never an input.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        # `$/` puts the whole repository beside this action, so the package resolves from the action
+        # path's parent — which exists because the action directory does. Nothing is installed here and
+        # nothing needs to be: the package imports the standard library only.
+        PYTHONPATH: ${{ github.action_path }}/..
+        GH_TOKEN: ${{ inputs.token }}
+        GH_REPO: ${{ inputs.repository }}
+        COMMAND: ${{ inputs.command }}
+        VERSION: ${{ inputs.version }}
+        COMMIT: ${{ inputs.commit }}
+        MOVING_REF: ${{ inputs.moving-ref }}
+        NOTES: ${{ inputs.notes }}
+      # The write reaches argparse as an environment value the shell expands into one argument, so no
+      # caller's text is part of this line.
+      run: python3 -m tbga "$COMMAND"
