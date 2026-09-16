@@ -96,6 +96,10 @@ runs:
     - id: decide
       shell: bash
       env:
+        # `$/` puts the whole repository beside this action, so the package resolves from the action
+        # path's parent — which exists because the action directory does. Nothing is installed here and
+        # nothing needs to be: the package imports the standard library only.
+        PYTHONPATH: ${{ github.action_path }}/..
         DECISION: ${{ inputs.decision }}
         VERSION: ${{ inputs.version }}
         BRANCH: ${{ inputs.branch }}
@@ -109,4 +113,6 @@ runs:
         COMPUTED: ${{ inputs.computed-version }}
         ON_BRANCH: ${{ inputs.on-branch-version }}
         BRANCH_MESSAGES: ${{ inputs.branch-messages }}
-      run: python3 "$GITHUB_ACTION_PATH/decisions.py"
+      # The decision reaches argparse as an environment value the shell expands into one argument, so a
+      # caller's text is never part of this line.
+      run: python3 -m tbga "$DECISION"

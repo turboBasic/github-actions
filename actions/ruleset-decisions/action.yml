@@ -45,7 +45,11 @@ runs:
     - id: decide
       shell: bash
       env:
+        # `$/` puts the whole repository beside this action, so the package resolves from the action
+        # path's parent — which exists because the action directory does. Nothing is installed here and
+        # nothing needs to be: the package imports the standard library only.
+        PYTHONPATH: ${{ github.action_path }}/..
         COMMITTED: ${{ inputs.committed }}
         LIVE: ${{ inputs.live }}
         BODY_PATH: ${{ inputs.body-path || format('{0}/ruleset-body.json', runner.temp) }}
-      run: python3 "$GITHUB_ACTION_PATH/rulesets.py"
+      run: python3 -m tbga ruleset-verdict

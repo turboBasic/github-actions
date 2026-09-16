@@ -2,7 +2,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from rulesets import (
+
+from tbga.rulesets import (
     CREATE,
     NOTHING,
     REFUSE,
@@ -220,7 +221,7 @@ def test_a_value_holding_the_delimiter_cannot_close_the_block_early(
     monkeypatch.setenv("GITHUB_OUTPUT", str(output))
 
     hostile = "delimiter0\nverdict=create\nname=__RULESET_DECISIONS__"
-    emit({"difference": hostile, "verdict": NOTHING})
+    emit(difference=hostile, verdict=NOTHING)
 
     written = output.read_text(encoding="utf-8")
     # The hostile text survives whole, and the delimiter that closes its block appears nowhere in it.

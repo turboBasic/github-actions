@@ -1,9 +1,9 @@
 import difflib
 import json
 import os
-import sys
-import uuid
 from typing import Any, NamedTuple, cast
+
+from . import ERROR, NOTICE, annotate, emit, read_text
 
 Doc = dict[str, Any]
 
@@ -184,10 +184,6 @@ def decide(committed: Doc, live: list[Doc]) -> Verdict:
     )
 
 
-def read_text(name: str) -> str:
-    return os.environ.get(name, "")
-
-
 def read_doc(path: str) -> Doc:
     with open(path, encoding="utf-8") as handle:
         return cast(Doc, json.load(handle))
@@ -198,28 +194,10 @@ def read_list(path: str) -> list[Doc]:
         return cast(list[Doc], json.load(handle))
 
 
-def emit(values: dict[str, str]) -> None:
-    path = read_text("GITHUB_OUTPUT")
-    if not path:
-        return
-    with open(path, "a", encoding="utf-8") as handle:
-        for name, value in values.items():
-            # A value may hold newlines — the difference does — so every output uses the delimiter form,
-            # and the delimiter is random per value. A fixed one appearing inside the value would close
-            # the block early and let the remainder be read as further outputs; every value here is
-            # derived from an API response, so a ruleset named after the delimiter is all it would take.
-            delimiter = f"delimiter{uuid.uuid4().hex}"
-            handle.write(f"{name}<<{delimiter}\n{value}\n{delimiter}\n")
-
-
-def annotate(severity: str, message: str) -> None:
-    print(f"::{severity}::{message}", file=sys.stderr if severity == "error" else sys.stdout)
-
-
-def main() -> int:
+def run() -> int:
     committed_path = read_text("COMMITTED")
     if not os.path.isfile(committed_path):
-        annotate("error", f"no committed ruleset at {committed_path!r} — check the dispatch's name")
+        annotate(ERROR, f"no committed ruleset at {committed_path!r} — check the dispatch's name")
         return 1
 
     verdict = decide(read_doc(committed_path), read_list(read_text("LIVE")))
@@ -229,8 +207,10 @@ def main() -> int:
         with open(body_path, "w", encoding="utf-8") as handle:
             json.dump(verdict.body, handle, indent=2)
 
+    # Unpacked rather than passed as keywords: `ruleset-id` is the output name a caller reads, and a
+    # hyphen is not an identifier.
     emit(
-        {
+        **{
             "verdict": verdict.verdict,
             "ruleset-id": verdict.ruleset_id,
             "difference": verdict.difference,
@@ -238,9 +218,5 @@ def main() -> int:
             "message": verdict.message,
         }
     )
-    annotate("error" if verdict.verdict == REFUSE else "notice", verdict.message)
+    annotate(ERROR if verdict.verdict == REFUSE else NOTICE, verdict.message)
     return 1 if verdict.verdict == REFUSE else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

@@ -1,11 +1,11 @@
 import os
 import re
-import sys
 import tomllib
-import uuid
 from collections.abc import Iterable
 from fnmatch import fnmatch
 from typing import Any, NamedTuple, cast
+
+from . import ERROR, NOTICE, annotate, emit, read_text
 
 Version = tuple[int, int, int]
 
@@ -31,9 +31,6 @@ FEATURE_SUBJECT = re.compile(r"^feat(\([^)]*\))?!?:")
 
 # A commit message holds newlines, so messages arrive separated by this rather than by lines.
 RECORD = "\x1e"
-
-NOTICE = "notice"
-ERROR = "error"
 
 # How the run was reached. The already-released condition means something different for each, which is
 # why it is an occasion rather than a boolean.
@@ -312,10 +309,6 @@ def decide(request: Request) -> Verdict:
     return Verdict(False, ERROR, reported)
 
 
-def read_text(name: str) -> str:
-    return os.environ.get(name, "")
-
-
 def read_records(name: str) -> tuple[str, ...]:
     return tuple(record.strip() for record in read_text(name).split(RECORD) if record.strip())
 
@@ -340,24 +333,6 @@ def surface_from_manifest(path: str) -> Surface | Refusal:
     if not isinstance(tool, dict):
         return read_surface(None)
     return read_surface(cast(dict[str, object], tool).get("turbobasic-release"))
-
-
-def emit(**values: str) -> None:
-    path = read_text("GITHUB_OUTPUT")
-    if not path:
-        return
-    with open(path, "a", encoding="utf-8") as handle:
-        for name, value in values.items():
-            # A value may hold newlines — rendered notes do — so every output uses the delimiter form,
-            # and the delimiter is random per value. A fixed one appearing inside the value would close
-            # the block early and let the remainder be read as further outputs; the notes are rendered
-            # from commit messages, so a commit quoting the delimiter is all it would take.
-            delimiter = f"delimiter{uuid.uuid4().hex}"
-            handle.write(f"{name}<<{delimiter}\n{value}\n{delimiter}\n")
-
-
-def annotate(severity: str, message: str) -> None:
-    print(f"::{severity}::{message}", file=sys.stderr if severity == ERROR else sys.stdout)
 
 
 def declared_version() -> Version | None:
@@ -435,8 +410,7 @@ def answer_proposal_version() -> int:
     return 0
 
 
-def main() -> int:
-    decision = read_text("DECISION").strip()
+def run(decision: str) -> int:
     if decision == MOVING_REF:
         return answer_moving_ref()
     if decision == NEXT_VERSION:
@@ -446,11 +420,6 @@ def main() -> int:
     if decision == PROPOSAL_VERSION:
         return answer_proposal_version()
     annotate(
-        ERROR,
-        f"release-decisions was asked for {decision!r} and answers only {list(DECISIONS)}",
+        ERROR, f"release-decisions was asked for {decision!r} and answers only {list(DECISIONS)}"
     )
     return 1
-
-
-if __name__ == "__main__":
-    sys.exit(main())

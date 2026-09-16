@@ -16,6 +16,8 @@ pytest
 ruff
 speckit
 taplo
+# The package both composite actions run: turboBasic GitHub Actions
+tbga
 turboBasic
 zizmor
 

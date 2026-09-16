@@ -43,11 +43,10 @@ ignore = ["E501"] # line length is the formatter's job
 
 [tool.pyright]
 include = ["actions", "tests"]
-# Modules the tests import by bare name: `tests/capabilities.py`, the one owner of how a workflow is
-# read, and each decision unit, which lives beside the action that runs it. pytest reaches the first by
-# the test file's own directory and the rest through `tests/conftest.py`; pyright needs every directory
-# named here to resolve any of them.
-extraPaths = ["tests", "actions/release-decisions", "actions/ruleset-decisions"]
+# What the tests import by bare name: `tests/capabilities.py`, the one owner of how a workflow is read,
+# and the `tbga` package both composite actions run. pytest reaches the first by the test file's own
+# directory and the second through `tests/conftest.py`; pyright needs both named here.
+extraPaths = ["tests", "actions"]
 # The runner's interpreter rather than the one mise pins, and the default rather than an exception. What
 # a composite action runs executes on whichever `python3` the caller's own configuration left on the
 # runner — 3.12.3 where they pinned none — so a directory added under `actions/` inherits the floor

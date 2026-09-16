@@ -1,8 +1,7 @@
 import sys
 from pathlib import Path
 
-# Each decision unit lives beside the action that runs it, and a hyphen in that directory name means
-# neither is importable as a package. pyright reaches both through `extraPaths` in pyproject.toml.
-ACTIONS = Path(__file__).parent.parent / "actions"
-sys.path.insert(0, str(ACTIONS / "release-decisions"))
-sys.path.insert(0, str(ACTIONS / "ruleset-decisions"))
+# The package both composite actions run. On a runner each reaches it from its own action path's parent;
+# here the directory holding it goes on the path directly. pyright reaches it through `extraPaths` in
+# pyproject.toml.
+sys.path.insert(0, str(Path(__file__).parent.parent / "actions"))
