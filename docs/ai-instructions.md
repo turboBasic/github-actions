@@ -121,6 +121,10 @@ restores the world.
   consumer does not control — that agreement is the only reason a local verdict and a CI verdict match.
 - **An input named for a stage governs that stage entirely.** If it leaves some part of the stage
   running, it is misnamed.
+- **The task runner is provisioned by age, not by version.** Every `jdx/mise-action` step passes
+  `minimum_release_age` and pins no version: a release whose tag exists before its assets do breaks every
+  consumer at once, and a pinned version goes stale where an age does not. The action itself is pinned to
+  a commit like any other third party.
 - **`env` does not propagate from a caller into a called workflow.** Anything a capability needs from
   its caller arrives as an `input`.
 

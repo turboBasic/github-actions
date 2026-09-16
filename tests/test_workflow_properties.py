@@ -431,8 +431,10 @@ def ref_writes(step: Doc) -> str:
 
 
 # Writing a version means authoring a commit. The release path tags what a merged change already
-# decided, so it never authors one — the proposal path is where a version is written.
+# decided, so it never authors one — the proposal path is where a version is written. The write action
+# answers `write-proposal`, which authors one, so the `command:` a step names counts as much as its shell.
 WRITES_A_VERSION = ("git commit", "cz bump", "sed -i", "bump-my-version")
+AUTHORS_A_COMMIT = ("write-proposal",)
 
 
 def release_steps() -> list[Doc]:
@@ -634,6 +636,10 @@ def test_no_step_in_the_release_path_writes_a_version() -> None:
         offending += [
             f"{step.get('id')}: {marker}" for marker in WRITES_A_VERSION if marker in script
         ]
+        named = str(cast(dict[str, Any], step.get("with", {})).get("command", ""))
+        offending += [
+            f"{step.get('id')}: {named}" for marker in AUTHORS_A_COMMIT if named == marker
+        ]
     assert offending == [], (
         f"release.yml authors a change: {offending}. It tags what was already decided, and a version "
         "it wrote itself would be a version no review ever saw"
@@ -669,6 +675,9 @@ def test_the_version_writing_markers_match_a_step_that_authors_one() -> None:
     assert not any(
         marker in "gh release create v1.2.3 --notes-file notes.md" for marker in WRITES_A_VERSION
     )
+    # And the shape the shell markers cannot see: an action asked to author one.
+    assert "write-proposal" in AUTHORS_A_COMMIT
+    assert "create-tag" not in AUTHORS_A_COMMIT
 
 
 # Only a write sends a body, which is what separates it from the read above it. Both the action and the

@@ -11,6 +11,12 @@ PROJECT = REPO / "pyproject.toml"
 # What a composite action runs, and so what is checked against the runner's interpreter.
 ACTION_ROOT = "actions"
 
+# The runner's own `python3`, measured on `ubuntu-latest`. Asserted as a literal rather than merely below
+# mise's pin: raising the default to 3.13 while the image still ships 3.12 would satisfy an inequality and
+# check the package against an interpreter no runner has. Nothing offline can confirm this, so it is
+# re-measured when the image changes.
+RUNNER_FLOOR = "3.12"
+
 # The lint task's whole-tree invocation, read from the command rather than from the task's position in
 # the file, so a second one is covered the moment it is written.
 WHOLE_TREE_LINT = re.compile(r"prek run .*--all-files.*")
@@ -135,6 +141,11 @@ def covers_actions(root: str) -> bool:
 def test_pyright_defaults_to_the_interpreter_a_composite_action_runs_on() -> None:
     pinned = str(tools()["python"])
     checked = default_version(PROJECT)
+    assert checked == RUNNER_FLOOR, (
+        f"{PROJECT.name} checks at {checked} by default, and the runner ships {RUNNER_FLOOR}. A default "
+        "above the runner checks the package against an interpreter it never runs on; below it, against "
+        "one no longer in use. Re-measure on the runner and move both together"
+    )
     assert series(checked) < series(pinned), (
         f"{PROJECT.name} checks at {checked} by default while {MANIFEST.name} pins {pinned}. What a "
         "composite action runs gets whichever `python3` the caller left on the runner, which is older "

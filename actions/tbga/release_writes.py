@@ -16,7 +16,7 @@ def _create_tag(values: Values) -> None:
 
 
 def _publish_release(values: Values) -> None:
-    github.publish_release(output, values["VERSION"], values["NOTES"])
+    github.publish_release(output, values["GH_REPO"], values["VERSION"], values["NOTES"])
 
 
 def _move_ref(values: Values) -> None:
@@ -37,7 +37,12 @@ def _write_proposal(values: Values) -> None:
 
 def _open_proposal(values: Values) -> None:
     proposal.open_proposal(
-        output, values["BRANCH"], values["BASE"], values["VERSION"], values["NOTES"]
+        output,
+        values["GH_REPO"],
+        values["BRANCH"],
+        values["BASE"],
+        values["VERSION"],
+        values["NOTES"],
     )
 
 
@@ -46,10 +51,10 @@ def _open_proposal(values: Values) -> None:
 # runner as a KeyError or as a call with an empty value.
 WRITES: dict[str, tuple[tuple[str, ...], Callable[[Values], None]]] = {
     CREATE_TAG: (("GH_REPO", "VERSION", "COMMIT"), _create_tag),
-    PUBLISH_RELEASE: (("VERSION", "NOTES"), _publish_release),
+    PUBLISH_RELEASE: (("GH_REPO", "VERSION", "NOTES"), _publish_release),
     MOVE_REF: (("GH_REPO", "MOVING_REF", "COMMIT"), _move_ref),
     WRITE_PROPOSAL: (("GH_REPO", "VERSION", "COMPUTED", "COMMIT", "BRANCH"), _write_proposal),
-    OPEN_PROPOSAL: (("BRANCH", "BASE", "VERSION", "NOTES"), _open_proposal),
+    OPEN_PROPOSAL: (("GH_REPO", "BRANCH", "BASE", "VERSION", "NOTES"), _open_proposal),
 }
 
 

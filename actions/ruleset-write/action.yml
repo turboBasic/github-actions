@@ -1,9 +1,9 @@
 name: ruleset-write
 description: >-
   Creates or updates one repository ruleset from a body a decision already settled. Internal surface: it
-  carries no stability promise and composes no check name. Separate from ruleset-state because a ruleset
-  write has no revert: the conditions that permit it stay in the calling workflow, where a reviewer reads
-  them, and a gate holds them there.
+  carries no stability promise and composes no check name. Separate from ruleset-state because it
+  declares no output, and merging the two would leave ruleset-state's empty on every write. The conditions
+  permitting a write stay in the calling workflow, where a reviewer reads them, and a gate holds them.
 
 inputs:
   token:

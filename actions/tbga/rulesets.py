@@ -4,6 +4,7 @@ import os
 from typing import Any, NamedTuple, cast
 
 from . import ERROR, NOTICE, annotate, emit, output, read_text, repository_directory
+from .github import Runner
 
 Doc = dict[str, Any]
 
@@ -244,29 +245,38 @@ def run_list() -> int:
     return 0
 
 
-def run_read() -> int:
+def read_live(run: Runner, repository: str) -> list[Doc]:
     # In full: a list-endpoint summary carries no rules, conditions or bypass_actors, so there would be
     # nothing to compare. `includes_parents=false` excludes an organisation's, which this cannot write.
+    listed = run(
+        ("gh", "api", f"repos/{repository}/rulesets?includes_parents=false", "--jq", ".[].id")
+    )
+    live: list[Doc] = []
+    for identifier in (line.strip() for line in listed.splitlines()):
+        if identifier:
+            live.append(
+                cast(
+                    Doc, json.loads(run(("gh", "api", f"repos/{repository}/rulesets/{identifier}")))
+                )
+            )
+    return live
+
+
+def apply_ruleset(run: Runner, repository: str, verdict: str, body: str, identifier: str) -> None:
+    if verdict == CREATE:
+        run(("gh", "api", f"repos/{repository}/rulesets", "--input", body))
+        return
+    run(("gh", "api", "-X", "PUT", f"repos/{repository}/rulesets/{identifier}", "--input", body))
+
+
+def run_read() -> int:
     repository = read_text("GH_REPO").strip()
     destination = read_text("LIVE_PATH").strip()
     if not repository or not destination:
         annotate(ERROR, "reading the live rulesets needs both GH_REPO and LIVE_PATH")
         return 1
-    listed = output(
-        ("gh", "api", f"repos/{repository}/rulesets?includes_parents=false", "--jq", ".[].id")
-    )
-    live: list[Doc] = []
-    for identifier in (line.strip() for line in listed.splitlines()):
-        if not identifier:
-            continue
-        live.append(
-            cast(
-                Doc,
-                json.loads(output(("gh", "api", f"repos/{repository}/rulesets/{identifier}"))),
-            )
-        )
     with open(destination, "w", encoding="utf-8") as handle:
-        json.dump(live, handle)
+        json.dump(read_live(output, repository), handle)
     return 0
 
 
@@ -278,13 +288,8 @@ def run_apply() -> int:
     if not repository or not body or verdict not in {CREATE, UPDATE}:
         annotate(ERROR, f"applying a ruleset needs a body and a {CREATE} or {UPDATE} verdict")
         return 1
-    if verdict == CREATE:
-        output(("gh", "api", f"repos/{repository}/rulesets", "--input", body))
-    else:
-        if not identifier:
-            annotate(ERROR, f"an {UPDATE} needs the live ruleset's id, and none was given")
-            return 1
-        output(
-            ("gh", "api", "-X", "PUT", f"repos/{repository}/rulesets/{identifier}", "--input", body)
-        )
+    if verdict == UPDATE and not identifier:
+        annotate(ERROR, f"an {UPDATE} needs the live ruleset's id, and none was given")
+        return 1
+    apply_ruleset(output, repository, verdict, body, identifier)
     return 0

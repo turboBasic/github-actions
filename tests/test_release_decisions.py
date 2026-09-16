@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from tbga import release
+from tbga import release, version
 from tbga.release import (
     ALREADY_RELEASED,
     BAD_SURFACE,
@@ -32,7 +32,8 @@ from tbga.release import (
     touches_surface,
 )
 
-SOURCE = Path(release.__file__).read_text(encoding="utf-8")
+# The boundary and its readers live in `version`, so that is the module this parses.
+SOURCE = Path(version.__file__).read_text(encoding="utf-8")
 
 # A request that every refusal admits. Each test below changes exactly what it is about, so a failure
 # names one cause rather than a combination.

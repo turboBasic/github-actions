@@ -3,12 +3,14 @@ import tomllib
 from typing import Any, cast
 
 from . import output
+from .version import is_release_tag
 
 # A commit message holds newlines, so `git log` separates them with this rather than with a line break.
 RECORD = "\x1e"
 
-# A moving compatibility ref is also a tag. Without this filter both would read as releases.
-RELEASE_TAG = "v[0-9]*.[0-9]*.[0-9]*"
+# Narrows what git lists; `is_release_tag` decides. A glob cannot anchor, so this admits `v1.2.3-rc1`
+# and `v1.2.3.4`, and `--sort=-v:refname` puts the four-part one first.
+RELEASE_TAG_GLOB = "v[0-9]*.[0-9]*.[0-9]*"
 
 
 def git(repository: str, *arguments: str) -> str:
@@ -16,8 +18,8 @@ def git(repository: str, *arguments: str) -> str:
 
 
 def release_tags(repository: str) -> tuple[str, ...]:
-    listed = git(repository, "tag", "--list", RELEASE_TAG, "--sort=-v:refname")
-    return tuple(line.strip() for line in listed.splitlines() if line.strip())
+    listed = git(repository, "tag", "--list", RELEASE_TAG_GLOB, "--sort=-v:refname")
+    return tuple(tag for line in listed.splitlines() if is_release_tag(tag := line.strip()))
 
 
 def span(repository: str) -> tuple[str, ...]:

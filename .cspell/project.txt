@@ -59,7 +59,7 @@ pytestmark
 
 # --- Repository jargon ---
 callee
-metacharacter
 docstrings
+metacharacter
 relitigate
 typecheck

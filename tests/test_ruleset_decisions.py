@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -272,3 +273,41 @@ def test_an_update_without_the_live_id_refuses_rather_than_creating_a_second(
     monkeypatch.setenv("BODY", "/tmp/body.json")
     monkeypatch.setenv("RULESET_ID", "")
     assert rulesets.run_apply() == 1
+
+
+def test_a_create_sends_the_body_to_the_collection_and_an_update_to_the_id() -> None:
+    # The one write here with no revert, and the argv had nowhere to be asserted until it took a runner.
+    created = Recorder()
+    rulesets.apply_ruleset(created, "owner/repo", CREATE, "/tmp/body.json", "")
+    assert created.calls == [
+        ("gh", "api", "repos/owner/repo/rulesets", "--input", "/tmp/body.json")
+    ]
+
+    updated = Recorder()
+    rulesets.apply_ruleset(updated, "owner/repo", UPDATE, "/tmp/body.json", "7")
+    assert updated.calls == [
+        ("gh", "api", "-X", "PUT", "repos/owner/repo/rulesets/7", "--input", "/tmp/body.json")
+    ]
+
+
+def test_the_live_read_asks_for_each_ruleset_in_full() -> None:
+    # A list-endpoint summary carries no rules, so a read that stopped at the list would compare against
+    # absent fields and report drift that is not there.
+    reader = Recorder(replies=["3\n9\n", '{"id": 3}', '{"id": 9}'])
+    live = rulesets.read_live(reader, "owner/repo")
+    assert [call[2] for call in reader.calls] == [
+        "repos/owner/repo/rulesets?includes_parents=false",
+        "repos/owner/repo/rulesets/3",
+        "repos/owner/repo/rulesets/9",
+    ]
+    assert live == [{"id": 3}, {"id": 9}]
+
+
+class Recorder:
+    def __init__(self, replies: list[str] | None = None) -> None:
+        self.calls: list[tuple[str, ...]] = []
+        self.replies = replies or []
+
+    def __call__(self, argv: Sequence[str]) -> str:
+        self.calls.append(tuple(argv))
+        return self.replies[len(self.calls) - 1] if len(self.replies) >= len(self.calls) else ""

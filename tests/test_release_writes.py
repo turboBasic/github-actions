@@ -62,8 +62,9 @@ def test_a_reply_that_is_not_a_sha_stops_before_the_ref_is_written() -> None:
 def test_the_release_verifies_the_tag_rather_than_creating_one() -> None:
     # Without it, `gh` creates a lightweight tag on the default branch instead.
     runner = Recorder()
-    github.publish_release(runner, "1.2.3", "/tmp/notes.md")
+    github.publish_release(runner, "owner/repo", "1.2.3", "/tmp/notes.md")
     assert runner.paths() == ["release create"]
+    assert "--repo" in runner.calls[0] and "owner/repo" in runner.calls[0]
     assert "--verify-tag" in runner.calls[0]
     assert "--notes-file" in runner.calls[0] and "/tmp/notes.md" in runner.calls[0]
 
@@ -85,7 +86,7 @@ def test_no_assembled_call_reaches_a_shell() -> None:
     # Principle VI at the Python boundary. A single string is the shape that makes a value a command.
     runner = Recorder(replies=[SHA])
     github.create_tag(runner, "owner/repo", "1.2.3", OTHER)
-    github.publish_release(runner, "1.2.3", "/tmp/notes.md")
+    github.publish_release(runner, "owner/repo", "1.2.3", "/tmp/notes.md")
     github.move_ref(runner, "owner/repo", "v1", SHA)
     for call in runner.calls:
         assert call[0] == "gh"
@@ -179,11 +180,14 @@ def test_the_proposal_is_edited_where_one_is_open_and_created_where_none_is(tmp_
     notes.write_text("- feat: something\n", encoding="utf-8")
 
     existing = Recorder(replies=["7"])
-    proposal.open_proposal(existing, "release/next", "main", "0.4.0", notes.as_posix())
+    proposal.open_proposal(
+        existing, "owner/repo", "release/next", "main", "0.4.0", notes.as_posix()
+    )
     assert existing.calls[1][:4] == ("gh", "pr", "edit", "7")
+    assert "--repo" in existing.calls[1]
 
     fresh = Recorder(replies=[""])
-    proposal.open_proposal(fresh, "release/next", "main", "0.4.0", notes.as_posix())
+    proposal.open_proposal(fresh, "owner/repo", "release/next", "main", "0.4.0", notes.as_posix())
     assert fresh.calls[1][:3] == ("gh", "pr", "create")
     # The rendered notes reach the body, and the override is spelled out in it.
     body = Path(fresh.calls[1][fresh.calls[1].index("--body-file") + 1]).read_text(encoding="utf-8")

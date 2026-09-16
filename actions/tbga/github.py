@@ -50,13 +50,17 @@ def create_tag(run: Runner, repository: str, version: str, commit: str) -> str:
     return tag
 
 
-def publish_release(run: Runner, version: str, notes: str) -> None:
+def publish_release(run: Runner, repository: str, version: str, notes: str) -> None:
+    # `--repo`, never inferred. `gh` would otherwise read the origin of whatever the working directory
+    # holds, and this is the write a consumer sees and nobody can withdraw.
     run(
         (
             "gh",
             "release",
             "create",
             f"v{version}",
+            "--repo",
+            repository,
             "--title",
             f"v{version}",
             "--notes-file",

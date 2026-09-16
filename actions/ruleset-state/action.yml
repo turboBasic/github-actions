@@ -1,8 +1,9 @@
 name: ruleset-state
 description: >-
   Reads what exists — the committed ruleset names in the tree, or the live rulesets in full. Internal
-  surface: it carries no stability promise and composes no check name. Reads only, and separate from
-  ruleset-write for that reason: a read is safe to reach from a schedule and a write is not.
+  surface: it carries no stability promise and composes no check name. Separate from ruleset-write
+  because this declares a `rulesets` output and a write declares none: merged, every write would leave
+  that output empty. What keeps the schedule from writing is the `if:` in apply-ruleset.yml, not this.
 
 inputs:
   command:

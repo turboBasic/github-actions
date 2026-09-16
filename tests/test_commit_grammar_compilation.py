@@ -1,24 +1,11 @@
 from pathlib import Path
 
+from capabilities import allowed_commit_types
 from tbga import grammar
 
-# The default list conventional-commits ships, as its `types` input declares it.
-DEFAULT = "\n".join(
-    (
-        "build",
-        "bump",
-        "chore",
-        "ci",
-        "docs",
-        "feat",
-        "fix",
-        "perf",
-        "refactor",
-        "revert",
-        "style",
-        "test",
-    )
-)
+# Read from the capability that declares them, never retyped: the notes gate and the grammar gate must
+# not disagree about which types exist.
+DEFAULT = "\n".join(allowed_commit_types())
 
 
 def test_the_default_list_compiles_into_one_alternation() -> None:
