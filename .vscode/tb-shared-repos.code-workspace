@@ -5,6 +5,9 @@
     },
     {
       "path": "../../../turboBasic/github-actions-test"
+    },
+    {
+      "path": "../../PopulationCircles2026"
     }
   ],
   "settings": {
