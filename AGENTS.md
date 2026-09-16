@@ -37,6 +37,8 @@ and reaches the rule layers by link. Layer 3 is read on demand by both.
 | `docs/technical-debt.md` | which shortcuts are deliberate, and the condition that clears each |
 | `docs/instruction-layers.md` | the layering itself, explained for another repository to adopt |
 | `tests/` | every rule a gate holds |
+| `actions/tbga/` | what the workflows decide and what they write, as one package each composite action runs |
+| `actions/*/action.yml` | which values each internal action takes, and which subcommand it runs |
 | `mise.toml` | every tool version, and the task names |
 | `.github/renovate.json` | which version updates Renovate opens, how they group, and which it never touches |
 | `.github/dependabot.yml` | that Dependabot is kept for security alerts only, and opens no version-update pull requests |

@@ -126,20 +126,30 @@ restores the world.
 
 ### Python
 
-Python 3.14. The only Python here supports the actions and their tests.
+Python 3.14 for the suite. The only Python here supports the actions and their tests, and every composite
+action runs one package: `actions/tbga/`, reached as `python3 -m tbga` with `PYTHONPATH` set to the action
+path's parent.
 
 - `X | None`, not `typing.Optional`. Built-in `dict`/`list`, not `typing.Dict`.
 - No `from __future__ import annotations`.
 - Full type hints on every signature, tests included.
-- A script invoked by a composite action reads its arguments from the environment, declared in
-  `action.yml`. It never parses `${{ }}` interpolations inline.
-- **A module a composite action runs imports the standard library and nothing else, and keeps to syntax
-  an older interpreter parses.** mise pins 3.14 here, but a caller whose own configuration pins no
-  `python` falls back to the runner's, and `python3` is what runs the file — there is no resolution step
-  to fail loudly. Its imports are asserted against `sys.stdlib_module_names` by test.
-- **A module a composite action runs is importable by the suite and by the type checker.** A hyphen in
-  the directory it sits in means neither can reach it as a package, so the suite's own path setup and
-  pyright's `extraPaths` each name that directory. Both are needed; neither is a relaxation.
+- A module a composite action runs reads its arguments from the environment, declared in `action.yml`. It
+  never parses `${{ }}` interpolations inline, and the subcommand reaches it the same way — as an
+  environment value the shell expands into one argument.
+- **`actions/tbga/` imports the standard library and its own siblings, and nothing else.** Nothing
+  installs a dependency where it runs: the whole repository arrives beside the action, `uv.lock`
+  included, and no step ever syncs it — `mise-action` reads the *caller's* configuration, because the
+  workspace is the caller's tree. Its imports are asserted against `sys.stdlib_module_names` by test,
+  with a relative import admitted where the directory is a package and refused where it is not.
+- **The interpreter is the runner's, not the one mise pins.** A caller pinning no `python` leaves
+  whatever the image ships, measured at 3.12.3 on `ubuntu-latest`, and there is no resolution step to
+  fail loudly — only a `SyntaxError` in a consumer's job. `pyproject.toml` states that floor as pyright's
+  default, with the suite as the one exception; re-measure it when the runner image's `python3` changes,
+  which nothing offline can detect.
+- **Nothing tests `actions/tbga/` on a second interpreter.** pyright at the floor catches newer syntax, a
+  newer module and a newer symbol; what it cannot see is behaviour that differs between the two versions,
+  and a dynamic `getattr` or `__import__` reaching a name the floor lacks. A second pinned Python was
+  weighed against that and declined — the package's stdlib use is long-stable.
 
 ### Comments and docs
 
