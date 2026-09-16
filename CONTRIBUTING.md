@@ -131,9 +131,13 @@ and it only moves when a release is cut, which is **one step: approve a proposal
 After any merge to `main` that leaves something worth describing, [Release on merge][release-workflow]'s
 `proposal` job — ordered behind its own `release` job, so it never reads the tag list before a release
 this same push cuts has written to it — calls the `release-proposal` capability, which opens a pull
-request titled `chore: release vX.Y.Z`. Its
-body is the exact notes that release will publish, and its diff is `pyproject.toml`'s `[project].version`
-and `uv.lock`'s matching line, nothing else. Read the notes, and:
+request titled `chore: release vX.Y.Z`. Its diff is `pyproject.toml`'s `[project].version` and `uv.lock`'s
+matching line, nothing else.
+
+Its body is a **preview** of the notes, rendered when the proposal was last written. The release renders
+its own at merge time and never reads this one, so a body listing less than `main` now holds costs the
+release nothing — [Refresh proposal][refresh-workflow] recomputes it where a reader wants it current. Read
+the notes, and:
 
 - **Agree with the version?** Merge it. [Release on merge][release-workflow] runs on the merge commit
   and, once its `verify` job passes, cuts the release. No further human action. `ci.yml` runs on the same
@@ -204,4 +208,5 @@ secrets before expecting another proposal.
 [test-consumer]: https://github.com/turboBasic/github-actions-test
 [readme-versioning]: README.md#versioning
 [readme-release]: README.md#release
+[refresh-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/refresh-proposal.yml
 [release-workflow]: https://github.com/turboBasic/github-actions/actions/workflows/release-on-merge.yml
