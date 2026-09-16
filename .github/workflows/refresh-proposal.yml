@@ -1,0 +1,27 @@
+name: 🌜 refresh-proposal
+
+# Recomputes the standing proposal against `main` as it is now. A proposal's body is a preview rendered
+# when it was last written, so it goes stale as soon as anything merges without releasing; the release
+# renders its own notes at merge time and never reads this one. This also recovers a proposal branch a
+# person has edited into a state they no longer want.
+#
+# Its own entry point rather than an input on release-on-merge, whose dispatch promises nothing is
+# created. This writes a branch and a pull request, and says so by being reachable only on purpose.
+on:
+  workflow_dispatch:
+
+# Grouped with release-proposal's own group so a refresh and a merge cannot both force-move the branch.
+concurrency:
+  group: release-proposal-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  refresh:
+    permissions:
+      contents: read # the capability checks this tree out; every write it makes goes through the App token
+    uses: $/.github/workflows/release-proposal.yml
+    secrets:
+      app-client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+      app-private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
