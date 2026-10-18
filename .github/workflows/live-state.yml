@@ -17,7 +17,7 @@ permissions: {}
 jobs:
   check:
     name: check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read # the checkout, and the live reads below all go through the default token

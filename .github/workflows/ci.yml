@@ -33,7 +33,7 @@ jobs:
   # evidence that each reaches its own code without the caller's tree.
   own-helpers:
     name: own-helpers
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions: {}
     steps:

@@ -12,11 +12,16 @@
 #
 # The silence expires on its own: tests/test_actionlint_ignore.py plants both forms outside this tree and
 # asks the pinned actionlint whether it still refuses them. The day one is accepted, that gate fails and
-# says to delete this file.
+# says to delete these ignore entries.
 #
 # No `check-jsonschema` hook guards this file, unlike every other config under .github/:
 # check-jsonschema ships no built-in schema for it, and a `--schemafile <url>` would put the network
 # in `mise run ci`. A mis-keyed entry here fails safe — the ignore stops applying and lint reddens.
+# The hosted image is available before the pinned actionlint's built-in label list includes it.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
+
 paths:
   .github/workflows/**/*.yml:
     ignore:
