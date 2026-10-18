@@ -17,7 +17,7 @@ permissions: {}
 jobs:
   tag-and-publish:
     name: tag-and-publish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     # Serialised, and never cancelled. Two releases racing would both force-move the same ref, and
     # whichever lost would leave consumers pinned to a release that was never the latest.

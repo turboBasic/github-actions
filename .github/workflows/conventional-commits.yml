@@ -52,7 +52,7 @@ jobs:
     # with the reason. Pinning the event also puts `pull_request_target` structurally out of reach:
     # it would run with this repository's token against a fork's text.
     if: inputs.check-title && github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read # nothing is checked out here, but the grant is what the workflow-level block asks of the caller
@@ -87,7 +87,7 @@ jobs:
   commit-messages:
     name: commit-messages
     if: inputs.check-commits && github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read # the full-history checkout below, so the range can be read from git

@@ -18,7 +18,7 @@ jobs:
     # Registered in the surface fixture's skip table. There is no base and no head to difference under
     # any other event, so there is nothing to judge.
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read # the difference is read from the API with this token

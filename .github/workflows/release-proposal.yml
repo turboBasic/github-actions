@@ -25,7 +25,7 @@ env:
 jobs:
   propose:
     name: propose
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     # Serialised, and never cancelled: two runs racing would both force-move the proposal branch.
     # Grouped by repository, because the caller's workflow name is not ours to know.
