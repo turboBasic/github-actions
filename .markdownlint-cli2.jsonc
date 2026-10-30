@@ -7,7 +7,8 @@
     // Vendored Spec Kit machinery, rewritten by `specify` on every refresh.
     // `.specify/memory/constitution.md` is ours, so it stays linted.
     ".specify/templates/**",
-    ".claude/skills/speckit-*/**"
+    ".claude/skills/speckit-*/**",
+    ".agents/skills/speckit-*/**"
   ],
   // MD013 (line length): prose here is never rewrapped, so `line_length` is effectively off
   "config": {
