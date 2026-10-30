@@ -52,7 +52,7 @@ jobs:
             echo "::notice::HEAD already carries the release tag $tag; nothing since that release is proposed"
           fi
 
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
         if: steps.guard.outputs.already-released != 'true'
         with:
           minimum_release_age: 24h
