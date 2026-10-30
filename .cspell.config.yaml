@@ -37,6 +37,7 @@ ignorePaths:
   - .specify/templates/**
   - .specify/workflows/**
   - .claude/skills/speckit-*/**
+  - .agents/skills/speckit-*/**
   - tmp/**
   - .ruff_cache/**
   - .pytest_cache/**

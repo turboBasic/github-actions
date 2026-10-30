@@ -27,6 +27,7 @@ LAYERS: dict[int, frozenset[str]] = {
 EXEMPT: dict[str, str] = {
     ".specify/": "vendored Spec Kit machinery, rewritten byte-for-byte by `specify integration upgrade`",
     ".claude/skills/speckit-": "vendored Spec Kit skills, rewritten by the same command",
+    ".agents/skills/speckit-": "vendored Spec Kit skills, rewritten by the same command",
     "specs/": "frozen work logs; a completed feature directory is never edited again",
     "docs/decisions/": "one ruling per file, each its own artefact rather than a layer member",
 }

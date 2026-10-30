@@ -88,5 +88,8 @@ depends = ["lint", "typecheck", "test"]
 # the committed manifests describing a version nothing here pins. Bump
 # `pipx:specify-cli` above, then run this to bring the vendored files with it.
 [tasks.spec-kit-upgrade]
-description = "Re-sync .specify/ and the speckit skills to the pinned specify-cli"
-run = "specify integration upgrade claude"
+description = "Re-sync .specify/ and the speckit skills for Claude and Codex"
+run = [
+  "specify integration upgrade claude",
+  "specify integration upgrade codex",
+]
