@@ -48,7 +48,7 @@ Each `/speckit-*` skill documents its own step and `.specify/templates/` holds w
 those, not a summary here.
 
 `.specify/memory/constitution.md` is ours to edit — it states the invariants as gates a spec fails
-against. Everything else under `.specify/` and `.claude/skills/speckit-*/` is vendored and
+against. Everything else under `.specify/`, `.claude/skills/speckit-*/` and `.agents/skills/speckit-*/` is vendored and
 version-locked to the `pipx:specify-cli` pin mise holds: bump the pin and run
 `mise run spec-kit-upgrade`, never `specify self upgrade`, which replaces the binary outside mise.
 
