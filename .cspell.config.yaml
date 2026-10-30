@@ -26,6 +26,7 @@ dictionaries:
 
 ignorePaths:
   - .git/**
+  - .mise/locks/**
   - .cspell/**
   # Vendored Spec Kit machinery, rewritten by `specify` on every refresh. Listed
   # per-directory rather than as `.specify/**` because `memory/constitution.md`
