@@ -28,9 +28,17 @@
       ]
     },
     {
-      "description": "tests/test_commit_grammar.py holds the conventional-commits.yml version equal to the commitizen uv.lock version. Group the workflow pin and PEP 621 dependency update so Renovate refreshes both in one PR.",
-      "matchManagers": ["custom.regex", "pep621"],
+      "description": "Group the custom workflow pin with PEP 621's commitizen dependency update.",
+      "matchManagers": ["custom.regex"],
       "matchDepNames": ["commitizen"],
+      "groupName": "commitizen",
+      "groupSlug": "commitizen"
+    },
+    {
+      "description": "Update uv.lock for in-range Commitizen releases and group it with the workflow pin.",
+      "matchManagers": ["pep621"],
+      "matchDepNames": ["commitizen"],
+      "rangeStrategy": "update-lockfile",
       "groupName": "commitizen",
       "groupSlug": "commitizen"
     }
