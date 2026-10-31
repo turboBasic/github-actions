@@ -14,6 +14,13 @@
       "groupSlug": "non-major"
     },
     {
+      "description": "The Python constraints in Mise-generated pipx sidecars mirror mise.toml; Renovate must not update them independently.",
+      "matchManagers": ["pep621"],
+      "matchDepTypes": ["requires-python"],
+      "matchFileNames": [".mise/locks/**/pyproject.toml"],
+      "enabled": false
+    },
+    {
       "description": "Nothing in this tree names a first-party reference with a ref today — every one is $/. This rule stays anyway: a future step naming another turboBasic repository by tag is meant to track a moving major, and a digest pin here would defeat that on purpose.",
       "matchPackageNames": ["turboBasic/**"],
       "enabled": false
