@@ -28,11 +28,11 @@
       ]
     },
     {
-      "description": "tests/test_commit_grammar.py holds CZ_VERSION in conventional-commits.yml equal to the commitizen uv.lock resolves. Grouped with lock file maintenance so both move in the one PR, never as a red gate landing separately from the bump that caused it.",
-      "matchManagers": ["custom.regex"],
+      "description": "tests/test_commit_grammar.py holds the conventional-commits.yml version equal to the commitizen uv.lock version. Group the workflow pin and PEP 621 dependency update so Renovate refreshes both in one PR.",
+      "matchManagers": ["custom.regex", "pep621"],
       "matchDepNames": ["commitizen"],
-      "groupName": "lock file maintenance",
-      "groupSlug": "lock-file-maintenance"
+      "groupName": "commitizen",
+      "groupSlug": "commitizen"
     }
   ],
   "customManagers": [
