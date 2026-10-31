@@ -20,7 +20,8 @@ RESYNC = (
 
 def pinned_version() -> str:
     manifest: dict[str, Any] = tomllib.loads((REPO / "mise.toml").read_text(encoding="utf-8"))
-    return str(cast(dict[str, Any], manifest["tools"])[PIN])
+    pin = cast(dict[str, Any], manifest["tools"])[PIN]
+    return cast(str, pin["version"]) if isinstance(pin, dict) else str(pin)
 
 
 def recorded(path: Path) -> dict[str, Any]:
