@@ -43,7 +43,7 @@ permissions:
 env:
   # Two check names, so two jobs. A `needs:` edge between them would make one verdict wait on the other.
   # Both call the same action to compile the grammar; only the version is stated here.
-  CZ_VERSION: "4.18.0"
+  CZ_VERSION: "4.19.3"
 
 jobs:
   pr-title:
