@@ -124,6 +124,13 @@ def test_renovate_groups_the_workflow_pin_with_uv_lock_updates() -> None:
     assert lockfile["rangeStrategy"] == "update-lockfile"
 
 
+def test_lock_file_maintenance_uses_its_default_branch_topic() -> None:
+    config = json.loads(RENOVATE.read_text(encoding="utf-8"))
+
+    assert "groupName" not in config["lockFileMaintenance"]
+    assert "groupSlug" not in config["lockFileMaintenance"]
+
+
 def test_the_workflow_installs_the_version_it_names() -> None:
     # The literal is only one fact while every install in the workflow reads it. A second `pipx install`
     # naming a version inline would pass the gate above and judge with something else.
