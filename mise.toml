@@ -5,7 +5,8 @@ actionlint = "1.7.12"
 git-cliff = "2.14.2"
 "npm:cspell" = "10.4.0"
 "npm:markdownlint-cli2" = "0.24.0"
-"pipx:specify-cli" = "1.2.5"
+"pipx:specify-cli" = { version = "1.2.5", python = "3.14" }
+"pipx:yamllint" = { version = "1.38.0", python = "3.14" }
 prek = "0.5.9"
 python = "3.15.2"
 # actionlint shells out to shellcheck for every `run:` block when it is on PATH, and silently skips that
