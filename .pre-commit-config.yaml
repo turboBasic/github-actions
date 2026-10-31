@@ -18,13 +18,12 @@ repos:
       - id: check-added-large-files
       - id: check-merge-conflict
 
-  - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.12
+  - repo: https://github.com/jdx/jactionlint
+    rev: v2.3.0
     hooks:
-      # `-system` runs the actionlint on PATH, so mise.toml owns the version and this rev pins only
-      # the hook definition. The plain `actionlint` id builds its own at this rev and
-      # `actionlint-docker` hardcodes an image tag — either would lint with a second version.
-      - id: actionlint-system
+      # `-system` runs jactionlint on PATH, so mise.toml owns the version and this rev pins only
+      # the hook definition. The plain hook builds its own binary from this revision.
+      - id: jactionlint-system
 
   - repo: local
     hooks:
@@ -111,7 +110,8 @@ repos:
         language: system
         files: ^\.github/workflows/[^/]+\.ya?ml$
 
-      # actionlint does not look outside .github/workflows.
+      # zizmor audits security across workflows and composite actions; jactionlint's correctness
+      # profile handles their syntax and types.
       - id: zizmor
         name: zizmor
         entry: mise exec -- zizmor --pedantic

@@ -15,4 +15,3 @@ work becomes an issue and the row goes.
 
 | ID | What | Condition that clears it |
 | --- | --- | --- |
-| TD-001 | `.github/actionlint.yaml` ignores two actionlint messages, because actionlint rejects the `$/` same-repository form that GitHub recommends and zizmor's `self-repository` audit demands — once for a reusable workflow call and once for an action reference. Two gates contradict each other and the stale verdict is the one silenced | `tests/test_actionlint_ignore.py` fails. It plants both forms outside this tree and asks the pinned actionlint whether it still refuses them, so the day one is accepted the gate reddens by itself rather than waiting for a sweep. Delete the `paths:` entry and this row; delete the file only if no other configuration remains |

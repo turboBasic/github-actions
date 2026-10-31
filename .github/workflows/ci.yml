@@ -17,8 +17,7 @@ jobs:
   # defect fails the pull request introducing it. The id names the component and composes
   # `python / project-ci`; the README says why the component and not the workflow.
   #
-  # `$/` carries no `@ref` by design. actionlint does not know the form; `.github/actionlint.yaml` says
-  # why that message is ignored rather than the reference respelled.
+  # `$/` carries no `@ref` by design; jactionlint understands GitHub's same-repository reference.
   python:
     permissions:
       contents: read # the capability checks this tree out; no step it runs writes anywhere
