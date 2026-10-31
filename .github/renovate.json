@@ -59,8 +59,6 @@
   "lockFileMaintenance": {
     "enabled": true,
     "commitMessageAction": "update lock file",
-    "schedule": ["every weekend"],
-    "groupName": "lock file maintenance",
-    "groupSlug": "lock-file-maintenance"
+    "schedule": ["every weekend"]
   }
 }
