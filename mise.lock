@@ -112,7 +112,7 @@ specifiers = ["0.24.0"]
 version = "1.2.5"
 backend = "pipx:specify-cli"
 specifiers = ["1.2.5"]
-uv = { path = ".mise/locks/pipx-specify-cli/1.2.5~9c6909fb", digest = "sha256:3304c6c9ed6dde78fb4309792a46a5c16b6bb10e9a85234e907e5209bd220be9" }
+uv = { path = ".mise/locks/pipx-specify-cli/1.2.5~9c6909fb", digest = "sha256:966bac09346887a0af575aee5ab34426bc3d55bc2f32e1df6245cfa261946f4a" }
 
 [tools."pipx:specify-cli".options]
 python = "3.14"
@@ -121,7 +121,7 @@ python = "3.14"
 version = "1.38.0"
 backend = "pipx:yamllint"
 specifiers = ["1.38.0"]
-uv = { path = ".mise/locks/pipx-yamllint/1.38.0~52732482", digest = "sha256:9aa2e344e7ba779398eb6bf295de91ddda0377b65569f48e9a3b47dadb83b0b3" }
+uv = { path = ".mise/locks/pipx-yamllint/1.38.0~52732482", digest = "sha256:fa064855bce59427da105fec169dc33b700e2408ef5c516df8bd30f8f0827b33" }
 
 [tools."pipx:yamllint".options]
 python = "3.14"
