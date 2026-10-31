@@ -19,7 +19,7 @@ repos:
       - id: check-merge-conflict
 
   - repo: https://github.com/jdx/jactionlint
-    rev: v2.3.0
+    rev: v2.4.0
     hooks:
       # `-system` runs jactionlint on PATH, so mise.toml owns the version and this rev pins only
       # the hook definition. The plain hook builds its own binary from this revision.
