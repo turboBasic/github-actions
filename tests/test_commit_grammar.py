@@ -111,6 +111,19 @@ def test_renovates_reader_finds_the_version_the_test_finds() -> None:
     assert match.group("currentValue") == workflow_version()
 
 
+def test_renovate_groups_the_workflow_pin_with_uv_lock_updates() -> None:
+    config = json.loads(RENOVATE.read_text(encoding="utf-8"))
+    rules = [
+        rule for rule in config["packageRules"] if "commitizen" in rule.get("matchDepNames", [])
+    ]
+    workflow = next(rule for rule in rules if "custom.regex" in rule.get("matchManagers", []))
+    lockfile = next(rule for rule in rules if "pep621" in rule.get("matchManagers", []))
+
+    assert workflow["groupName"] == lockfile["groupName"]
+    assert workflow["groupSlug"] == lockfile["groupSlug"]
+    assert lockfile["rangeStrategy"] == "update-lockfile"
+
+
 def test_the_workflow_installs_the_version_it_names() -> None:
     # The literal is only one fact while every install in the workflow reads it. A second `pipx install`
     # naming a version inline would pass the gate above and judge with something else.
