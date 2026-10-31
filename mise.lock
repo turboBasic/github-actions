@@ -52,7 +52,7 @@ url_api = "https://api.github.com/repos/orhun/git-cliff/releases/assets/57348722
 [[tools.jactionlint]]
 version = "2.4.0"
 backend = "packslip:github.com/jdx/jactionlint"
-specifiers = ["v2.4.0"]
+specifiers = ["2.4.0"]
 
 [tools.jactionlint."platforms.linux-arm64"]
 checksum = "sha256:42413391c248f99ff4550d6c866ee717d5ea4ca2b966d9d54ad1503af955e22f"
