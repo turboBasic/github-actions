@@ -14,6 +14,12 @@
       "groupSlug": "non-major"
     },
     {
+      "description": "Keep the jactionlint Mise pin unprefixed while its upstream GitHub tags include v.",
+      "matchManagers": ["mise"],
+      "matchDepNames": ["jactionlint"],
+      "extractVersion": "^v?(?<version>.*)$"
+    },
+    {
       "description": "The Python constraints in Mise-generated pipx sidecars mirror mise.toml; Renovate must not update them independently.",
       "matchManagers": ["pep621"],
       "matchDepTypes": ["requires-python"],

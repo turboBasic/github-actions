@@ -1,8 +1,8 @@
 [tools]
-jactionlint = "2.3.0"
 # The notes renderer, pinned here because this repository is its own consumer of the release capability.
 # A capability never pins a version the repository being released does not control.
 git-cliff = "2.14.2"
+jactionlint = "2.4.0"
 "npm:cspell" = "10.4.0"
 "npm:markdownlint-cli2" = "0.24.0"
 "pipx:specify-cli" = { version = "1.2.5", python = "3.14" }
