@@ -6,7 +6,7 @@ Andrii
 Melnyk
 
 # --- Repository and tooling ---
-actionlint
+jactionlint
 commitizen
 cspell
 mise

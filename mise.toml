@@ -1,5 +1,5 @@
 [tools]
-actionlint = "1.7.12"
+jactionlint = "2.3.0"
 # The notes renderer, pinned here because this repository is its own consumer of the release capability.
 # A capability never pins a version the repository being released does not control.
 git-cliff = "2.14.2"
@@ -9,8 +9,8 @@ git-cliff = "2.14.2"
 "pipx:yamllint" = { version = "1.38.0", python = "3.14" }
 prek = "0.5.9"
 python = "3.15.2"
-# actionlint shells out to shellcheck for every `run:` block when it is on PATH, and silently skips that
-# analysis when it is not. Without this pin, `mise run lint` and the `actionlint-system` hook both read
+# jactionlint shells out to shellcheck for every `run:` block when it is on PATH, and skips that
+# analysis when it is not. Without this pin, `mise run lint` and the `jactionlint-system` hook both read
 # less than they appear to.
 shellcheck = "0.11.0"
 taplo = "0.10.0"

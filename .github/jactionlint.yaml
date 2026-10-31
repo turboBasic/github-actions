@@ -1,0 +1,6 @@
+# Match the existing syntax/type gate; zizmor separately checks workflow security policy.
+profile: correctness
+
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
