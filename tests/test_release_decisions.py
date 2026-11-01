@@ -408,21 +408,21 @@ def test_the_trailer_is_found_under_a_commit_carrying_none_of_its_own() -> None:
     # trailer being sought sits on the workflow's own commit underneath it.
     messages = (
         "chore: edit the version by hand\n",
-        "chore: propose 0.2.0\n\nComputed-Version: 0.2.0\n",
+        "chore: release v0.2.0\n\nComputed-Version: 0.2.0\n",
     )
     assert release.find_last_computed(messages) == "0.2.0"
 
 
 def test_the_newest_trailer_wins_over_an_older_one() -> None:
     messages = (
-        "chore: propose 0.3.0\n\nComputed-Version: 0.3.0\n",
-        "chore: propose 0.2.0\n\nComputed-Version: 0.2.0\n",
+        "chore: release v0.3.0\n\nComputed-Version: 0.3.0\n",
+        "chore: release v0.2.0\n\nComputed-Version: 0.2.0\n",
     )
     assert release.find_last_computed(messages) == "0.3.0"
 
 
 def test_no_trailer_anywhere_is_empty() -> None:
-    assert release.find_last_computed(("chore: propose 0.2.0\n",)) == ""
+    assert release.find_last_computed(("chore: release v0.2.0\n",)) == ""
 
 
 def test_a_branch_matching_the_last_computation_is_not_an_override() -> None:
