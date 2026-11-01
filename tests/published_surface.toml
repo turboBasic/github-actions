@@ -44,13 +44,15 @@ inputs = [
   "run-build",
   "run-lint",
   "run-test",
+  "run-coverage",
   "run-typecheck",
+  "runner-type",
   "timeout-minutes",
   "working-directory",
 ]
 permissions = { contents = "read" }
 tool_prerequisites = [
-  "the tasks lint, build, typecheck and test, minus whichever stages the caller switches off",
+  "the tasks lint, build, typecheck and test, plus coverage when enabled, minus whichever stages the caller switches off",
 ]
 skips_under = []
 

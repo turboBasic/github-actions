@@ -38,7 +38,7 @@ GOVERNS_A_CACHE = re.compile(r"cache", re.IGNORECASE)
 
 # The steps of `project-ci` that judge the tree, which are also the tasks it invokes: the stage id, its
 # switch and the task behind it are one word.
-STAGES = ("lint", "build", "typecheck", "test")
+STAGES = ("lint", "build", "typecheck", "test", "coverage")
 
 
 def skipping_jobs(doc: Doc) -> set[str]:
