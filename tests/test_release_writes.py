@@ -196,7 +196,7 @@ def test_the_proposal_is_edited_where_one_is_open_and_created_where_none_is(tmp_
     assert "## Release proposal" in body
     assert "This PR proposes releasing v0.4.0." in body
     assert "- feat: something" in body
-    assert "overrides the computed one" in body
+    assert "override the computed version" in body
 
 
 def test_every_write_the_entry_point_offers_has_a_table_entry() -> None:
