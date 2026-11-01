@@ -7,6 +7,10 @@ on:
         description: The component's directory — where its own task configuration lives.
         type: string
         default: .
+      runner-type:
+        description: The runner label for jobs.
+        type: string
+        default: ubuntu-26.04
       run-lint:
         description: Run the lint stage.
         type: boolean
@@ -23,6 +27,10 @@ on:
         description: Run the test stage.
         type: boolean
         default: true
+      run-coverage:
+        description: Run the coverage stage.
+        type: boolean
+        default: false
       timeout-minutes:
         description: How long the job may run before it is cancelled.
         type: number
@@ -35,19 +43,18 @@ permissions: {}
 jobs:
   project-ci:
     name: project-ci
-    runs-on: ubuntu-26.04
+    runs-on: ${{ inputs.runner-type }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     permissions:
       contents: read # the checkout below; no step here writes anywhere
     steps:
-      # A stage switched off is a step skipped, and a job of nothing but skipped steps is green
-      # (principle VII).
+      # Fail when every stage is off; GitHub treats a job with only skipped steps as successful.
       - id: stages
         name: Refuse a call with no stage on
         if: >-
-          !inputs.run-lint && !inputs.run-build && !inputs.run-typecheck && !inputs.run-test
+          !inputs.run-lint && !inputs.run-build && !inputs.run-typecheck && !inputs.run-test && !inputs.run-coverage
         run: |
-          echo "::error::project-ci was called with run-lint, run-build, run-typecheck and run-test all false, so it has nothing to judge. Switch on the stages this component has, or drop the call and the context requiring it together." >&2
+          echo "::error::project-ci was called with all stages disabled, so it has nothing to judge. Switch on the stages this component has, or drop the call and the context requiring it together." >&2
           exit 1
 
       # No depth: a stage judges the tree as it stands, never a range.
@@ -90,3 +97,9 @@ jobs:
         if: inputs.run-test
         working-directory: ${{ inputs.working-directory }}
         run: mise run test
+
+      - id: coverage
+        name: Test coverage
+        if: inputs.run-coverage
+        working-directory: ${{ inputs.working-directory }}
+        run: mise run coverage
