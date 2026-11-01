@@ -31,7 +31,7 @@ def commit(where: Path, subject: str, *, touching: str = "file.txt") -> None:
         "-c",
         "user.email=t@example.com",
         "commit",
-        "-m",
+        "--message",
         subject,
     )
 
@@ -106,7 +106,7 @@ def test_a_hand_edit_on_top_of_the_trailer_commit_wins(tree: Path) -> None:
     # The override's ordinary shape. A person's commit carries no trailer, so reading only the tip finds
     # none and the next run overwrites their decision.
     base = repository.git(tree.as_posix(), "rev-parse", "HEAD").strip()
-    git(tree, "switch", "-c", "release/next")
+    git(tree, "switch", "--create", "release/next")
     (tree / "pyproject.toml").write_text('[project]\nversion = "0.4.0"\n', encoding="utf-8")
     git(tree, "add", "pyproject.toml")
     git(
@@ -116,8 +116,8 @@ def test_a_hand_edit_on_top_of_the_trailer_commit_wins(tree: Path) -> None:
         "-c",
         "user.email=t@example.com",
         "commit",
-        "-m",
-        "chore: propose 0.4.0\n\nComputed-Version: 0.4.0",
+        "--message",
+        "chore: release v0.4.0\n\nComputed-Version: 0.4.0",
     )
     (tree / "pyproject.toml").write_text('[project]\nversion = "1.0.0"\n', encoding="utf-8")
     git(tree, "add", "pyproject.toml")
@@ -128,7 +128,7 @@ def test_a_hand_edit_on_top_of_the_trailer_commit_wins(tree: Path) -> None:
         "-c",
         "user.email=t@example.com",
         "commit",
-        "-m",
+        "--message",
         "chore: actually release 1.0.0",
     )
 

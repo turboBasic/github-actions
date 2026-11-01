@@ -63,7 +63,7 @@ def write_proposal(
         repository,
         "git/commits",
         {
-            "message": f"chore: propose {version}\n\nComputed-Version: {computed}\n",
+            "message": f"chore: release v{version}\n\nComputed-Version: {computed}\n",
             "tree": tree,
             "parents": [commit],
         },
@@ -75,12 +75,12 @@ def write_proposal(
             (
                 "gh",
                 "api",
-                "-X",
+                "--method",
                 "PATCH",
                 f"repos/{repository}/git/refs/heads/{branch}",
-                "-F",
+                "--field",
                 "force=true",
-                "-f",
+                "--raw-field",
                 f"sha={proposed}",
             )
         )
@@ -90,9 +90,9 @@ def write_proposal(
                 "gh",
                 "api",
                 f"repos/{repository}/git/refs",
-                "-f",
+                "--raw-field",
                 f"ref=refs/heads/{branch}",
-                "-f",
+                "--raw-field",
                 f"sha={proposed}",
             )
         )
@@ -106,9 +106,12 @@ def open_proposal(
     body = os.path.join(scratch, "body.md")
     with open(notes, encoding="utf-8") as reading, open(body, "w", encoding="utf-8") as writing:
         writing.write(
-            f"Merging this releases v{version}. The notes below are the ones it will publish.\n\n"
-            "Editing the version in pyproject.toml on this branch overrides the computed one, and "
-            "survives every refresh.\n\n"
+            "## Release proposal\n\n"
+            f"This PR proposes releasing v{version}. Merging it approves the version and triggers "
+            "publication. The notes below preview the release; they are rendered again when the PR "
+            "merges.\n\n"
+            "Edit the version in pyproject.toml on this branch to override the computed version; "
+            "your choice survives refreshes.\n\n"
         )
         writing.write(reading.read())
     title = f"chore: release v{version}"

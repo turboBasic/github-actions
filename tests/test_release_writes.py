@@ -140,7 +140,7 @@ def test_the_trailer_records_what_was_computed_not_what_was_written(tmp_path: Pa
     commits = [call for call in runner.calls if call[2].endswith("/git/commits")]
     sent = json.loads(Path(commits[0][commits[0].index("--input") + 1]).read_text(encoding="utf-8"))
     assert "Computed-Version: 0.4.1" in sent["message"]
-    assert sent["message"].startswith("chore: propose 1.0.0")
+    assert sent["message"].startswith("chore: release v1.0.0")
 
 
 def test_a_blob_coming_back_unusable_writes_no_tree_and_moves_no_ref(tmp_path: Path) -> None:
@@ -185,14 +185,18 @@ def test_the_proposal_is_edited_where_one_is_open_and_created_where_none_is(tmp_
     )
     assert existing.calls[1][:4] == ("gh", "pr", "edit", "7")
     assert "--repo" in existing.calls[1]
+    assert existing.calls[1][existing.calls[1].index("--title") + 1] == "chore: release v0.4.0"
 
     fresh = Recorder(replies=[""])
     proposal.open_proposal(fresh, "owner/repo", "release/next", "main", "0.4.0", notes.as_posix())
     assert fresh.calls[1][:3] == ("gh", "pr", "create")
+    assert fresh.calls[1][fresh.calls[1].index("--title") + 1] == "chore: release v0.4.0"
     # The rendered notes reach the body, and the override is spelled out in it.
     body = Path(fresh.calls[1][fresh.calls[1].index("--body-file") + 1]).read_text(encoding="utf-8")
+    assert "## Release proposal" in body
+    assert "This PR proposes releasing v0.4.0." in body
     assert "- feat: something" in body
-    assert "overrides the computed one" in body
+    assert "override the computed version" in body
 
 
 def test_every_write_the_entry_point_offers_has_a_table_entry() -> None:
