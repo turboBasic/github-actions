@@ -98,7 +98,7 @@ repository_ids = { repository = "1404951382" }
 
 [[tools."npm:cspell"]]
 version = "10.4.0"
-aube = { path = ".mise/locks/npm-cspell/10.4.0", digest = "sha256:65c8705e4e9922e7580ae686addb30d74f8ab50b83aa6cc6db960e306730f1e8" }
+aube = { path = ".mise/locks/npm-cspell/10.4.0", digest = "sha256:53420a195ec3b9ccb94abf3f69e648476bc1502a4d5135b6f0d9015fd2da804f" }
 backend = "npm:cspell"
 specifiers = ["10.4.0"]
 
@@ -112,7 +112,7 @@ specifiers = ["0.24.0"]
 version = "1.2.5"
 backend = "pipx:specify-cli"
 specifiers = ["1.2.5"]
-uv = { path = ".mise/locks/pipx-specify-cli/1.2.5~9c6909fb", digest = "sha256:1a15ceee3198ba329c8d3e60ea1c9ea4d1f92165da49d82e4ea6fa9d4e11b31b" }
+uv = { path = ".mise/locks/pipx-specify-cli/1.2.5~9c6909fb", digest = "sha256:4e076371ce5840eb83cca59551addb67133aa594979531397c1b5fb20cdd9d97" }
 
 [tools."pipx:specify-cli".options]
 python = "3.14"
@@ -121,7 +121,7 @@ python = "3.14"
 version = "1.38.0"
 backend = "pipx:yamllint"
 specifiers = ["1.38.0"]
-uv = { path = ".mise/locks/pipx-yamllint/1.38.0~52732482", digest = "sha256:9f1f94d582c19941df04f29d47bd99415aacb9cb1a2da38315429aec4005e9a0" }
+uv = { path = ".mise/locks/pipx-yamllint/1.38.0~52732482", digest = "sha256:9adc8da2e09e0d0a77246bfb54d1a0d67e2b29979e29f8f815077b90d5638639" }
 
 [tools."pipx:yamllint".options]
 python = "3.14"
