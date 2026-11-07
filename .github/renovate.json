@@ -24,10 +24,8 @@
       "extractVersion": "^v?(?<version>.*)$"
     },
     {
-      "description": "The Python constraints in Mise-generated pipx sidecars mirror mise.toml; Renovate must not update them independently.",
-      "matchManagers": ["pep621"],
-      "matchDepTypes": ["requires-python"],
-      "matchFileNames": [".mise/locks/**/pyproject.toml"],
+      "description": "Mise owns every file under .mise/locks/ and mise.lock stores a digest of each; an edit by any other tool can never match it, so Renovate must not touch them.",
+      "matchFileNames": [".mise/locks/**"],
       "enabled": false
     },
     {
