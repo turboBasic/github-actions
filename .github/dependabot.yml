@@ -4,8 +4,8 @@
 # maintain the `# vX.Y.Z` comment beside a digest pin.
 #
 # Dependabot is kept for security alerts, which Renovate does not replace and which ignore
-# open-pull-requests-limit below. Every PR either tool opens waits for a human; the two tools
-# divide the work by what triggers them, not by how the result is merged.
+# open-pull-requests-limit below. The two tools divide the work by what triggers them: Renovate
+# by a new release, Dependabot by an advisory.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
