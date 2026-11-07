@@ -66,7 +66,7 @@
       "groupSlug": "commitizen"
     },
     {
-      "description": "python is the suite's interpreter and pyright's floor; a bump is a decision, not a routine merge.",
+      "description": "python is the suite's interpreter; a bump is a decision, not a routine merge.",
       "matchDepNames": ["python"],
       "automerge": false
     }
