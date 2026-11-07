@@ -18,7 +18,7 @@
       "groupSlug": "non-major"
     },
     {
-      "description": "Dev tool pins and pre-commit hooks are checked by this repo's own gates and ship to no consumer, so a green minor or patch merges unattended. Ungrouped, so one failing release cannot hold the others back. Must stay before the specify-cli and python rules, which exclude themselves from it.",
+      "description": "Dev tool pins and pre-commit hooks are checked by this repo's own gates and ship to no consumer, so a green minor or patch merges unattended. Ungrouped, so one failing release cannot hold the others back. Must stay before the python rule, which excludes itself from it.",
       "matchManagers": ["mise", "pre-commit"],
       "matchUpdateTypes": ["minor", "patch"],
       "automerge": true,

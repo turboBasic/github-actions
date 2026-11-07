@@ -124,6 +124,43 @@ def test_renovate_groups_the_workflow_pin_with_uv_lock_updates() -> None:
     assert lockfile["rangeStrategy"] == "update-lockfile"
 
 
+SIMULATED_MATCHERS = {"matchManagers", "matchDepNames", "matchUpdateTypes"}
+
+
+def renovate_decision(manager: str, dep: str, update: str) -> dict[str, Any]:
+    # Later rules win key by key. A rule naming a matcher this does not model (a file glob, a package
+    # glob) is skipped, so the order test below speaks only for the three it reads.
+    config = json.loads(RENOVATE.read_text(encoding="utf-8"))
+    decision: dict[str, Any] = {"automerge": False, "enabled": True}
+    for rule in config["packageRules"]:
+        matchers = {key for key in rule if key.startswith("match")}
+        if not matchers or not matchers <= SIMULATED_MATCHERS:
+            continue
+        if (
+            manager in rule.get("matchManagers", [manager])
+            and dep in rule.get("matchDepNames", [dep])
+            and update in rule.get("matchUpdateTypes", [update])
+        ):
+            decision |= {key: rule[key] for key in ("automerge", "enabled") if key in rule}
+    return decision
+
+
+def test_renovate_merges_a_dev_tool_unattended() -> None:
+    # Pre-flight the walk: if it never reports a merge, the assertions below hold nothing.
+    assert renovate_decision("mise", "git-cliff", "minor")["automerge"] is True
+    assert renovate_decision("pre-commit", "any-hook", "patch")["automerge"] is True
+
+
+def test_renovate_never_merges_the_python_pin_and_never_opens_the_pipx_pins() -> None:
+    # Only the order of packageRules keeps `python` from the dev-tool rule that precedes it.
+    assert renovate_decision("mise", "python", "minor")["automerge"] is False
+    for pin in ("pipx:specify-cli", "pipx:yamllint"):
+        assert renovate_decision("mise", pin, "patch")["enabled"] is False, (
+            f"{RENOVATE.name} no longer disables {pin}, so Renovate would open a bump for it that cannot "
+            "carry its .mise/locks sidecar"
+        )
+
+
 def test_lock_file_maintenance_uses_its_default_branch_topic() -> None:
     config = json.loads(RENOVATE.read_text(encoding="utf-8"))
 
