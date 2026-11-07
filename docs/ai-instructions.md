@@ -98,8 +98,6 @@ same linters.
 - Dev deps in `[dependency-groups].dev`. `[project].dependencies` stays empty — nothing is published
   from here.
 - Run `uv lock` after editing dependencies and commit the result in the same change.
-- Renovate owns version updates and merges the low-risk ones unattended; Dependabot owns security updates
-  and alerts only. `.github/renovate.json` says which merge.
 - Introducing a new file type updates `.editorconfig`, `.gitattributes`, and `.gitignore` in the same
   change.
 
