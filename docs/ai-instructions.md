@@ -130,9 +130,9 @@ restores the world.
 
 ### Python
 
-Python 3.14 for the suite. The only Python here supports the actions and their tests, and every composite
-action runs one package: `actions/tbga/`, reached as `python3 -m tbga` with `PYTHONPATH` set to the action
-path's parent.
+The suite runs the Python that `mise.toml` pins. The only Python here supports the actions and their tests,
+and every composite action runs one package: `actions/tbga/`, reached as `python3 -m tbga` with `PYTHONPATH`
+set to the action path's parent.
 
 - `X | None`, not `typing.Optional`. Built-in `dict`/`list`, not `typing.Dict`.
 - No `from __future__ import annotations`.
@@ -145,9 +145,9 @@ path's parent.
   step syncs it: `mise-action` reads the caller's configuration, not ours. A test asserts every import
   against `sys.stdlib_module_names`, admitting a relative import only inside a package.
 - **The interpreter is the runner's, not mise's.** A caller pinning no `python` leaves whatever the image
-  ships — 3.12.3 on `ubuntu-latest`, measured. Nothing fails loudly between the two; the symptom is a
-  `SyntaxError` in a consumer's job. `pyproject.toml` states that floor as pyright's default, the suite
-  being the one exception. Re-measure when the runner image's `python3` changes, which no gate can detect.
+  ships, and `pyproject.toml` records the measured version as pyright's default, the suite being the one
+  exception. Nothing fails loudly between the two; the symptom is a `SyntaxError` in a consumer's job.
+  Re-measure when the runner image's `python3` changes, which no gate can detect.
 - **No second interpreter tests the package.** pyright at the floor catches newer syntax, a newer module
   and a newer symbol. It cannot see behaviour that differs between versions, nor a dynamic `getattr`
   reaching a name the floor lacks. Declined deliberately: the stdlib calls here are long-stable.
