@@ -161,6 +161,20 @@ def test_renovate_never_merges_the_python_pin_and_never_opens_the_pipx_pins() ->
         )
 
 
+def test_every_manager_a_rule_names_is_one_renovate_runs() -> None:
+    config = json.loads(RENOVATE.read_text(encoding="utf-8"))
+    enabled = set(config["enabledManagers"])
+    named = {m for rule in config["packageRules"] for m in rule.get("matchManagers", [])}
+    named |= {f"custom.{manager['customType']}" for manager in config["customManagers"]}
+    assert enabled, (
+        f"{RENOVATE.name} lists no enabledManagers, so Renovate runs every manager it detects"
+    )
+    assert named <= enabled, (
+        f"{RENOVATE.name} names managers {sorted(named - enabled)} in a rule or a customManager that "
+        "enabledManagers leaves off, so that rule never matches and that manager never runs"
+    )
+
+
 def test_lock_file_maintenance_uses_its_default_branch_topic() -> None:
     config = json.loads(RENOVATE.read_text(encoding="utf-8"))
 
