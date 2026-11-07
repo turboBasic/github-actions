@@ -7,7 +7,7 @@ jactionlint = "2.4.0"
 "npm:markdownlint-cli2" = "0.24.0"
 "pipx:specify-cli" = { version = "1.2.5", python = "3.14" }
 "pipx:yamllint" = { version = "1.38.0", python = "3.14" }
-prek = "0.5.9"
+prek = "0.5.10"
 python = "3.15.2"
 # jactionlint shells out to shellcheck for every `run:` block when it is on PATH, and skips that
 # analysis when it is not. Without this pin, `mise run lint` and the `jactionlint-system` hook both read
