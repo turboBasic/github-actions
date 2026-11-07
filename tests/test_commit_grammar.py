@@ -152,9 +152,7 @@ def test_renovate_merges_a_dev_tool_unattended() -> None:
 
 
 def test_renovate_never_merges_the_python_pin_and_never_opens_the_pipx_pins() -> None:
-    # Only the order of packageRules keeps `python` from the dev-tool rule that precedes it, and only
-    # `enabled: false` keeps a pipx bump away: Renovate's sandbox has no uv, so one arrives without its
-    # sidecar and fails `mise install --locked`.
+    # Only the order of packageRules keeps `python` from the dev-tool rule that precedes it.
     assert renovate_decision("mise", "python", "minor")["automerge"] is False
     for pin in ("pipx:specify-cli", "pipx:yamllint"):
         assert renovate_decision("mise", pin, "patch")["enabled"] is False, (
