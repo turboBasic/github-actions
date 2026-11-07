@@ -354,6 +354,32 @@ def test_every_job_of_a_capability_without_the_input_fixes_its_own_timeout() -> 
     )
 
 
+HASHED_FILES = re.compile(r"hashFiles\((?P<args>[^)]*)\)")
+
+
+def hashed_files(key: str) -> set[str]:
+    match = HASHED_FILES.search(key)
+    if match is None:
+        return set()
+    return {arg.strip().strip("'") for arg in match.group("args").split(",")}
+
+
+def test_the_hashed_files_reader_splits_every_argument_it_is_given() -> None:
+    assert hashed_files("k-${{ hashFiles('a.yaml', 'b.toml') }}") == {"a.yaml", "b.toml"}
+    assert hashed_files("k-${{ runner.os }}") == set()
+
+
+def test_the_hook_cache_key_follows_whichever_prek_config_the_caller_has() -> None:
+    # A key hashing a file the caller does not have is constant, and a constant key is never saved
+    # again once an entry exists, so every later hook change downloads on each run.
+    (cache,) = (
+        step
+        for step in steps_of("project-ci", "project-ci")
+        if str(step.get("uses", "")).startswith("actions/cache@")
+    )
+    assert hashed_files(str(cache["with"]["key"])) >= {".pre-commit-config.y*ml", "prek.toml"}
+
+
 def test_project_ci_invokes_the_fixed_contract_and_prepares_nothing() -> None:
     commands = {
         str(step.get("id", "")): str(step.get("run", "")).strip()
