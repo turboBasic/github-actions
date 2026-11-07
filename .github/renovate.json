@@ -69,9 +69,5 @@
   "pre-commit": {
     "enabled": true
   },
-  "lockFileMaintenance": {
-    "enabled": true,
-    "commitMessageAction": "update lock file",
-    "schedule": ["every weekend"]
-  }
+  "lockFileMaintenance": { "enabled": false }
 }
