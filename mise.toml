@@ -14,7 +14,7 @@ python = "3.15.2"
 # less than they appear to.
 shellcheck = "0.11.0"
 taplo = "0.10.0"
-uv = "0.13.6"
+uv = "0.13.7"
 zizmor = "1.31.1"
 
 [env]
