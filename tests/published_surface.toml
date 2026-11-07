@@ -89,7 +89,7 @@ published = true
 check_name = ["propose"]
 # It writes a branch and a pull request; there is no criterion by which either passes or fails.
 judges = false
-inputs = []
+inputs = ["assignees"]
 secrets = ["app-client-id", "app-private-key"]
 # Read only: every write goes through the App installation token minted inside the job.
 permissions = { contents = "read" }

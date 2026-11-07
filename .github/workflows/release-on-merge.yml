@@ -48,6 +48,8 @@ jobs:
     permissions:
       contents: read # the capability checks this tree out; every write it makes goes through the App token
     uses: $/.github/workflows/release-proposal.yml
+    with:
+      assignees: turboBasic
     secrets:
       app-client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
       app-private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

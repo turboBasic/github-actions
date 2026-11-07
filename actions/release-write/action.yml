@@ -53,6 +53,11 @@ inputs:
     description: The branch the proposal is opened against, for open-proposal.
     required: false
     default: ""
+  assignees:
+    description: >-
+      Comma-separated logins the proposal is assigned to, for open-proposal. Empty assigns no one.
+    required: false
+    default: ""
   repository-directory:
     description: The tree the proposed files are read from. Defaults to the caller's checkout.
     required: false
@@ -74,5 +79,6 @@ runs:
         COMPUTED: ${{ inputs.computed-version }}
         BRANCH: ${{ inputs.branch }}
         BASE: ${{ inputs.base }}
+        ASSIGNEES: ${{ inputs.assignees }}
         REPO_DIR: ${{ inputs.repository-directory || github.workspace }}
       run: python3 -m tbga "$COMMAND"

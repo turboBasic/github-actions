@@ -7,6 +7,14 @@ name: 🧩 release-proposal
 # `workflow_call` and nothing else: no event a fork can raise reaches the App credentials.
 on:
   workflow_call:
+    inputs:
+      assignees:
+        description: >-
+          Comma-separated logins the proposal pull request is assigned to. Empty assigns no one. Each login
+          has to be assignable on the calling repository, or the run fails when it opens the proposal.
+        type: string
+        required: false
+        default: ""
     secrets:
       app-client-id:
         description: >-
@@ -139,3 +147,4 @@ jobs:
           branch: ${{ env.PROPOSAL_BRANCH }}
           base: ${{ github.ref_name }}
           notes: ${{ steps.next.outputs.notes-path }}
+          assignees: ${{ inputs.assignees }}

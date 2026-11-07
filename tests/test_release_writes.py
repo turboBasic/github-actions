@@ -181,14 +181,16 @@ def test_the_proposal_is_edited_where_one_is_open_and_created_where_none_is(tmp_
 
     existing = Recorder(replies=["7"])
     proposal.open_proposal(
-        existing, "owner/repo", "release/next", "main", "0.4.0", notes.as_posix()
+        existing, "owner/repo", "release/next", "main", "0.4.0", notes.as_posix(), ""
     )
     assert existing.calls[1][:4] == ("gh", "pr", "edit", "7")
     assert "--repo" in existing.calls[1]
     assert existing.calls[1][existing.calls[1].index("--title") + 1] == "chore: release v0.4.0"
 
     fresh = Recorder(replies=[""])
-    proposal.open_proposal(fresh, "owner/repo", "release/next", "main", "0.4.0", notes.as_posix())
+    proposal.open_proposal(
+        fresh, "owner/repo", "release/next", "main", "0.4.0", notes.as_posix(), ""
+    )
     assert fresh.calls[1][:3] == ("gh", "pr", "create")
     assert fresh.calls[1][fresh.calls[1].index("--title") + 1] == "chore: release v0.4.0"
     # The rendered notes reach the body, and the override is spelled out in it.
@@ -197,6 +199,27 @@ def test_the_proposal_is_edited_where_one_is_open_and_created_where_none_is(tmp_
     assert "This PR proposes releasing v0.4.0." in body
     assert "- feat: something" in body
     assert "override the computed version" in body
+
+
+def test_the_proposal_is_assigned_to_each_login_and_to_no_one_when_none_is_given(
+    tmp_path: Path,
+) -> None:
+    notes = tmp_path / "notes.md"
+    notes.write_text("- feat: something\n", encoding="utf-8")
+
+    def called(replies: list[str], assignees: str) -> tuple[str, ...]:
+        runner = Recorder(replies=replies)
+        proposal.open_proposal(
+            runner, "owner/repo", "release/next", "main", "0.4.0", notes.as_posix(), assignees
+        )
+        return runner.calls[1]
+
+    fresh = called([""], " alice, bob ,,")
+    assert fresh[fresh.index("--assignee") + 1] == "alice,bob"
+    existing = called(["7"], "alice")
+    assert existing[existing.index("--add-assignee") + 1] == "alice"
+    for call in (called([""], ""), called(["7"], " , ")):
+        assert "--assignee" not in call and "--add-assignee" not in call
 
 
 def test_every_write_the_entry_point_offers_has_a_table_entry() -> None:

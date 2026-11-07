@@ -280,6 +280,10 @@ job exists — no job, no log, no annotation — exactly as a permission you do 
 **If that key is rotated or the installation removed, no proposal is raised and nothing says so.** No
 check reddens, because nothing failed — the run cannot mint a token.
 
+**Name who the proposal is for with `assignees`.** It takes logins and assigns the proposal to them each time it is
+opened or refreshed. A login the repository cannot assign fails the
+run at that step rather than opening an unowned proposal.
+
 **The proposal branch is `release/next`, and a version you put there wins.** Every merge refreshes the
 branch and leaves a hand-edited version alone: the workflow records what it computed in a trailer on its
 own commit, so a version disagreeing with that trailer is one a person decided.
