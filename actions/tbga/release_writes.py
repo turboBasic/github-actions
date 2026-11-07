@@ -43,6 +43,7 @@ def _open_proposal(values: Values) -> None:
         values["BASE"],
         values["VERSION"],
         values["NOTES"],
+        read_text("ASSIGNEES"),
     )
 
 

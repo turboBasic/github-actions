@@ -100,7 +100,7 @@ def write_proposal(
 
 
 def open_proposal(
-    run: Runner, repository: str, branch: str, base: str, version: str, notes: str
+    run: Runner, repository: str, branch: str, base: str, version: str, notes: str, assignees: str
 ) -> None:
     scratch = tempfile.mkdtemp()
     body = os.path.join(scratch, "body.md")
@@ -115,6 +115,7 @@ def open_proposal(
         )
         writing.write(reading.read())
     title = f"chore: release v{version}"
+    logins = ",".join(login.strip() for login in assignees.split(",") if login.strip())
     # `--repo` on both, never inferred: the pull request is addressed, not guessed from a checkout.
     number = run(
         (
@@ -146,6 +147,7 @@ def open_proposal(
                 title,
                 "--body-file",
                 body,
+                *(("--add-assignee", logins) if logins else ()),
             )
         )
     else:
@@ -164,5 +166,6 @@ def open_proposal(
                 title,
                 "--body-file",
                 body,
+                *(("--assignee", logins) if logins else ()),
             )
         )
