@@ -3,7 +3,7 @@
 # A capability never pins a version the repository being released does not control.
 git-cliff = "2.14.2"
 jactionlint = "2.5.0"
-"npm:cspell" = "10.4.0"
+"npm:cspell" = "10.4.1"
 "npm:markdownlint-cli2" = "0.24.0"
 "pipx:specify-cli" = { version = "1.2.5", python = "3.14" }
 "pipx:yamllint" = { version = "1.38.0", python = "3.14" }

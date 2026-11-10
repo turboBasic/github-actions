@@ -97,10 +97,10 @@ signer = "sigstore-oidc:https://github.com/jdx/jactionlint/.github/workflows/rel
 repository_ids = { repository = "1404951382" }
 
 [[tools."npm:cspell"]]
-version = "10.4.0"
-aube = { path = ".mise/locks/npm-cspell/10.4.0", digest = "sha256:53420a195ec3b9ccb94abf3f69e648476bc1502a4d5135b6f0d9015fd2da804f" }
+version = "10.4.1"
+aube = { path = ".mise/locks/npm-cspell/10.4.1", digest = "sha256:2f85ebdcb49e757a6e8c3f04295411004a8c18a7cc9f87a062aacfa4ec51b392" }
 backend = "npm:cspell"
-specifiers = ["10.4.0"]
+specifiers = ["10.4.1"]
 
 [[tools."npm:markdownlint-cli2"]]
 version = "0.24.0"
