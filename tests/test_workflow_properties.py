@@ -351,6 +351,22 @@ def test_language_cache_steps_exclude_sensitive_and_generated_paths() -> None:
     assert all("node_modules" not in path and "credentials" not in path for path in paths)
 
 
+def test_project_ci_loads_its_helper_from_the_called_workflow_source() -> None:
+    steps = steps_of("project-ci", "project-ci")
+    source_checkout = next(
+        step for step in steps if "repository" in cast(dict[str, Any], step.get("with", {}))
+    )
+    assert source_checkout["with"] == {
+        "repository": "${{ job.workflow_repository }}",
+        "ref": "${{ job.workflow_sha }}",
+        "path": ".tbga",
+        "sparse-checkout": "actions/tbga",
+        "persist-credentials": False,
+    }
+    resolver = next(step for step in steps if step.get("id") == "cache-paths")
+    assert cast(dict[str, Any], resolver["env"])["PYTHONPATH"] == ".tbga/actions"
+
+
 def test_the_cache_input_matcher_reads_a_name_it_is_given() -> None:
     # Pre-flight the matcher so a project-ci cache input cannot silently leave the policy test blind.
     assert GOVERNS_A_CACHE.search("cache-key")
