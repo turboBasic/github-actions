@@ -146,3 +146,10 @@ repos:
         language: system
         types: [text]
         stages: [pre-commit]
+
+      - id: cspell-dictionary-order
+        name: cspell dictionary order
+        entry: uv run python tests/test_cspell_dictionary.py
+        language: system
+        files: ^\.cspell/project\.txt$
+        pass_filenames: false
