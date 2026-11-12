@@ -5,6 +5,9 @@
 Reusable GitHub Actions workflows for `turboBasic` repositories. Every published capability is a
 callable workflow: none is offered as a composite action a consumer places in a job it already owns.
 
+Internal workflow support code lives in [`actions/tbga/`](actions/tbga/README.md). Consumers call the
+workflows documented here, not that package directly.
+
 ## Capabilities
 
 One section each, carrying a call site to copy, what the capability is for, and when not to reach for

@@ -130,20 +130,23 @@ restores the world.
 
 ### Python
 
-The suite runs the Python that `mise.toml` pins. The only Python here supports the actions and their tests,
-and every composite action runs one package: `actions/tbga/`, reached as `python3 -m tbga` with `PYTHONPATH`
-set to the action path's parent.
+The suite runs the Python that `mise.toml` pins. The only Python here supports reusable workflows,
+composite actions and their tests. Composite actions and the `project-ci` workflow invoke one package,
+`actions/tbga/`, as `python3 -m tbga`. Composite actions load it from their action path; `project-ci`
+checks out the called workflow's source at its resolved commit because its default checkout is the
+caller's tree.
 
 - `X | None`, not `typing.Optional`. Built-in `dict`/`list`, not `typing.Dict`.
 - No `from __future__ import annotations`.
 - Full type hints on every signature, tests included.
-- A module a composite action runs reads its arguments from the environment, declared in `action.yml`. It
-  never parses `${{ }}` interpolations inline, and the subcommand reaches it the same way — as an
-  environment value the shell expands into one argument.
-- **`actions/tbga/` imports the standard library and its own siblings, nothing else.** Nothing installs a
-  dependency where it runs. The whole repository arrives beside the action, `uv.lock` included, and no
-  step syncs it: `mise-action` reads the caller's configuration, not ours. A test asserts every import
-  against `sys.stdlib_module_names`, admitting a relative import only inside a package.
+- Modules read their arguments from the environment, declared in `action.yml` for composite actions or in
+  the workflow step for reusable workflows. They never parse `${{ }}` interpolations inline; a dynamic
+  subcommand passes as one shell argument from an environment value.
+- **`actions/tbga/` imports the standard library and its own siblings, nothing else.** Composite actions
+  load it beside their action directory; `project-ci` checks out the package into `.tbga`. Nothing
+  installs dependencies for it, and `mise-action` reads the caller's configuration, not ours. A test
+  asserts every import against `sys.stdlib_module_names`, admitting a relative import only inside a
+  package.
 - **The interpreter is the runner's, not mise's.** A caller pinning no `python` leaves whatever the image
   ships, and `pyproject.toml` records the measured version as pyright's default, the suite being the one
   exception. Nothing fails loudly between the two; the symptom is a `SyntaxError` in a consumer's job.
