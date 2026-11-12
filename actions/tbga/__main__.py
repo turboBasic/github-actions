@@ -3,7 +3,7 @@ import sys
 from collections.abc import Sequence
 from typing import cast
 
-from . import grammar, preflight, release, release_writes, rulesets
+from . import cache_paths, grammar, preflight, release, release_writes, rulesets
 
 RULESET_VERDICT = "ruleset-verdict"
 PREFLIGHT = "preflight"
@@ -11,6 +11,7 @@ COMPILE_GRAMMAR = "compile-grammar"
 LIST_RULESETS = "list-rulesets"
 READ_RULESETS = "read-rulesets"
 APPLY_RULESET = "apply-ruleset"
+CACHE_PATHS = "cache-paths"
 
 COMMANDS = (
     *release.DECISIONS,
@@ -18,6 +19,7 @@ COMMANDS = (
     LIST_RULESETS,
     READ_RULESETS,
     APPLY_RULESET,
+    CACHE_PATHS,
     PREFLIGHT,
     COMPILE_GRAMMAR,
     *release_writes.WRITES,
@@ -42,6 +44,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return rulesets.run_read()
     if command == APPLY_RULESET:
         return rulesets.run_apply()
+    if command == CACHE_PATHS:
+        return cache_paths.run()
     if command == PREFLIGHT:
         return preflight.run()
     if command == COMPILE_GRAMMAR:

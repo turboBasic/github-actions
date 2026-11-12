@@ -289,23 +289,70 @@ def test_the_exclude_comparison_names_both_directions_it_claims_to_catch() -> No
     assert stale == {".github/workflows/release.yml"}
 
 
-def test_no_capability_takes_an_input_governing_the_cache() -> None:
-    # Hook environments are cached unconditionally. An input that silently did nothing unless a
-    # second one was also set was worse than no input at all, and removing one is a break.
+def test_only_project_ci_takes_cache_location_inputs() -> None:
+    # Cache choices belong to the component workflow, and each override governs one physical location.
+    expected = {
+        "uv-cache-path",
+        "cargo-home-cache-path",
+        "cargo-target-cache-path",
+        "go-module-cache-path",
+        "go-build-cache-path",
+        "npm-cache-path",
+    }
     for name, doc in workflow_docs().items():
         if not is_capability(doc):
             continue
         governing = sorted(
             input_ for input_ in declared_inputs(doc) if GOVERNS_A_CACHE.search(input_)
         )
-        assert governing == [], (
-            f"{name}: declares {governing}, but caching is not a call site's choice"
+        wanted = sorted(expected) if name == "project-ci" else []
+        assert governing == wanted, (
+            f"{name}: declares cache inputs {governing}; expected {wanted}. Each path input "
+            "governs one cache location and no other capability prepares these caches"
         )
 
 
+def test_project_ci_cache_inputs_are_optional_empty_path_overrides() -> None:
+    document = load(WORKFLOW_DIR / "project-ci.yml")
+    workflow_call = cast(Doc, document.get(True, document.get("on", {}))).get("workflow_call", {})
+    inputs = cast(Doc, workflow_call.get("inputs", {}))
+    expected = {
+        "uv-cache-path",
+        "cargo-home-cache-path",
+        "cargo-target-cache-path",
+        "go-module-cache-path",
+        "go-build-cache-path",
+        "npm-cache-path",
+    }
+    for name in expected:
+        spec = cast(Doc, inputs[name])
+        assert spec.get("type") == "string"
+        assert spec.get("default") == ""
+
+
+def test_language_cache_steps_exclude_sensitive_and_generated_paths() -> None:
+    steps = steps_of("project-ci", "project-ci")
+    caches = [
+        step
+        for step in steps
+        if str(step.get("uses", "")).startswith("actions/cache@")
+        and not str(cast(dict[str, Any], step.get("with", {})).get("key", "")).startswith("prek-")
+    ]
+    paths = {str(cast(dict[str, Any], step.get("with", {})).get("path", "")) for step in caches}
+    assert paths == {
+        "${{ steps.cache-paths.outputs.uv-path }}",
+        "${{ steps.cache-paths.outputs.cargo-registry-path }}",
+        "${{ steps.cache-paths.outputs.cargo-git-path }}",
+        "${{ steps.cache-paths.outputs.cargo-target-path }}",
+        "${{ steps.cache-paths.outputs.go-module-path }}",
+        "${{ steps.cache-paths.outputs.go-build-path }}",
+        "${{ steps.cache-paths.outputs.npm-path }}",
+    }
+    assert all("node_modules" not in path and "credentials" not in path for path in paths)
+
+
 def test_the_cache_input_matcher_reads_a_name_it_is_given() -> None:
-    # Pre-flight the matcher, or a capability could declare a caching input and this gate would not see
-    # it. No capability declares one today, so the gate has nothing else to prove it works.
+    # Pre-flight the matcher so a project-ci cache input cannot silently leave the policy test blind.
     assert GOVERNS_A_CACHE.search("cache-key")
     assert GOVERNS_A_CACHE.search("restore-cache")
     assert not GOVERNS_A_CACHE.search("lint-task")
@@ -358,10 +405,11 @@ HASHED_FILES = re.compile(r"hashFiles\((?P<args>[^)]*)\)")
 
 
 def hashed_files(key: str) -> set[str]:
-    match = HASHED_FILES.search(key)
-    if match is None:
-        return set()
-    return {arg.strip().strip("'") for arg in match.group("args").split(",")}
+    return {
+        arg.strip().strip("'")
+        for match in HASHED_FILES.finditer(key)
+        for arg in match.group("args").split(",")
+    }
 
 
 def test_the_hashed_files_reader_splits_every_argument_it_is_given() -> None:
@@ -376,6 +424,7 @@ def test_the_hook_cache_key_follows_whichever_prek_config_the_caller_has() -> No
         step
         for step in steps_of("project-ci", "project-ci")
         if str(step.get("uses", "")).startswith("actions/cache@")
+        and str(cast(dict[str, Any], step.get("with", {})).get("key", "")).startswith("prek-")
     )
     assert hashed_files(str(cache["with"]["key"])) >= {".pre-commit-config.y*ml", "prek.toml"}
 
@@ -401,10 +450,60 @@ def test_project_ci_invokes_the_fixed_contract_and_prepares_nothing() -> None:
         f"project-ci stages not running in the component's directory: {elsewhere}. A stage left at the "
         "root reports on a component the check name does not say"
     )
-    assert set(commands) - set(expected) == {"stages"}, (
-        f"project-ci runs {sorted(set(commands) - set(expected))} besides its stages and the refusal. A "
-        "lockfile install or a module download here is a preparation belonging to the task that needs it"
+    assert set(commands) - set(expected) == {"stages", "cache-paths"}, (
+        f"project-ci runs {sorted(set(commands) - set(expected))} besides its stages, refusal, and "
+        "cache path resolver. It may restore/save caches but must leave dependency resolution and "
+        "verification to the caller's tasks"
     )
+
+
+def test_cache_steps_are_conditional_best_effort_and_platform_partitioned() -> None:
+    steps = steps_of("project-ci", "project-ci")
+    resolver = next(step for step in steps if step.get("id") == "cache-paths")
+    assert resolver.get("continue-on-error") is True
+    caches = [
+        step
+        for step in steps
+        if str(step.get("uses", "")).startswith("actions/cache@")
+        and not str(cast(dict[str, Any], step.get("with", {})).get("key", "")).startswith("prek-")
+    ]
+    assert len(caches) == 7
+    for step in caches:
+        key = str(cast(dict[str, Any], step.get("with", {})).get("key", ""))
+        restore = str(cast(dict[str, Any], step.get("with", {})).get("restore-keys", ""))
+        assert step.get("continue-on-error") is True
+        assert "steps.cache-paths.outputs." in str(step.get("if", ""))
+        assert "runner.os" in key and "runner.arch" in key
+        assert "runner.os" in restore and "runner.arch" in restore
+        assert "hashFiles" in key and "hashFiles" in restore
+
+
+def test_each_cache_key_hashes_its_toolchain_and_dependency_files() -> None:
+    steps = steps_of("project-ci", "project-ci")
+    caches = {
+        str(step.get("name", "")): step
+        for step in steps
+        if str(step.get("uses", "")).startswith("actions/cache@")
+        and not str(cast(dict[str, Any], step.get("with", {})).get("key", "")).startswith("prek-")
+    }
+    toolchains = {"**/mise.toml", "**/.mise.toml", "**/.tool-versions"}
+    manifests = {
+        "Cache UV packages": {"**/uv.lock", "**/pyproject.toml", "**/uv.toml"},
+        "Cache Cargo registry downloads": {"**/Cargo.lock", "**/Cargo.toml", "**/rust-toolchain"},
+        "Cache Cargo git downloads": {"**/Cargo.lock", "**/Cargo.toml", "**/rust-toolchain.toml"},
+        "Cache Cargo build output": {"**/Cargo.lock", "**/Cargo.toml", "**/rust-toolchain.toml"},
+        "Cache Go modules": {"**/go.mod", "**/go.sum", "**/go.work"},
+        "Cache Go build output": {"**/go.mod", "**/go.sum", "**/go.work"},
+        "Cache npm packages": {"**/package-lock.json", "**/package.json"},
+    }
+    assert set(caches) == set(manifests)
+    for name, step in caches.items():
+        with_values = cast(dict[str, Any], step["with"])
+        key = str(with_values["key"])
+        restore = str(with_values["restore-keys"])
+        assert toolchains <= hashed_files(key)
+        assert toolchains <= hashed_files(restore)
+        assert manifests[name] <= hashed_files(key)
 
 
 def test_the_refusal_fires_when_every_stage_is_off_and_not_before() -> None:

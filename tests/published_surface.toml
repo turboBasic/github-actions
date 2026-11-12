@@ -49,6 +49,12 @@ inputs = [
   "runner-type",
   "timeout-minutes",
   "working-directory",
+  "uv-cache-path",
+  "cargo-home-cache-path",
+  "cargo-target-cache-path",
+  "go-module-cache-path",
+  "go-build-cache-path",
+  "npm-cache-path",
 ]
 permissions = { contents = "read" }
 tool_prerequisites = [

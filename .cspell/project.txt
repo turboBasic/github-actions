@@ -16,6 +16,11 @@ pytest
 ruff
 speckit
 taplo
+LOCALAPPDATA
+GOCACHE
+GOMODCACHE
+GOPATH
+lockfiles
 # The package both composite actions run: turboBasic GitHub Actions
 tbga
 turboBasic

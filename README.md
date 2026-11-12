@@ -30,8 +30,10 @@ ref where it is. Versioning says which ref to pin.
 ### 🧩 `project-ci`
 
 One check over **one component**: its own `lint`, `build`, `typecheck` and `test` tasks, run by its own
-task runner. Those four names are the whole interface. It checks the tree out, installs what your
-`mise.toml` pins, and runs them — it knows no language, and there is no selector to tell it one.
+task runner. Those names and the optional cache path overrides are declared in the workflow file. It
+checks the tree out, installs what your `mise.toml` pins, restores caches for supported ecosystems it
+finds in the checkout, and runs the selected tasks. Cache paths default to each tool's native cache;
+the workflow file owns the complete input list and defaults.
 
 ```yaml
 jobs:
@@ -74,9 +76,9 @@ depends = ["deps"]
 run = "go test ./..."
 ```
 
-**Every task runs from a clean checkout and owns the preparation it needs.** No stage here installs,
-locks or verifies anything on a task's behalf: a lockfile install or a module download is a `depends` of
-the task that cannot judge without it, as above. That is why your own run and this one agree.
+**Every task runs from a clean checkout and owns the preparation it needs.** Cache restoration does not
+install, lock or verify dependencies on a task's behalf: a lockfile install or a module download is a
+`depends` of the task that cannot judge without it, as above. That is why your own run and this one agree.
 
 Four things a call site cannot show:
 
