@@ -155,6 +155,7 @@ def test_windows_defaults_follow_local_app_data(tmp_path: Path) -> None:
 def test_run_creates_locations_and_emits_outputs_without_command_line_values(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(cache_paths.sys, "platform", "darwin")
     touch(tmp_path, "go.mod")
     output_file = tmp_path / "output"
     environment_file = tmp_path / "environment"
