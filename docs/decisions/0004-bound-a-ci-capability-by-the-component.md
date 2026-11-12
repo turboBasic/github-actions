@@ -1,11 +1,14 @@
 ---
 id: 0004
-status: accepted
+status: superseded
 date: 2026-09-15
 scope: identity
+superseded_by: 0005
 ---
 
 # ADR 0004 — Bound a CI capability by the component, not by the language
+
+> Superseded by [ADR 0005](0005-cache-component-dependencies.md).
 
 ## Decision
 

@@ -1,7 +1,7 @@
 import re
 from typing import Any, cast
 
-from capabilities import Doc, action_docs, workflow_docs
+from capabilities import WORKFLOW_DIR, Doc, action_docs, load, workflow_docs
 from tbga.__main__ import COMMANDS
 
 # What an action's step runs: either the subcommand as a literal, or an environment value the shell
@@ -123,3 +123,16 @@ def test_the_readers_read_the_shapes_they_are_given() -> None:
     # Both readers find the tree's own actions, so a rename of either form fails rather than passing.
     assert "preflight" in literals()
     assert by_input()["release-decisions"] == "decision"
+
+
+def test_project_ci_names_a_registered_cache_paths_command() -> None:
+    workflow = load(WORKFLOW_DIR / "project-ci.yml")
+    job_steps = workflow["jobs"]["project-ci"]["steps"]
+    command = next(
+        str(step["run"]).removeprefix("python3 -m tbga ")
+        for step in job_steps
+        if step.get("id") == "cache-paths"
+    )
+
+    assert command == "cache-paths"
+    assert command in COMMANDS

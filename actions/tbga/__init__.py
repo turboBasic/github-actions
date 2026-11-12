@@ -40,5 +40,15 @@ def emit(**values: str) -> None:
             handle.write(f"{name}<<{delimiter}\n{value}\n{delimiter}\n")
 
 
+def emit_environment(**values: str) -> None:
+    path = read_text("GITHUB_ENV")
+    if not path:
+        return
+    with open(path, "a", encoding="utf-8") as handle:
+        for name, value in values.items():
+            delimiter = f"delimiter{uuid.uuid4().hex}"
+            handle.write(f"{name}<<{delimiter}\n{value}\n{delimiter}\n")
+
+
 def annotate(severity: str, message: str) -> None:
     print(f"::{severity}::{message}", file=sys.stderr if severity == ERROR else sys.stdout)

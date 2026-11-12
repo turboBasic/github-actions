@@ -35,6 +35,30 @@ on:
         description: How long the job may run before it is cancelled.
         type: number
         default: 20
+      uv-cache-path:
+        description: Override the UV package cache path.
+        type: string
+        default: ''
+      cargo-home-cache-path:
+        description: Override Cargo home; only its registry and git subdirectories are cached.
+        type: string
+        default: ''
+      cargo-target-cache-path:
+        description: Override Cargo compiled target paths.
+        type: string
+        default: ''
+      go-module-cache-path:
+        description: Override the Go module download cache path.
+        type: string
+        default: ''
+      go-build-cache-path:
+        description: Override the Go compiled build cache path.
+        type: string
+        default: ''
+      npm-cache-path:
+        description: Override the npm package download cache path.
+        type: string
+        default: ''
 
 # Nothing at workflow level, so the job below is the only thing that names a scope — and a caller
 # reading the diff sees the whole demand in one place.
@@ -66,11 +90,95 @@ jobs:
         with:
           minimum_release_age: 24h
 
+      # Paths arrive as environment data and are resolved without putting caller text on a command line.
+      - id: cache-paths
+        name: Resolve language cache paths
+        continue-on-error: true
+        run: python3 -m tbga cache-paths
+        env:
+          PYTHONPATH: actions
+          TBGA_UV_CACHE_PATH: ${{ inputs.uv-cache-path }}
+          TBGA_CARGO_HOME_PATH: ${{ inputs.cargo-home-cache-path }}
+          TBGA_CARGO_TARGET_CACHE_PATH: ${{ inputs.cargo-target-cache-path }}
+          TBGA_GO_MODULE_CACHE_PATH: ${{ inputs.go-module-cache-path }}
+          TBGA_GO_BUILD_CACHE_PATH: ${{ inputs.go-build-cache-path }}
+          TBGA_NPM_CACHE_PATH: ${{ inputs.npm-cache-path }}
+
       # For the lint task's hook runner. No input governs it: nobody has wanted a cache off.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/prek
           key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.y*ml', 'prek.toml') }}
+
+      - name: Cache UV packages
+        if: steps.cache-paths.outputs.uv-found == 'true'
+        continue-on-error: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.cache-paths.outputs.uv-path }}
+          key: uv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/mise.toml', '**/.mise.toml', '**/.tool-versions') }}-${{ hashFiles('**/uv.lock', '**/pyproject.toml', '**/uv.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/mise.toml', '**/.mise.toml', '**/.tool-versions') }}-
+
+      - name: Cache Cargo registry downloads
+        if: steps.cache-paths.outputs.cargo-found == 'true'
+        continue-on-error: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.cache-paths.outputs.cargo-registry-path }}
+          key: cargo-registry-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/mise.toml', '**/.mise.toml', '**/.tool-versions', '**/rust-toolchain', '**/rust-toolchain.toml') }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/mise.toml', '**/.mise.toml', '**/.tool-versions', '**/rust-toolchain', '**/rust-toolchain.toml') }}-
+
+      - name: Cache Cargo git downloads
+        if: steps.cache-paths.outputs.cargo-found == 'true'
+        continue-on-error: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.cache-paths.outputs.cargo-git-path }}
+          key: cargo-git-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/mise.toml', '**/.mise.toml', '**/.tool-versions', '**/rust-toolchain', '**/rust-toolchain.toml') }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            cargo-git-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/mise.toml', '**/.mise.toml', '**/.tool-versions', '**/rust-toolchain', '**/rust-toolchain.toml') }}-
+
+      - name: Cache Cargo build output
+        if: steps.cache-paths.outputs.cargo-found == 'true'
+        continue-on-error: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.cache-paths.outputs.cargo-target-path }}
+          key: cargo-target-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/mise.toml', '**/.mise.toml', '**/.tool-versions', '**/rust-toolchain', '**/rust-toolchain.toml') }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            cargo-target-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/mise.toml', '**/.mise.toml', '**/.tool-versions', '**/rust-toolchain', '**/rust-toolchain.toml') }}-
+
+      - name: Cache Go modules
+        if: steps.cache-paths.outputs.go-found == 'true'
+        continue-on-error: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.cache-paths.outputs.go-module-path }}
+          key: go-modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/mise.toml', '**/.mise.toml', '**/.tool-versions') }}-${{ hashFiles('**/go.mod', '**/go.sum', '**/go.work', '**/go.work.sum') }}
+          restore-keys: |
+            go-modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/mise.toml', '**/.mise.toml', '**/.tool-versions') }}-
+
+      - name: Cache Go build output
+        if: steps.cache-paths.outputs.go-found == 'true'
+        continue-on-error: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.cache-paths.outputs.go-build-path }}
+          key: go-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/mise.toml', '**/.mise.toml', '**/.tool-versions') }}-${{ hashFiles('**/go.mod', '**/go.sum', '**/go.work', '**/go.work.sum') }}
+          restore-keys: |
+            go-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/mise.toml', '**/.mise.toml', '**/.tool-versions') }}-
+
+      - name: Cache npm packages
+        if: steps.cache-paths.outputs.npm-found == 'true'
+        continue-on-error: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.cache-paths.outputs.npm-path }}
+          key: npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/mise.toml', '**/.mise.toml', '**/.tool-versions') }}-${{ hashFiles('**/package-lock.json', '**/package.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/mise.toml', '**/.mise.toml', '**/.tool-versions') }}-
 
       # On the stages and on nothing above them: a component's task configuration is resolved from the
       # working directory, while the tree and the tools are the repository's.
