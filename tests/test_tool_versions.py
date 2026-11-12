@@ -11,11 +11,10 @@ PROJECT = REPO / "pyproject.toml"
 # What a composite action runs, and so what is checked against the runner's interpreter.
 ACTION_ROOT = "actions"
 
-# The runner's own `python3`, measured on `ubuntu-latest`. Asserted as a literal rather than merely below
-# mise's pin: raising the default to 3.13 while the image still ships 3.12 would satisfy an inequality and
-# check the package against an interpreter no runner has. Nothing offline can confirm this, so it is
-# re-measured when the image changes.
-RUNNER_FLOOR = "3.12"
+# The runner's own `python3`, measured on `ubuntu-26.04`. Asserted as a literal rather than merely below
+# mise's pin, so Pyright checks the package against the interpreter the actions run with. Nothing offline
+# can confirm this, so it is re-measured when the image changes.
+RUNNER_FLOOR = "3.14"
 
 # The lint task's whole-tree invocation, read from the command rather than from the task's position in
 # the file, so a second one is covered the moment it is written.

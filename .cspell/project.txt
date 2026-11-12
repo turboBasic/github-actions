@@ -1,14 +1,19 @@
-# Project vocabulary: repository names, tooling and library identifiers.
+# Project vocabulary: names, tooling, identifiers and repository jargon.
 # One word per line; case-insensitive unless the entry is capitalised.
 
-# --- Names ---
+# --- People ---
 Andrii
 Melnyk
 
 # --- Repository and tooling ---
-jactionlint
 commitizen
 cspell
+GOCACHE
+GOMODCACHE
+GOPATH
+jactionlint
+LOCALAPPDATA
+lockfiles
 mise
 prek
 pyright
@@ -16,17 +21,11 @@ pytest
 ruff
 speckit
 taplo
-LOCALAPPDATA
-GOCACHE
-GOMODCACHE
-GOPATH
-lockfiles
-# The package both composite actions run: turboBasic GitHub Actions
 tbga
 turboBasic
 zizmor
 
-# --- Publisher handles: GitHub actions and VS Code extensions ---
+# --- Publisher handles ---
 arahata
 charliermarsh
 davidanson
@@ -38,29 +37,23 @@ tamasfe
 vivaxy
 zizmorcore
 
-# --- Library and API identifiers ---
-# GitHub advisory ids and the OpenSSF Scorecard, both named by dependency-review-action's inputs;
-# NOASSERTION is SPDX's own token for a licence a package declares nothing about
+# --- Identifiers ---
+addopts
+capsys
+conftest
+endfor
 ghsas
-# difflib.unified_diff's parameter for what terminates a rendered line
 lineterm
 NOASSERTION
 OpenSSF
+postprocessors
+pytestmark
 pyupgrade
 rawfile
 schemafile
 stdlib
-
-# --- Config keys ---
-addopts
-# git-cliff renders its notes with a Tera template, shaped by postprocessors
-endfor
-postprocessors
 Tera
-capsys
-conftest
 testpaths
-pytestmark
 
 # --- Repository jargon ---
 callee

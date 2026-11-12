@@ -11,15 +11,15 @@ dependencies = []
 
 [dependency-groups]
 dev = [
-  "pytest>=8.3",
-  "ruff>=0.9",
-  "pyright>=1.1.390",
-  "commitizen>=4.17",
-  "yamllint>=1.35",
   "check-jsonschema>=0.33",
+  "commitizen>=4.17",
+  "pyright>=1.1.390",
+  "pytest>=8.3",
   # The gates read the workflows and actions as structures. Declared here rather than inherited from
   # yamllint, which would drop it the day yamllint stopped needing it.
   "pyyaml>=6.0",
+  "ruff>=0.9",
+  "yamllint>=1.35",
 ]
 
 [tool.ruff]
@@ -49,11 +49,11 @@ include = ["actions", "tests"]
 extraPaths = ["tests", "actions"]
 # The runner's interpreter, not mise's, and the default rather than an exception — so a directory added
 # under `actions/` inherits the floor instead of needing an entry remembered for it. A composite action
-# runs on whichever `python3` the caller left there, 3.12.3 where they pinned none.
+# runs on whichever `python3` the caller left there, 3.14.4 on ubuntu-26.04.
 #
 # A scoped `executionEnvironments` version is the weaker reading: it gates syntax and whether a module
 # exists, but a symbol inside a module both versions carry resolves against this top-level value.
-pythonVersion = "3.12"
+pythonVersion = "3.14"
 typeCheckingMode = "strict"
 venvPath = "."
 venv = ".venv"
