@@ -103,10 +103,10 @@ backend = "npm:cspell"
 specifiers = ["10.5.2"]
 
 [[tools."npm:markdownlint-cli2"]]
-version = "0.24.1"
-aube = { path = ".mise/locks/npm-markdownlint-cli2/0.24.1", digest = "sha256:6737143ae7b051a66903dc3736b592c8d9c2bc14ea0e67c82cad855dd2506792" }
+version = "0.24.2"
+aube = { path = ".mise/locks/npm-markdownlint-cli2/0.24.2", digest = "sha256:811e6474b6f9928aeaedbd6defddeb899e490008d0711d88368cdf310ec51192" }
 backend = "npm:markdownlint-cli2"
-specifiers = ["0.24.1"]
+specifiers = ["0.24.2"]
 
 [[tools."pipx:specify-cli"]]
 version = "1.2.5"

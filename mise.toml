@@ -4,7 +4,7 @@
 git-cliff = "2.14.2"
 jactionlint = "2.6.0"
 "npm:cspell" = "10.5.2"
-"npm:markdownlint-cli2" = "0.24.1"
+"npm:markdownlint-cli2" = "0.24.2"
 "pipx:specify-cli" = { version = "1.2.5", python = "3.14" }
 "pipx:yamllint" = { version = "1.38.0", python = "3.14" }
 prek = "0.5.11"
